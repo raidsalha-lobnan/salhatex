@@ -1,6 +1,7 @@
 import React from 'react';
 import { PayrollSheetItem, Employee } from '../types';
 import { useAccounting } from '../context/AccountingContext';
+import { formatDecimalHours } from '../utils/dateUtils';
 import { tafqeet } from '../utils/tafqeet';
 import {
   X,
@@ -197,14 +198,14 @@ export const EmployeePayslipModal: React.FC<EmployeePayslipModalProps> = ({
               <div className="bg-white p-2 rounded-lg border border-blue-100">
                 <span className="text-slate-500 text-[10px] block">ساعات العمل الفعلية</span>
                 <span className="font-bold text-blue-900 text-sm font-mono mt-0.5 block">
-                  {item.totalWorkedHours ?? 0} س
+                  {formatDecimalHours(item.totalWorkedHours ?? 0)}
                 </span>
               </div>
 
               <div className="bg-white p-2 rounded-lg border border-blue-100">
                 <span className="text-slate-500 text-[10px] block">ساعات الأوفرتايم (الإضافي)</span>
                 <span className="font-bold text-amber-700 text-sm font-mono mt-0.5 block">
-                  {overtimeHours > 0 ? `+${overtimeHours} س` : '0 س'}
+                  {overtimeHours > 0 ? `+${formatDecimalHours(overtimeHours)}` : '0 س'}
                 </span>
               </div>
             </div>
@@ -248,7 +249,7 @@ export const EmployeePayslipModal: React.FC<EmployeePayslipModalProps> = ({
                   <div>
                     <span className="font-semibold text-slate-800 block">أجر الساعات الإضافية (الأوفرتايم):</span>
                     <span className="text-[10px] text-amber-700 font-mono">
-                      {overtimeHours > 0 ? `${overtimeHours} ساعة عمل إضافي` : 'لا يوجد إضافي مسجل'}
+                      {overtimeHours > 0 ? `${formatDecimalHours(overtimeHours, 'long')} عمل إضافي` : 'لا يوجد إضافي مسجل'}
                     </span>
                   </div>
                   <span className="font-mono font-bold text-amber-800 text-xs">

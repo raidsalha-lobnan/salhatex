@@ -15,6 +15,7 @@ import {
   AttendanceRecord
 } from '../types';
 import { isInvoiceAccountingEligible } from './invoiceStatusUtils';
+import { formatDecimalHours } from './dateUtils';
 
 export interface StatementItemDetail {
   itemId?: string;
@@ -1267,8 +1268,8 @@ export function exportEmployeeStatementToCSV(statement: EmployeeStatementResult,
     ['=== ملخص احتساب ساعات الدوام والراتب المفترض ==='],
     ['أيام الحضور الفعلي', `${summary.presentDays} يوم`],
     ['أيام الغياب غير المدفوع', `${summary.absentDays} يوم`],
-    ['مجموع ساعات العمل الفعلية الصافية', `${summary.totalWorkedHours} ساعة`],
-    ['ساعات العمل الإضافي (الأوفرتايم)', `${summary.overtimeHours} ساعة (${summary.overtimePay.toFixed(2)} ${currencySymbol})`],
+    ['مجموع ساعات العمل الفعلية الصافية', `${formatDecimalHours(summary.totalWorkedHours, 'long')}`],
+    ['ساعات العمل الإضافي (الأوفرتايم)', `${formatDecimalHours(summary.overtimeHours, 'long')} (${summary.overtimePay.toFixed(2)} ${currencySymbol})`],
     ['الراتب الأساسي المحتسب بناءً على الدوام', `${summary.expectedBasicSalary.toFixed(2)} ${currencySymbol}`],
     ['العلاوات والبدلات الثابتة', `${summary.allowances.toFixed(2)} ${currencySymbol}`],
     ['المكافآت والحوافز المعتمدة', `${summary.incentives.toFixed(2)} ${currencySymbol}`],

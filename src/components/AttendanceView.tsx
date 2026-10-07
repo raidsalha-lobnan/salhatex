@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { useAccounting } from '../context/AccountingContext';
 import { AttendanceRecord, AttendanceStatus, Employee, OvertimeMethod, EmployeeDepartment } from '../types';
+import { formatDecimalHours } from '../utils/dateUtils';
 
 export const AttendanceView: React.FC = () => {
   const {
@@ -1511,7 +1512,7 @@ export const AttendanceView: React.FC = () => {
                         {/* Actual Worked Hours (Calculated) */}
                         <td className="py-2 px-2 text-center whitespace-nowrap bg-blue-50/30">
                           <div className="font-mono font-black text-blue-900 text-xs sm:text-sm">
-                            {metrics.workedHours} س
+                            {formatDecimalHours(metrics.workedHours)}
                           </div>
                           {!isOff && (
                             <div className="text-[10px] text-gray-500 font-mono">
@@ -1520,7 +1521,7 @@ export const AttendanceView: React.FC = () => {
                                   (-{state.breakMinutes}د)
                                 </span>
                               )}
-                              {state.hasSecondShift && ` (${metrics.shift1Hours}+${metrics.shift2Hours})`}
+                              {state.hasSecondShift && ` (${formatDecimalHours(metrics.shift1Hours)}+${formatDecimalHours(metrics.shift2Hours)})`}
                             </div>
                           )}
                         </td>
@@ -1529,7 +1530,7 @@ export const AttendanceView: React.FC = () => {
                         <td className="py-2 px-2 text-center whitespace-nowrap">
                           {metrics.overtimeHours > 0 ? (
                             <span className="inline-flex items-center gap-1 font-mono font-black text-amber-700 bg-amber-100/90 px-1.5 py-0.5 rounded-full text-xs">
-                              +{metrics.overtimeHours} س
+                              +{formatDecimalHours(metrics.overtimeHours)}
                             </span>
                           ) : (
                             <span className="text-gray-400 font-mono text-xs">0</span>
@@ -1826,7 +1827,7 @@ export const AttendanceView: React.FC = () => {
                             <div className="space-y-0.5 text-center text-[11px]">
                               <div className="text-purple-900 font-bold">
                                 م1: {rec.shift1CheckInTime || rec.checkInTime || '08:00'} ➔ {rec.shift1CheckOutTime || '10:00'}
-                                <span className="text-purple-600 font-normal mr-1">({rec.shift1WorkedHours ?? 2}س)</span>
+                                <span className="text-purple-600 font-normal mr-1">({formatDecimalHours(rec.shift1WorkedHours ?? 2)})</span>
                               </div>
                               {Boolean(rec.breakBetweenShiftsMinutes) && (
                                 <div className="text-amber-800 bg-amber-50 border border-amber-200/60 px-1.5 py-0.2 rounded text-[10px] inline-block font-sans">
@@ -1835,7 +1836,7 @@ export const AttendanceView: React.FC = () => {
                               )}
                               <div className="text-emerald-900 font-bold">
                                 م2: {rec.shift2CheckInTime || '12:00'} ➔ {rec.shift2CheckOutTime || rec.checkOutTime || '16:30'}
-                                <span className="text-emerald-600 font-normal mr-1">({rec.shift2WorkedHours ?? 4.5}س)</span>
+                                <span className="text-emerald-600 font-normal mr-1">({formatDecimalHours(rec.shift2WorkedHours ?? 4.5)})</span>
                               </div>
                             </div>
                           ) : (
@@ -1843,12 +1844,12 @@ export const AttendanceView: React.FC = () => {
                           )}
                         </td>
                         <td className="py-3 px-3 text-center font-mono font-bold text-gray-800">
-                          {rec.actualWorkedHours} س
+                          {formatDecimalHours(rec.actualWorkedHours)}
                         </td>
                         <td className="py-3 px-3 text-center">
                           {rec.overtimeHours > 0 ? (
                             <span className="font-mono font-black text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full text-xs">
-                              +{rec.overtimeHours} س
+                              +{formatDecimalHours(rec.overtimeHours)}
                             </span>
                           ) : (
                             <span className="text-gray-400 font-mono text-xs">0</span>
@@ -2707,18 +2708,18 @@ export const AttendanceView: React.FC = () => {
 
                   <div className="bg-white/90 border border-gray-200 rounded-lg p-2 text-[11px] font-mono text-gray-600 flex items-center justify-between">
                     <span>خصم الاستراحة: <strong className="text-amber-800">{editModalDraft.breakMinutes ?? 30} د</strong></span>
-                    <span>العمل الفعلي المحتسب: <strong className="text-blue-800">{liveMetrics.workedHours} س</strong></span>
-                    <span>الرسمي المطلوب: <strong className="text-gray-800">{editEmp?.officialDailyHours || 8} س</strong></span>
+                    <span>العمل الفعلي المحتسب: <strong className="text-blue-800">{formatDecimalHours(liveMetrics.workedHours)}</strong></span>
+                    <span>الرسمي المطلوب: <strong className="text-gray-800">{formatDecimalHours(editEmp?.officialDailyHours || 8)}</strong></span>
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 text-[11px] font-mono text-center pt-1 border-t border-gray-200">
                     <div className="bg-white p-1 rounded border border-gray-200">
                       <span className="block text-gray-500 text-[10px]">العمل الفعلي</span>
-                      <span className="font-bold text-gray-900">{liveMetrics.workedHours} س</span>
+                      <span className="font-bold text-gray-900">{formatDecimalHours(liveMetrics.workedHours)}</span>
                     </div>
                     <div className="bg-white p-1 rounded border border-gray-200">
                       <span className="block text-gray-500 text-[10px]">الأوفرتايم</span>
-                      <span className="font-black text-amber-700">+{liveMetrics.overtimeHours} س</span>
+                      <span className="font-black text-amber-700">+{formatDecimalHours(liveMetrics.overtimeHours)}</span>
                     </div>
                     <div className="bg-white p-1 rounded border border-gray-200">
                       <span className="block text-gray-500 text-[10px]">أجر الإضافي</span>

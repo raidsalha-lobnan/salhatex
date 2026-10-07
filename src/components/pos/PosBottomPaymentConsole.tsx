@@ -12,6 +12,7 @@ import {
   Tag
 } from 'lucide-react';
 import { PaymentMethod, Currency, TreasuryAccount } from '../../types';
+import { useAccounting } from '../../context/AccountingContext';
 
 export interface PosBottomPaymentConsoleProps {
   // 1. Invoice Currency & Exchange Rate (عملة الفاتورة وسعر الصرف)

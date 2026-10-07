@@ -9,6 +9,7 @@ import {
 } from '../types';
 import { posSound } from '../utils/audio';
 import { EmployeePayslipModal } from './EmployeePayslipModal';
+import { formatDecimalHours } from '../utils/dateUtils';
 import {
   X,
   FileSpreadsheet,
@@ -709,7 +710,7 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
                             />
                             {item.overtimeHours && item.overtimeHours > 0 ? (
                               <div className="text-[9px] text-amber-700 font-mono mt-0.5">
-                                +{item.overtimeHours} ساعة
+                                +{formatDecimalHours(item.overtimeHours)}
                               </div>
                             ) : null}
                           </td>

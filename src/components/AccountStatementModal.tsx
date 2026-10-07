@@ -10,6 +10,7 @@ import {
   EmployeeStatementRow
 } from '../utils/statementGenerator';
 import { formatNumber } from '../utils/numberFormat';
+import { formatDecimalHours } from '../utils/dateUtils';
 import { tafqeet } from '../utils/tafqeet';
 import {
   X,
@@ -1085,7 +1086,7 @@ export const AccountStatementModal: React.FC = () => {
                   <div className="bg-white p-2 rounded-lg border border-blue-100 shadow-2xs">
                     <span className="text-slate-500 text-[10px] block font-medium">ساعات العمل الفعلية</span>
                     <span className="font-black text-blue-900 text-sm font-mono mt-0.5 block">
-                      {employeeStatement.attendanceSummary.totalWorkedHours} ساعة
+                      {formatDecimalHours(employeeStatement.attendanceSummary.totalWorkedHours, 'long')}
                     </span>
                     <span className="text-[9px] text-blue-600 font-medium">صافي بعد الاستراحة</span>
                   </div>
@@ -1093,7 +1094,7 @@ export const AccountStatementModal: React.FC = () => {
                   <div className="bg-white p-2 rounded-lg border border-blue-100 shadow-2xs">
                     <span className="text-slate-500 text-[10px] block font-medium">ساعات الإضافي (أوفرتايم)</span>
                     <span className="font-black text-amber-700 text-sm font-mono mt-0.5 block">
-                      {employeeStatement.attendanceSummary.overtimeHours > 0 ? `+${employeeStatement.attendanceSummary.overtimeHours} س` : '0 س'}
+                      {employeeStatement.attendanceSummary.overtimeHours > 0 ? `+${formatDecimalHours(employeeStatement.attendanceSummary.overtimeHours, 'short')}` : '0 س'}
                     </span>
                     <span className="text-[9px] text-amber-800 font-bold font-mono">
                       +{formatNumber(employeeStatement.attendanceSummary.overtimePay, 2)} {settings.currency}
@@ -1259,10 +1260,10 @@ export const AccountStatementModal: React.FC = () => {
                               <div className="flex flex-wrap items-center gap-2 text-[10.5px] text-slate-600 bg-blue-50/60 px-2 py-0.5 rounded border border-blue-100">
                                 <span>دوام: <strong className="text-blue-900 font-mono">{row.presentDays}</strong> يوم</span>
                                 {row.workedHours !== undefined && (
-                                  <span>• ساعات العمل: <strong className="text-blue-900 font-mono">{row.workedHours}</strong> س</span>
+                                  <span>• ساعات العمل: <strong className="text-blue-900 font-mono">{formatDecimalHours(row.workedHours)}</strong></span>
                                 )}
                                 {row.overtimeHours !== undefined && row.overtimeHours > 0 && (
-                                  <span className="text-amber-700 font-bold">• إضافي: +{row.overtimeHours} س</span>
+                                  <span className="text-amber-700 font-bold">• إضافي: +{formatDecimalHours(row.overtimeHours)}</span>
                                 )}
                                 {row.absentDays !== undefined && row.absentDays > 0 && (
                                   <span className="text-rose-600 font-bold">• غياب: {row.absentDays} يوم</span>
