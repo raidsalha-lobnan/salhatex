@@ -2226,8 +2226,8 @@ export const AttendanceView: React.FC = () => {
                             className="w-full bg-gray-50 border border-gray-300 rounded-lg px-2.5 py-1.5 font-bold text-xs text-gray-800 focus:ring-2 focus:ring-indigo-500"
                           >
                             <option value="1.5">ساعة ونصف (1.5x / 150%) - المعتمد والشائع</option>
-                            <option value="2.0">ساعتان (2.0x / 200%) - مضاعف كامل</option>
-                            <option value="1.0">ساعة بساعة (1.0x / 100%) - بدون زيادة</option>
+                            <option value="2">ساعتان (2.0x / 200%) - مضاعف كامل</option>
+                            <option value="1">ساعة بساعة (1.0x / 100%) - بدون زيادة</option>
                             <option value="1.25">ساعة وربع (1.25x / 125%)</option>
                             <option value="fixed_rate">أجر مقطوع محدد لكل ساعة أوفرتايم</option>
                           </select>
