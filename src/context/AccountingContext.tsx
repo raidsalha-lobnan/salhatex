@@ -3520,7 +3520,37 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const updateEmployee = (id: string, updated: Partial<Employee>) => {
-    setEmployees(prev => prev.map(emp => emp.id === id ? { ...emp, ...updated } : emp));
+    setEmployees(prev => {
+      const nextEmployees = prev.map(emp => emp.id === id ? { ...emp, ...updated } : emp);
+      const updatedEmp = nextEmployees.find(e => e.id === id);
+      if (updatedEmp) {
+        setAttendanceRecords(prevAtt =>
+          prevAtt.map(r => {
+            if (r.employeeId === id) {
+              const metrics = calculateAttendanceMetrics({
+                employee: updatedEmp,
+                status: r.status,
+                checkInTime: r.checkInTime,
+                checkOutTime: r.checkOutTime,
+                breakMinutes: r.breakMinutes !== undefined ? r.breakMinutes : (updatedEmp.defaultBreakMinutes ?? 30),
+                hasSecondShift: r.hasSecondShift,
+                shift1CheckInTime: r.shift1CheckInTime,
+                shift1CheckOutTime: r.shift1CheckOutTime,
+                shift2CheckInTime: r.shift2CheckInTime,
+                shift2CheckOutTime: r.shift2CheckOutTime
+              });
+              return {
+                ...r,
+                ...metrics,
+                updatedAt: new Date().toISOString()
+              };
+            }
+            return r;
+          })
+        );
+      }
+      return nextEmployees;
+    });
   };
 
   const deleteEmployee = (id: string) => {

@@ -2031,16 +2031,18 @@ export const AttendanceView: React.FC = () => {
                 })
                 .map(emp => {
                   const draft = getEmployeePolicyDraft(emp);
+                  const draftEmp: Employee = { ...emp, ...draft };
                   const officialDailyHours = draft.officialDailyHours || 8;
                   const baseHourlyRate = draft.hourlyRateCalculation === 'fixed_custom' && draft.customHourlyRate && draft.customHourlyRate > 0
                     ? draft.customHourlyRate
-                    : computeDefaultBaseHourlyRate(emp, officialDailyHours);
+                    : computeDefaultBaseHourlyRate(draftEmp, officialDailyHours);
                   
                   let effectiveOvertimeRate = 0;
                   if (draft.overtimeMethod === 'fixed_rate' && draft.customOvertimeRate && draft.customOvertimeRate > 0) {
                     effectiveOvertimeRate = draft.customOvertimeRate;
                   } else {
-                    effectiveOvertimeRate = Number((baseHourlyRate * (draft.overtimeMultiplier || 1.5)).toFixed(2));
+                    const mult = draft.overtimeMultiplier !== undefined ? draft.overtimeMultiplier : 1.5;
+                    effectiveOvertimeRate = Number((baseHourlyRate * mult).toFixed(2));
                   }
 
                   return (
