@@ -25,7 +25,14 @@ import {
   ArrowUpRight,
   CalendarCheck,
   Building2,
-  Scissors
+  Scissors,
+  Footprints,
+  Pencil,
+  Copy,
+  BookmarkCheck,
+  Zap,
+  Info,
+  Sliders
 } from 'lucide-react';
 import { useAccounting } from '../context/AccountingContext';
 import { AttendanceRecord, AttendanceStatus, Employee, OvertimeMethod, EmployeeDepartment } from '../types';
@@ -38,6 +45,8 @@ export const AttendanceView: React.FC = () => {
     updateAttendanceRecord,
     deleteAttendanceRecord,
     transferOvertimeToIncentives,
+    recalculateEmployeeAttendanceRecords,
+    recalculateAllAttendanceRecords,
     settings,
     updateEmployee
   } = useAccounting();
@@ -82,6 +91,14 @@ export const AttendanceView: React.FC = () => {
     shift2CheckOutTime: string;
   }>>({});
 
+  // Tab 3: Local drafts for Employee Policies & Settings
+  const [policyDrafts, setPolicyDrafts] = useState<Record<string, Partial<Employee> & { isDirty?: boolean }>>({});
+  const [policySearchQuery, setPolicySearchQuery] = useState<string>('');
+
+  // Tab 2: Editing existing attendance record state
+  const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
+  const [editModalDraft, setEditModalDraft] = useState<Partial<AttendanceRecord> | null>(null);
+
   // Notification / Toast state
   const [feedbackMessage, setFeedbackMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
@@ -89,7 +106,7 @@ export const AttendanceView: React.FC = () => {
     setFeedbackMessage({ text, type });
     setTimeout(() => {
       setFeedbackMessage(null);
-    }, 4000);
+    }, 4500);
   };
 
   // Helper to get active employees
@@ -198,7 +215,7 @@ export const AttendanceView: React.FC = () => {
       const s1Out = parseMinutes(draft.shift1CheckOutTime || '10:00');
       // المرحلة الثانية: من وقت العودة حتى وقت الانصراف النهائي
       const s2In = parseMinutes(draft.shift2CheckInTime || '12:00');
-      const s2Out = parseMinutes(draft.shift2CheckOutTime || draft.checkOutTime || '16:00');
+      const s2Out = parseMinutes(draft.shift2CheckOutTime || draft.checkOutTime || '16:30');
 
       const s1Min = Math.max(0, s1Out - s1In);
       const s2Min = Math.max(0, s2Out - s2In);
@@ -210,9 +227,9 @@ export const AttendanceView: React.FC = () => {
       // صافي دقائق العمل = المرحلة الأولى + المرحلة الثانية - الاستراحة الإضافية
       netMinutes = Math.max(0, (s1Min + s2Min) - (draft.breakMinutes || 0));
     } else {
-      // الدوام المستمر المعتاد
+      // الدوام المستمر المعتاد (حضور 8:00 وانصراف 16:30)
       const inMin = parseMinutes(draft.checkInTime || '08:00');
-      const outMin = parseMinutes(draft.checkOutTime || '16:00');
+      const outMin = parseMinutes(draft.checkOutTime || '16:30');
       const grossMinutes = Math.max(0, outMin - inMin);
       netMinutes = Math.max(0, grossMinutes - (draft.breakMinutes || 0));
       shift1Hours = Number((netMinutes / 60).toFixed(2));
@@ -251,8 +268,8 @@ export const AttendanceView: React.FC = () => {
     if (saved) {
       return {
         status: saved.status,
-        checkInTime: saved.shift1CheckInTime || saved.checkInTime || '08:00',
-        checkOutTime: saved.shift2CheckOutTime || saved.checkOutTime || '16:00',
+        checkInTime: saved.shift1CheckInTime || saved.checkInTime || emp.officialStartTime || '08:00',
+        checkOutTime: saved.shift2CheckOutTime || saved.checkOutTime || emp.officialEndTime || '16:30',
         breakMinutes: saved.breakMinutes !== undefined ? saved.breakMinutes : 0,
         officialDailyHours: saved.officialDailyHours || emp.officialDailyHours || 8,
         baseHourlyRate: saved.baseHourlyRate || computeDefaultBaseHourlyRate(emp),
@@ -261,15 +278,15 @@ export const AttendanceView: React.FC = () => {
         overtimeRatePerHour: saved.overtimeRatePerHour || Number((computeDefaultBaseHourlyRate(emp) * (emp.overtimeMultiplier || 1.5)).toFixed(2)),
         notes: saved.notes || '',
         isDirty: false,
-        hasSecondShift: true,
-        shift1CheckInTime: saved.shift1CheckInTime || saved.checkInTime || '08:00',
+        hasSecondShift: Boolean(saved.hasSecondShift),
+        shift1CheckInTime: saved.shift1CheckInTime || saved.checkInTime || emp.officialStartTime || '08:00',
         shift1CheckOutTime: saved.shift1CheckOutTime || '10:00',
         shift2CheckInTime: saved.shift2CheckInTime || '12:00',
-        shift2CheckOutTime: saved.shift2CheckOutTime || saved.checkOutTime || '16:00'
+        shift2CheckOutTime: saved.shift2CheckOutTime || saved.checkOutTime || emp.officialEndTime || '16:30'
       };
     }
 
-    // Default for fresh day (موحد لجميع العمال: مرحلتين 8-10 و 12-4)
+    // Default for fresh day (المعتمد: الحضور 08:00 والانصراف 16:30 والمشوار مغلق افتراضياً)
     const officialDailyHours = emp.officialDailyHours || 8;
     const baseHourlyRate = computeDefaultBaseHourlyRate(emp, officialDailyHours);
     const overtimeMultiplier = emp.overtimeMultiplier || 1.5;
@@ -280,8 +297,8 @@ export const AttendanceView: React.FC = () => {
 
     return {
       status: 'present' as AttendanceStatus,
-      checkInTime: '08:00',
-      checkOutTime: '16:00',
+      checkInTime: emp.officialStartTime || '08:00',
+      checkOutTime: emp.officialEndTime || '16:30',
       breakMinutes: 0,
       officialDailyHours,
       baseHourlyRate,
@@ -290,11 +307,11 @@ export const AttendanceView: React.FC = () => {
       overtimeRatePerHour,
       notes: '',
       isDirty: false,
-      hasSecondShift: true,
-      shift1CheckInTime: '08:00',
+      hasSecondShift: false, // المشوار أثناء الدوام مغلق دائماً ويفعل عند الضغط على الأيقونة
+      shift1CheckInTime: emp.officialStartTime || '08:00',
       shift1CheckOutTime: '10:00',
       shift2CheckInTime: '12:00',
-      shift2CheckOutTime: '16:00'
+      shift2CheckOutTime: emp.officialEndTime || '16:30'
     };
   };
 
@@ -331,8 +348,8 @@ export const AttendanceView: React.FC = () => {
     return `${hours}:${minutes}`;
   };
 
-  // Quick Action: Set Phase 1 Check-In (حضور المرحلة 1) for all active
-  const handleSetAllShift1CheckInNow = () => {
+  // Quick Action: Set Check-In (حضور الدوام 08:00 أو الوقت الحالي) for all active
+  const handleSetAllCheckInNow = () => {
     const nowTime = getCurrentTimeString();
     const newDrafts: typeof dailyDrafts = {};
     activeEmployees.forEach(emp => {
@@ -340,17 +357,36 @@ export const AttendanceView: React.FC = () => {
       if (current.status !== 'absent' && current.status !== 'unpaid_leave' && current.status !== 'excused_leave') {
         newDrafts[emp.id] = {
           ...current,
-          shift1CheckInTime: nowTime,
           checkInTime: nowTime,
+          shift1CheckInTime: nowTime,
           isDirty: true
         };
       }
     });
     setDailyDrafts(prev => ({ ...prev, ...newDrafts }));
-    showFeedback(`تم تسجيل حضور المرحلة 1 لجميع الحاضرين بالوقت الحالي (${nowTime})`, 'info');
+    showFeedback(`تم تسجيل حضور الدوام لجميع الحاضرين بالوقت الحالي (${nowTime})`, 'info');
   };
 
-  // Quick Action: Set Phase 1 Check-Out (خروج لمشوار) for all active
+  // Quick Action: Set Final Check-Out (انصراف الدوام 16:30 أو الوقت الحالي) for all active
+  const handleSetAllCheckOutNow = () => {
+    const nowTime = getCurrentTimeString();
+    const newDrafts: typeof dailyDrafts = {};
+    activeEmployees.forEach(emp => {
+      const current = dailyDrafts[emp.id] || getEmployeeDailyState(emp);
+      if (current.status !== 'absent' && current.status !== 'unpaid_leave' && current.status !== 'excused_leave') {
+        newDrafts[emp.id] = {
+          ...current,
+          checkOutTime: nowTime,
+          shift2CheckOutTime: nowTime,
+          isDirty: true
+        };
+      }
+    });
+    setDailyDrafts(prev => ({ ...prev, ...newDrafts }));
+    showFeedback(`تم تسجيل انصراف الدوام لجميع الحاضرين بالوقت الحالي (${nowTime})`, 'info');
+  };
+
+  // Quick Action: Set Phase 1 Check-Out (خروج لمشوار) for all active who have errand active
   const handleSetAllShift1CheckOutNow = () => {
     const nowTime = getCurrentTimeString();
     const newDrafts: typeof dailyDrafts = {};
@@ -359,6 +395,7 @@ export const AttendanceView: React.FC = () => {
       if (current.status !== 'absent' && current.status !== 'unpaid_leave' && current.status !== 'excused_leave') {
         newDrafts[emp.id] = {
           ...current,
+          hasSecondShift: true,
           shift1CheckOutTime: nowTime,
           isDirty: true
         };
@@ -368,7 +405,7 @@ export const AttendanceView: React.FC = () => {
     showFeedback(`تم تسجيل خروج لمشوار لجميع الحاضرين بالوقت الحالي (${nowTime})`, 'info');
   };
 
-  // Quick Action: Set Phase 2 Check-In (عودة من مشوار) for all active
+  // Quick Action: Set Phase 2 Check-In (عودة من مشوار) for all active who have errand active
   const handleSetAllShift2CheckInNow = () => {
     const nowTime = getCurrentTimeString();
     const newDrafts: typeof dailyDrafts = {};
@@ -377,6 +414,7 @@ export const AttendanceView: React.FC = () => {
       if (current.status !== 'absent' && current.status !== 'unpaid_leave' && current.status !== 'excused_leave') {
         newDrafts[emp.id] = {
           ...current,
+          hasSecondShift: true,
           shift2CheckInTime: nowTime,
           isDirty: true
         };
@@ -386,26 +424,33 @@ export const AttendanceView: React.FC = () => {
     showFeedback(`تم تسجيل عودة من مشوار لجميع الحاضرين بالوقت الحالي (${nowTime})`, 'info');
   };
 
-  // Quick Action: Set Phase 2 Check-Out (انصراف نهائي) for all active
-  const handleSetAllShift2CheckOutNow = () => {
-    const nowTime = getCurrentTimeString();
+  // Quick Action: Toggle Errand (مشوار أثناء الدوام) for all active employees
+  const handleToggleAllErrands = (enable: boolean) => {
     const newDrafts: typeof dailyDrafts = {};
     activeEmployees.forEach(emp => {
       const current = dailyDrafts[emp.id] || getEmployeeDailyState(emp);
       if (current.status !== 'absent' && current.status !== 'unpaid_leave' && current.status !== 'excused_leave') {
         newDrafts[emp.id] = {
           ...current,
-          shift2CheckOutTime: nowTime,
-          checkOutTime: nowTime,
+          hasSecondShift: enable,
+          shift1CheckInTime: current.shift1CheckInTime || current.checkInTime || '08:00',
+          shift1CheckOutTime: current.shift1CheckOutTime || '10:00',
+          shift2CheckInTime: current.shift2CheckInTime || '12:00',
+          shift2CheckOutTime: current.shift2CheckOutTime || current.checkOutTime || '16:30',
           isDirty: true
         };
       }
     });
     setDailyDrafts(prev => ({ ...prev, ...newDrafts }));
-    showFeedback(`تم تسجيل الانصراف النهائي لجميع الحاضرين بالوقت الحالي (${nowTime})`, 'info');
+    showFeedback(
+      enable 
+        ? 'تم تفعيل تسجيل مشوار أثناء الدوام لجميع الحاضرين' 
+        : 'تم إغلاق المشوار للجميع والعودة للدوام المستمر المعتاد (08:00 - 16:30)', 
+      'info'
+    );
   };
 
-  // Quick Action: Mark all active employees as Present with standard unified hours
+  // Quick Action: Mark all active employees as Present with standard unified hours (08:00 - 16:30, errand closed)
   const handleMarkAllPresent = () => {
     const newDrafts: typeof dailyDrafts = {};
     activeEmployees.forEach(emp => {
@@ -420,25 +465,25 @@ export const AttendanceView: React.FC = () => {
       newDrafts[emp.id] = {
         status: 'present',
         checkInTime: '08:00',
-        checkOutTime: '16:00',
+        checkOutTime: '16:30',
         breakMinutes: 0,
         officialDailyHours,
         baseHourlyRate,
         overtimeMethod,
         overtimeMultiplier,
         overtimeRatePerHour,
-        notes: 'دوام رسمي موحد (8:00 - 10:00 و 12:00 - 16:00)',
+        notes: 'دوام رسمي موحد (08:00 - 16:30)',
         isDirty: true,
-        hasSecondShift: true,
+        hasSecondShift: false, // مغلق افتراضياً ويفعل عند الضغط على الأيقونة
         shift1CheckInTime: '08:00',
         shift1CheckOutTime: '10:00',
         shift2CheckInTime: '12:00',
-        shift2CheckOutTime: '16:00'
+        shift2CheckOutTime: '16:30'
       };
     });
 
     setDailyDrafts(prev => ({ ...prev, ...newDrafts }));
-    showFeedback('تم ضبط الحضور الموحد للجميع (المرحلة 1: 8-10، المرحلة 2: 12-4) بنجاح!', 'info');
+    showFeedback('تم ضبط الحضور الموحد للجميع (08:00 - 16:30) بنجاح والمشوار مغلق افتراضياً!', 'info');
   };
 
   // Quick Action: Save entire daily sheet
@@ -491,6 +536,208 @@ export const AttendanceView: React.FC = () => {
       case 'management': return 'الإدارة العامة 📋';
       default: return 'عام';
     }
+  };
+
+  // Policy Drafts Helpers (Tab 3: إعدادات وسياسات احتساب ساعات الدوام والأوفرتايم)
+  const getEmployeePolicyDraft = (emp: Employee) => {
+    const draft = policyDrafts[emp.id];
+    return {
+      officialDailyHours: draft?.officialDailyHours ?? emp.officialDailyHours ?? 8,
+      officialStartTime: draft?.officialStartTime ?? emp.officialStartTime ?? '08:00',
+      officialEndTime: draft?.officialEndTime ?? emp.officialEndTime ?? '16:30',
+      defaultBreakMinutes: draft?.defaultBreakMinutes ?? emp.defaultBreakMinutes ?? 0,
+      hourlyRateCalculation: draft?.hourlyRateCalculation ?? emp.hourlyRateCalculation ?? 'auto_from_salary',
+      customHourlyRate: draft?.customHourlyRate ?? emp.customHourlyRate,
+      overtimeMethod: draft?.overtimeMethod ?? emp.overtimeMethod ?? 'multiplier',
+      overtimeMultiplier: draft?.overtimeMultiplier ?? emp.overtimeMultiplier ?? 1.5,
+      customOvertimeRate: draft?.customOvertimeRate ?? emp.customOvertimeRate,
+      defaultSplitShift: draft?.defaultSplitShift ?? emp.defaultSplitShift ?? false,
+      defaultShift1StartTime: draft?.defaultShift1StartTime ?? emp.defaultShift1StartTime ?? '08:00',
+      defaultShift1EndTime: draft?.defaultShift1EndTime ?? emp.defaultShift1EndTime ?? '10:00',
+      defaultShift2StartTime: draft?.defaultShift2StartTime ?? emp.defaultShift2StartTime ?? '12:00',
+      defaultShift2EndTime: draft?.defaultShift2EndTime ?? emp.defaultShift2EndTime ?? '16:30',
+      deductLateMinutes: draft?.deductLateMinutes ?? emp.deductLateMinutes ?? false,
+      isDirty: Boolean(draft?.isDirty)
+    };
+  };
+
+  const handlePolicyDraftChange = (empId: string, field: string, value: any) => {
+    setPolicyDrafts(prev => {
+      const current = prev[empId] || {};
+      return {
+        ...prev,
+        [empId]: {
+          ...current,
+          [field]: value,
+          isDirty: true
+        }
+      };
+    });
+  };
+
+  const handleSaveEmployeePolicy = (empId: string) => {
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) return;
+
+    const draft = getEmployeePolicyDraft(emp);
+    const updates: Partial<Employee> = {
+      officialDailyHours: draft.officialDailyHours,
+      officialStartTime: draft.officialStartTime,
+      officialEndTime: draft.officialEndTime,
+      defaultBreakMinutes: draft.defaultBreakMinutes,
+      hourlyRateCalculation: draft.hourlyRateCalculation,
+      customHourlyRate: draft.customHourlyRate,
+      overtimeMethod: draft.overtimeMethod,
+      overtimeMultiplier: draft.overtimeMultiplier,
+      customOvertimeRate: draft.customOvertimeRate,
+      defaultSplitShift: draft.defaultSplitShift,
+      defaultShift1StartTime: draft.defaultShift1StartTime,
+      defaultShift1EndTime: draft.defaultShift1EndTime,
+      defaultShift2StartTime: draft.defaultShift2StartTime,
+      defaultShift2EndTime: draft.defaultShift2EndTime,
+      deductLateMinutes: draft.deductLateMinutes
+    };
+
+    // 1. Update in context
+    updateEmployee(empId, updates);
+
+    // 2. Mark local draft as clean
+    setPolicyDrafts(prev => ({
+      ...prev,
+      [empId]: { ...draft, isDirty: false }
+    }));
+
+    // 3. Update daily draft if loaded
+    setDailyDrafts(prev => {
+      if (!prev[empId]) return prev;
+      const updatedEmp = { ...emp, ...updates };
+      const cur = prev[empId];
+      const baseHourlyRate = updates.customHourlyRate && updates.customHourlyRate > 0
+        ? updates.customHourlyRate
+        : computeDefaultBaseHourlyRate(updatedEmp, updates.officialDailyHours || 8);
+      const overtimeMultiplier = updates.overtimeMultiplier || 1.5;
+      const overtimeMethod = updates.overtimeMethod || 'multiplier';
+      const overtimeRatePerHour = overtimeMethod === 'fixed_rate' && updates.customOvertimeRate
+        ? updates.customOvertimeRate
+        : Number((baseHourlyRate * overtimeMultiplier).toFixed(2));
+
+      return {
+        ...prev,
+        [empId]: {
+          ...cur,
+          officialDailyHours: updates.officialDailyHours || 8,
+          baseHourlyRate,
+          overtimeMethod,
+          overtimeMultiplier,
+          overtimeRatePerHour,
+          isDirty: true
+        }
+      };
+    });
+
+    // 4. Automatically recalculate all records for this employee
+    const res = recalculateEmployeeAttendanceRecords(empId);
+
+    showFeedback(
+      `تم حفظ وتثبيت إعدادات وسياسات الدوام والأوفرتايم لـ "${emp.name}" بنجاح! وتم تطبيقها فوراً على كافة سجلات الحضور (${res.updated} سجل).`,
+      'success'
+    );
+  };
+
+  const handleApplyPolicyToRecords = (empId: string) => {
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) return;
+    const res = recalculateEmployeeAttendanceRecords(empId);
+    showFeedback(
+      `تمت إعادة احتساب وتطبيق السياسة المحفوظة فوراً لـ "${emp.name}" على كافة سجلات الحضور (${res.updated} سجل).`,
+      'success'
+    );
+  };
+
+  const handleSaveAllEmployeePolicies = () => {
+    let savedCount = 0;
+    employees.forEach(emp => {
+      const draft = policyDrafts[emp.id];
+      if (draft && draft.isDirty) {
+        const updates = { ...draft };
+        delete (updates as any).isDirty;
+        updateEmployee(emp.id, updates);
+        savedCount++;
+      }
+    });
+
+    setPolicyDrafts(prev => {
+      const next: Record<string, any> = {};
+      Object.keys(prev).forEach(id => {
+        next[id] = { ...prev[id], isDirty: false };
+      });
+      return next;
+    });
+
+    const res = recalculateAllAttendanceRecords();
+    showFeedback(
+      `تم حفظ إعدادات جميع العمال بنجاح (${savedCount || 'الجميع'})، وتطبيقها تلقائياً على كافة سجلات الحضور (${res.updated} سجل تم تحديثه).`,
+      'success'
+    );
+  };
+
+  const handleApplyStandardPresetToAll = () => {
+    if (!confirm('هل ترغب بتطبيق السياسة القياسية (الحضور 08:00، الانصراف 16:30، 8 ساعات، أوفرتايم 1.5x) وحفظها لكافة العمال؟')) return;
+
+    employees.forEach(emp => {
+      updateEmployee(emp.id, {
+        officialDailyHours: 8,
+        officialStartTime: '08:00',
+        officialEndTime: '16:30',
+        defaultBreakMinutes: 0,
+        hourlyRateCalculation: 'auto_from_salary',
+        overtimeMethod: 'multiplier',
+        overtimeMultiplier: 1.5,
+        defaultSplitShift: false
+      });
+    });
+
+    setPolicyDrafts({});
+    const res = recalculateAllAttendanceRecords();
+    showFeedback(`تم تطبيق السياسة القياسية الموحدة وحفظها لكافة العمال بنجاح (${res.updated} سجل تم تحديثه).`, 'success');
+  };
+
+  const handleCopyPolicyToAll = (sourceEmp: Employee) => {
+    const sourceDraft = getEmployeePolicyDraft(sourceEmp);
+    if (!confirm(`هل ترغب بنسخ سياسة الدوام والأوفرتايم الخاصة بالعامل "${sourceEmp.name}" وتعميمها على باقي العمال؟`)) return;
+
+    employees.forEach(emp => {
+      if (emp.id !== sourceEmp.id) {
+        updateEmployee(emp.id, {
+          officialDailyHours: sourceDraft.officialDailyHours,
+          officialStartTime: sourceDraft.officialStartTime,
+          officialEndTime: sourceDraft.officialEndTime,
+          defaultBreakMinutes: sourceDraft.defaultBreakMinutes,
+          overtimeMethod: sourceDraft.overtimeMethod,
+          overtimeMultiplier: sourceDraft.overtimeMultiplier,
+          customOvertimeRate: sourceDraft.customOvertimeRate,
+          defaultSplitShift: sourceDraft.defaultSplitShift,
+          defaultShift1StartTime: sourceDraft.defaultShift1StartTime,
+          defaultShift1EndTime: sourceDraft.defaultShift1EndTime,
+          defaultShift2StartTime: sourceDraft.defaultShift2StartTime,
+          defaultShift2EndTime: sourceDraft.defaultShift2EndTime,
+          deductLateMinutes: sourceDraft.deductLateMinutes
+        });
+      }
+    });
+
+    setPolicyDrafts({});
+    const res = recalculateAllAttendanceRecords();
+    showFeedback(`تم نسخ سياسة "${sourceEmp.name}" وتطبيقها على جميع العمال بنجاح (${res.updated} سجل تم تحديثه).`, 'success');
+  };
+
+  // Monthly Record Editing Save Handler (Tab 2)
+  const handleSaveEditedRecord = () => {
+    if (!editingRecord || !editModalDraft) return;
+    updateAttendanceRecord(editingRecord.id, editModalDraft);
+    showFeedback(`تم تحديث سجل الدوام ليوم ${editingRecord.date} للعامل "${editingRecord.employeeName}" وتطبيق السياسة المحفوظة بنجاح!`, 'success');
+    setEditingRecord(null);
+    setEditModalDraft(null);
   };
 
   // Compute daily totals for header banner
@@ -718,21 +965,41 @@ export const AttendanceView: React.FC = () => {
               </div>
 
               {/* Quick Batch Actions */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={handleMarkAllPresent}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200/80 hover:bg-indigo-100 text-indigo-900 text-xs font-bold rounded-lg transition shadow-2xs"
-                  title="تحضير جميع العمال بالدوام الموحد (المرحلة 1: 8-10، المرحلة 2: 12-4)"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200/80 hover:bg-indigo-100 text-indigo-900 text-xs font-bold rounded-lg transition shadow-2xs cursor-pointer"
+                  title="تحضير جميع العمال بالدوام الموحد (الحضور 08:00 والانصراف 16:30) وبدون مشوار"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>تحضير موحد للجميع (8-10 و 12-4)</span>
+                  <span>تحضير موحد للجميع (08:00 - 16:30)</span>
+                </button>
+
+                {/* Batch Errand Toggle Buttons */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleAllErrands(true)}
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 border border-purple-200 hover:bg-purple-100 text-purple-900 text-xs font-semibold rounded-lg transition cursor-pointer"
+                  title="فتح وتفعيل تسجيل مشوار لجميع العمال الحاضرين اليوم"
+                >
+                  <Footprints className="w-3.5 h-3.5 text-purple-600" />
+                  <span>تفعيل مشوار للجميع</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleToggleAllErrands(false)}
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 border border-gray-200 hover:bg-gray-100 text-gray-700 text-xs font-semibold rounded-lg transition cursor-pointer"
+                  title="إغلاق المشوار لجميع العمال والعودة للدوام المستمر (08:00 - 16:30)"
+                >
+                  <span>إغلاق المشوار للجميع</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleSaveDailySheet}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition shadow-2xs"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition shadow-2xs cursor-pointer"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>حفظ واعتماد كشف اليوم</span>
@@ -798,15 +1065,15 @@ export const AttendanceView: React.FC = () => {
 
           {/* Daily Interactive Attendance Table */}
           <div className="bg-white rounded-xl shadow-2xs border border-gray-200/90 overflow-hidden">
-            <div className="px-4 py-2 border-b border-gray-200 bg-gray-50/80 flex items-center justify-between">
+            <div className="px-4 py-2 border-b border-gray-200 bg-gray-50/80 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Scissors className="w-4 h-4 text-indigo-600" />
                 <h3 className="text-xs sm:text-sm font-bold text-gray-900">
                   كشف التحضير وتفاصيل الساعات ليوم {selectedDate} ({activeEmployees.length} عامل)
                 </h3>
               </div>
-              <span className="text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full font-bold">
-                دوام موحد على مرحلتين: (م1: 8:00 - 10:00) • (مشوار: ساعتان) • (م2: 12:00 - 16:00)
+              <span className="text-[11px] text-indigo-800 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full font-bold">
+                الدوام المعتمد: الحضور 08:00 • الانصراف 16:30 • المشوار مغلق افتراضياً ويفعل بالنقر على أيقونة المشوار 🚶 بجانب العامل
               </span>
             </div>
 
@@ -818,59 +1085,40 @@ export const AttendanceView: React.FC = () => {
                     <th className="py-2.5 px-2 whitespace-nowrap">حالة الدوام</th>
                     
                     {/* Stage 1: Check In */}
-                    <th className="py-2.5 px-2 text-center whitespace-nowrap bg-purple-50/40">
+                    <th className="py-2.5 px-2 text-center whitespace-nowrap bg-blue-50/50">
                       <div className="flex items-center justify-center gap-1">
-                        <span>م1: حضور</span>
+                        <span>الحضور (08:00)</span>
                         <button
                           type="button"
-                          onClick={handleSetAllShift1CheckInNow}
-                          className="p-1 rounded text-gray-400 hover:text-purple-700 hover:bg-white transition"
-                          title="تعيين الوقت الحالي لحضور المرحلة 1 للجميع"
+                          onClick={handleSetAllCheckInNow}
+                          className="p-1 rounded text-gray-400 hover:text-blue-700 hover:bg-white transition cursor-pointer"
+                          title="تعيين الوقت الحالي لحضور الجميع الآن"
                         >
-                          <Clock className="w-3.5 h-3.5 text-purple-600" />
+                          <Clock className="w-3.5 h-3.5 text-blue-600" />
                         </button>
                       </div>
                     </th>
 
-                    {/* Stage 1: Leave for Errand */}
+                    {/* Mid-day Errand Column (الانصراف والحضور أثناء الدوام) */}
                     <th className="py-2.5 px-2 text-center whitespace-nowrap bg-purple-50/40">
-                      <div className="flex items-center justify-center gap-1">
-                        <span>م1: خروج لمشوار</span>
-                        <button
-                          type="button"
-                          onClick={handleSetAllShift1CheckOutNow}
-                          className="p-1 rounded text-gray-400 hover:text-purple-700 hover:bg-white transition"
-                          title="تعيين الوقت الحالي لخروج المشوار للجميع"
-                        >
-                          <Clock className="w-3.5 h-3.5 text-purple-600" />
-                        </button>
-                      </div>
-                    </th>
-
-                    {/* Stage 2: Return from Errand */}
-                    <th className="py-2.5 px-2 text-center whitespace-nowrap bg-emerald-50/40">
-                      <div className="flex items-center justify-center gap-1">
-                        <span>م2: عودة</span>
-                        <button
-                          type="button"
-                          onClick={handleSetAllShift2CheckInNow}
-                          className="p-1 rounded text-gray-400 hover:text-emerald-700 hover:bg-white transition"
-                          title="تعيين الوقت الحالي لعودة المرحلة 2 للجميع"
-                        >
-                          <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                        </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <Footprints className="w-3.5 h-3.5 text-purple-600" />
+                        <span>مشوار أثناء الدوام</span>
+                        <span className="text-[10px] text-purple-700 font-normal bg-purple-100/70 px-1 rounded">
+                          (مغلق افتراضياً)
+                        </span>
                       </div>
                     </th>
 
                     {/* Stage 2: Final Check Out */}
-                    <th className="py-2.5 px-2 text-center whitespace-nowrap bg-emerald-50/40">
+                    <th className="py-2.5 px-2 text-center whitespace-nowrap bg-emerald-50/50">
                       <div className="flex items-center justify-center gap-1">
-                        <span>م2: انصراف</span>
+                        <span>الانصراف (16:30)</span>
                         <button
                           type="button"
-                          onClick={handleSetAllShift2CheckOutNow}
-                          className="p-1 rounded text-gray-400 hover:text-emerald-700 hover:bg-white transition"
-                          title="تعيين الوقت الحالي لانصراف نهاية الدوام للجميع"
+                          onClick={handleSetAllCheckOutNow}
+                          className="p-1 rounded text-gray-400 hover:text-emerald-700 hover:bg-white transition cursor-pointer"
+                          title="تعيين الوقت الحالي لانصراف الجميع الآن"
                         >
                           <Clock className="w-3.5 h-3.5 text-emerald-600" />
                         </button>
@@ -930,16 +1178,22 @@ export const AttendanceView: React.FC = () => {
                           </select>
                         </td>
 
-                        {/* Stage 1: Check In (حضور م1) */}
-                        <td className="py-2 px-2 text-center whitespace-nowrap bg-purple-50/20">
-                          <div className={`inline-flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden shadow-2xs hover:border-purple-400 focus-within:ring-2 focus-within:ring-purple-500 ${
+                        {/* Check In: حضور الدوام (08:00) */}
+                        <td className="py-2 px-2 text-center whitespace-nowrap bg-blue-50/20">
+                          <div className={`inline-flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden shadow-2xs hover:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500 ${
                             isOff ? 'opacity-40 pointer-events-none' : ''
                           }`}>
                             <input
                               type="time"
                               disabled={isOff}
-                              value={state.shift1CheckInTime}
-                              onChange={(e) => handleDraftChange(emp.id, 'shift1CheckInTime', e.target.value)}
+                              value={state.hasSecondShift ? state.shift1CheckInTime : state.checkInTime}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                handleDraftChange(emp.id, 'checkInTime', val);
+                                if (state.hasSecondShift) {
+                                  handleDraftChange(emp.id, 'shift1CheckInTime', val);
+                                }
+                              }}
                               className="bg-transparent border-0 px-2 py-0.5 text-xs font-mono font-bold text-gray-800 text-center focus:outline-none"
                             />
                             <button
@@ -947,46 +1201,135 @@ export const AttendanceView: React.FC = () => {
                               disabled={isOff}
                               onClick={() => {
                                 const nowTime = getCurrentTimeString();
-                                handleDraftChange(emp.id, 'shift1CheckInTime', nowTime);
-                                showFeedback(`تم تعيين حضور م1 لـ ${emp.name} إلى (${nowTime})`, 'info');
+                                handleDraftChange(emp.id, 'checkInTime', nowTime);
+                                if (state.hasSecondShift) {
+                                  handleDraftChange(emp.id, 'shift1CheckInTime', nowTime);
+                                }
+                                showFeedback(`تم تعيين وقت حضور ${emp.name} إلى (${nowTime})`, 'info');
                               }}
-                              className="px-1.5 py-0.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition border-r border-gray-200"
-                              title="تعيين الوقت الحالي (حضور المرحلة 1)"
+                              className="px-1.5 py-0.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition border-r border-gray-200 cursor-pointer"
+                              title="تعيين الوقت الحالي (حضور)"
                             >
                               <Clock className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>
 
-                        {/* Stage 1: Check Out for Errand (خروج لمشوار) */}
+                        {/* Mid-day Errand Column (الانصراف والحضور أثناء الدوام: مغلق افتراضياً ويفعل بالنقر على الأيقونة) */}
                         <td className="py-2 px-2 text-center whitespace-nowrap bg-purple-50/20">
-                          <div className={`inline-flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden shadow-2xs hover:border-purple-400 focus-within:ring-2 focus-within:ring-purple-500 ${
-                            isOff ? 'opacity-40 pointer-events-none' : ''
-                          }`}>
-                            <input
-                              type="time"
-                              disabled={isOff}
-                              value={state.shift1CheckOutTime}
-                              onChange={(e) => handleDraftChange(emp.id, 'shift1CheckOutTime', e.target.value)}
-                              className="bg-transparent border-0 px-2 py-0.5 text-xs font-mono font-bold text-gray-800 text-center focus:outline-none"
-                            />
-                            <button
-                              type="button"
-                              disabled={isOff}
-                              onClick={() => {
-                                const nowTime = getCurrentTimeString();
-                                handleDraftChange(emp.id, 'shift1CheckOutTime', nowTime);
-                                showFeedback(`تم تعيين خروج المشوار لـ ${emp.name} إلى (${nowTime})`, 'info');
-                              }}
-                              className="px-1.5 py-0.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition border-r border-gray-200"
-                              title="تعيين الوقت الحالي (خروج لمشوار)"
-                            >
-                              <Clock className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          {!state.hasSecondShift ? (
+                            /* الحالة المغلقة (الافتراضية) */
+                            <div className="flex items-center justify-center">
+                              <button
+                                type="button"
+                                disabled={isOff}
+                                onClick={() => {
+                                  handleDraftChange(emp.id, 'hasSecondShift', true);
+                                  if (!state.shift1CheckInTime) {
+                                    handleDraftChange(emp.id, 'shift1CheckInTime', state.checkInTime || '08:00');
+                                  }
+                                  if (!state.shift1CheckOutTime) {
+                                    handleDraftChange(emp.id, 'shift1CheckOutTime', '10:00');
+                                  }
+                                  if (!state.shift2CheckInTime) {
+                                    handleDraftChange(emp.id, 'shift2CheckInTime', '12:00');
+                                  }
+                                  if (!state.shift2CheckOutTime) {
+                                    handleDraftChange(emp.id, 'shift2CheckOutTime', state.checkOutTime || '16:30');
+                                  }
+                                  showFeedback(`تم تفعيل تسجيل مشوار أثناء الدوام لـ ${emp.name}`, 'info');
+                                }}
+                                className={`group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-gray-200 bg-white hover:bg-purple-50 hover:border-purple-300 transition shadow-2xs cursor-pointer ${
+                                  isOff ? 'opacity-40 pointer-events-none' : ''
+                                }`}
+                                title="مشوار أثناء الدوام مغلق — اضغط على هذه الأيقونة لتفعيل تسجيل خروج وعودة لمشوار"
+                              >
+                                <Footprints className="w-3.5 h-3.5 text-gray-400 group-hover:text-purple-600 transition" />
+                                <span className="text-[11px] font-semibold text-gray-500 group-hover:text-purple-800">
+                                  مغلق (بدون مشوار)
+                                </span>
+                                <span className="text-[10px] bg-gray-100 group-hover:bg-purple-100 text-gray-600 group-hover:text-purple-700 px-1 py-0.2 rounded font-bold transition">
+                                  + تفعيل
+                                </span>
+                              </button>
+                            </div>
+                          ) : (
+                            /* الحالة المفعلة عند الضغط على الأيقونة */
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5">
+                              {/* زر الأيقونة لإغلاق المشوار */}
+                              <button
+                                type="button"
+                                disabled={isOff}
+                                onClick={() => {
+                                  handleDraftChange(emp.id, 'hasSecondShift', false);
+                                  showFeedback(`تم إغلاق المشوار لـ ${emp.name} والعودة للدوام المستمر (08:00 - 16:30)`, 'info');
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-purple-300 bg-purple-100 text-purple-900 hover:bg-purple-200 text-[10px] font-bold transition shadow-2xs cursor-pointer"
+                                title="انقر هنا لإغلاق المشوار والعودة للدوام المستمر"
+                              >
+                                <Footprints className="w-3 h-3 text-purple-700" />
+                                <span>مشوار مفعّل</span>
+                                <span className="text-purple-600 font-normal">✕ إغلاق</span>
+                              </button>
+
+                              {/* خروج لمشوار */}
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] font-bold text-purple-700">خروج:</span>
+                                <div className="inline-flex items-center bg-white border border-purple-300 rounded overflow-hidden shadow-2xs">
+                                  <input
+                                    type="time"
+                                    disabled={isOff}
+                                    value={state.shift1CheckOutTime}
+                                    onChange={(e) => handleDraftChange(emp.id, 'shift1CheckOutTime', e.target.value)}
+                                    className="bg-transparent border-0 px-1 py-0.2 text-[11px] font-mono font-bold text-gray-800 text-center focus:outline-none w-16"
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={isOff}
+                                    onClick={() => {
+                                      const nowTime = getCurrentTimeString();
+                                      handleDraftChange(emp.id, 'shift1CheckOutTime', nowTime);
+                                      showFeedback(`تم تعيين وقت خروج مشوار ${emp.name} إلى (${nowTime})`, 'info');
+                                    }}
+                                    className="px-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition border-r border-purple-200 cursor-pointer"
+                                    title="تعيين الوقت الحالي (خروج لمشوار)"
+                                  >
+                                    <Clock className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* عودة من مشوار */}
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] font-bold text-emerald-700">عودة:</span>
+                                <div className="inline-flex items-center bg-white border border-emerald-300 rounded overflow-hidden shadow-2xs">
+                                  <input
+                                    type="time"
+                                    disabled={isOff}
+                                    value={state.shift2CheckInTime}
+                                    onChange={(e) => handleDraftChange(emp.id, 'shift2CheckInTime', e.target.value)}
+                                    className="bg-transparent border-0 px-1 py-0.2 text-[11px] font-mono font-bold text-gray-800 text-center focus:outline-none w-16"
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={isOff}
+                                    onClick={() => {
+                                      const nowTime = getCurrentTimeString();
+                                      handleDraftChange(emp.id, 'shift2CheckInTime', nowTime);
+                                      showFeedback(`تم تعيين وقت عودة مشوار ${emp.name} إلى (${nowTime})`, 'info');
+                                    }}
+                                    className="px-1 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition border-r border-emerald-200 cursor-pointer"
+                                    title="تعيين الوقت الحالي (عودة من مشوار)"
+                                  >
+                                    <Clock className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </td>
 
-                        {/* Stage 2: Return from Errand (عودة من مشوار) */}
+                        {/* Check Out: انصراف الدوام (16:30) */}
                         <td className="py-2 px-2 text-center whitespace-nowrap bg-emerald-50/20">
                           <div className={`inline-flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden shadow-2xs hover:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-500 ${
                             isOff ? 'opacity-40 pointer-events-none' : ''
@@ -994,8 +1337,14 @@ export const AttendanceView: React.FC = () => {
                             <input
                               type="time"
                               disabled={isOff}
-                              value={state.shift2CheckInTime}
-                              onChange={(e) => handleDraftChange(emp.id, 'shift2CheckInTime', e.target.value)}
+                              value={state.hasSecondShift ? state.shift2CheckOutTime : state.checkOutTime}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                handleDraftChange(emp.id, 'checkOutTime', val);
+                                if (state.hasSecondShift) {
+                                  handleDraftChange(emp.id, 'shift2CheckOutTime', val);
+                                }
+                              }}
                               className="bg-transparent border-0 px-2 py-0.5 text-xs font-mono font-bold text-gray-800 text-center focus:outline-none"
                             />
                             <button
@@ -1003,39 +1352,14 @@ export const AttendanceView: React.FC = () => {
                               disabled={isOff}
                               onClick={() => {
                                 const nowTime = getCurrentTimeString();
-                                handleDraftChange(emp.id, 'shift2CheckInTime', nowTime);
-                                showFeedback(`تم تعيين عودة المشوار لـ ${emp.name} إلى (${nowTime})`, 'info');
+                                handleDraftChange(emp.id, 'checkOutTime', nowTime);
+                                if (state.hasSecondShift) {
+                                  handleDraftChange(emp.id, 'shift2CheckOutTime', nowTime);
+                                }
+                                showFeedback(`تم تعيين وقت انصراف ${emp.name} إلى (${nowTime})`, 'info');
                               }}
-                              className="px-1.5 py-0.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition border-r border-gray-200"
-                              title="تعيين الوقت الحالي (عودة من مشوار)"
-                            >
-                              <Clock className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-
-                        {/* Stage 2: Final Check Out (انصراف نهائي) */}
-                        <td className="py-2 px-2 text-center whitespace-nowrap bg-emerald-50/20">
-                          <div className={`inline-flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden shadow-2xs hover:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-500 ${
-                            isOff ? 'opacity-40 pointer-events-none' : ''
-                          }`}>
-                            <input
-                              type="time"
-                              disabled={isOff}
-                              value={state.shift2CheckOutTime}
-                              onChange={(e) => handleDraftChange(emp.id, 'shift2CheckOutTime', e.target.value)}
-                              className="bg-transparent border-0 px-2 py-0.5 text-xs font-mono font-bold text-gray-800 text-center focus:outline-none"
-                            />
-                            <button
-                              type="button"
-                              disabled={isOff}
-                              onClick={() => {
-                                const nowTime = getCurrentTimeString();
-                                handleDraftChange(emp.id, 'shift2CheckOutTime', nowTime);
-                                showFeedback(`تم تعيين انصراف نهاية الدوام لـ ${emp.name} إلى (${nowTime})`, 'info');
-                              }}
-                              className="px-1.5 py-0.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition border-r border-gray-200"
-                              title="تعيين الوقت الحالي (انصراف نهائي)"
+                              className="px-1.5 py-0.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition border-r border-gray-200 cursor-pointer"
+                              title="تعيين الوقت الحالي (انصراف)"
                             >
                               <Clock className="w-3.5 h-3.5" />
                             </button>
@@ -1044,12 +1368,12 @@ export const AttendanceView: React.FC = () => {
 
                         {/* Errand Duration (مدة المشوار محسوبة) */}
                         <td className="py-2 px-2 text-center whitespace-nowrap">
-                          {!isOff && metrics.breakBetweenShiftsMinutes > 0 ? (
-                            <span className="inline-flex items-center gap-1 font-mono font-bold text-amber-800 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded text-xs" title={`من ${state.shift1CheckOutTime} إلى ${state.shift2CheckInTime}`}>
+                          {!isOff && state.hasSecondShift && metrics.breakBetweenShiftsMinutes > 0 ? (
+                            <span className="inline-flex items-center gap-1 font-mono font-bold text-purple-800 bg-purple-50 border border-purple-200/80 px-2 py-0.5 rounded text-xs" title={`من ${state.shift1CheckOutTime} إلى ${state.shift2CheckInTime}`}>
                               {Number((metrics.breakBetweenShiftsMinutes / 60).toFixed(1))} س
                             </span>
                           ) : (
-                            <span className="text-gray-400 font-mono text-xs">0</span>
+                            <span className="text-gray-300 font-mono text-xs">-</span>
                           )}
                         </td>
 
@@ -1071,7 +1395,7 @@ export const AttendanceView: React.FC = () => {
                           <div className="font-mono font-black text-blue-900 text-xs sm:text-sm">
                             {metrics.workedHours} س
                           </div>
-                          {!isOff && (
+                          {!isOff && state.hasSecondShift && (
                             <div className="text-[10px] text-gray-500 font-mono" title={`م1: ${metrics.shift1Hours} س + م2: ${metrics.shift2Hours} س`}>
                               ({metrics.shift1Hours} + {metrics.shift2Hours})
                             </div>
@@ -1235,6 +1559,19 @@ export const AttendanceView: React.FC = () => {
 
                 <button
                   type="button"
+                  onClick={() => {
+                    const res = recalculateAllAttendanceRecords();
+                    showFeedback(`تمت إعادة احتساب وتطبيق السياسات المحفوظة بنجاح على ${res.updated} سجل حضور.`, 'success');
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 transition"
+                  title="إعادة احتساب وتطبيق السياسات المحفوظة لكافة العمال على جميع سجلات الحضور"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>تطبيق السياسات المحفوظة على السجلات</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => window.print()}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-lg transition border border-gray-200"
                 >
@@ -1357,8 +1694,8 @@ export const AttendanceView: React.FC = () => {
                                 </div>
                               )}
                               <div className="text-emerald-900 font-bold">
-                                م2: {rec.shift2CheckInTime || '12:00'} ➔ {rec.shift2CheckOutTime || rec.checkOutTime || '16:00'}
-                                <span className="text-emerald-600 font-normal mr-1">({rec.shift2WorkedHours ?? 4}س)</span>
+                                م2: {rec.shift2CheckInTime || '12:00'} ➔ {rec.shift2CheckOutTime || rec.checkOutTime || '16:30'}
+                                <span className="text-emerald-600 font-normal mr-1">({rec.shift2WorkedHours ?? 4.5}س)</span>
                               </div>
                             </div>
                           ) : (
@@ -1400,18 +1737,43 @@ export const AttendanceView: React.FC = () => {
                           )}
                         </td>
                         <td className="py-3 px-3 text-center">
-                          <button
-                            onClick={() => {
-                              if (confirm(`هل أنت متأكد من حذف سجل دوام يوم ${rec.date} للعامل ${rec.employeeName}؟`)) {
-                                deleteAttendanceRecord(rec.id);
-                                showFeedback('تم حذف السجل بنجاح.', 'info');
-                              }
-                            }}
-                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
-                            title="حذف السجل"
-                          >
-                            <UserX className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingRecord(rec);
+                                setEditModalDraft({
+                                  status: rec.status,
+                                  checkInTime: rec.checkInTime || '08:00',
+                                  checkOutTime: rec.checkOutTime || '16:30',
+                                  hasSecondShift: Boolean(rec.hasSecondShift),
+                                  shift1CheckInTime: rec.shift1CheckInTime || rec.checkInTime || '08:00',
+                                  shift1CheckOutTime: rec.shift1CheckOutTime || '10:00',
+                                  shift2CheckInTime: rec.shift2CheckInTime || '12:00',
+                                  shift2CheckOutTime: rec.shift2CheckOutTime || rec.checkOutTime || '16:30',
+                                  breakMinutes: rec.breakMinutes || 0,
+                                  notes: rec.notes || ''
+                                });
+                              }}
+                              className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition"
+                              title="تعديل سجل الدوام وتطبيق السياسة المحفوظة"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`هل أنت متأكد من حذف سجل دوام يوم ${rec.date} للعامل ${rec.employeeName}؟`)) {
+                                  deleteAttendanceRecord(rec.id);
+                                  showFeedback('تم حذف السجل بنجاح.', 'info');
+                                }
+                              }}
+                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition"
+                              title="حذف السجل"
+                            >
+                              <UserX className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1428,222 +1790,734 @@ export const AttendanceView: React.FC = () => {
       {/* ========================================================================= */}
       {activeTab === 'settings' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-200">
-                <Settings className="w-6 h-6 text-indigo-600" />
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 space-y-6">
+            {/* Header & Main Info */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-200">
+                  <Settings className="w-6 h-6 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-gray-900">
+                    إعدادات وسياسات احتساب ساعات الدوام والأوفرتايم لكل عامل
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    حدد ساعات العمل الرسمية، مواعيد الحضور (08:00) والانصراف (16:30)، وطريقة احتساب الأوفرتايم (ساعة ونصف 1.5x أو ساعتين 2.0x أو مبلغ مقطوع). احفظ الإعدادات لتطبيقها تلقائياً على أي إدخال أو تعديل لحضور العامل.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-black text-gray-900">
-                  إعدادات وسياسات احتساب ساعات الدوام والأوفرتايم لكل عامل
-                </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  حدد ساعات العمل الرسمية الافتراضية، مواعيد الحضور والانصراف، وطريقة احتساب الأوفرتايم (ساعة ونصف 1.5x أو ساعتين 2.0x أو مبلغ مقطوع)
-                </p>
+
+              {/* Header Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveAllEmployeePolicies}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs transition shadow-2xs"
+                  title="حفظ كافة الإعدادات والسياسات المعدلة لجميع العمال دفعة واحدة"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>حفظ إعدادات كافة العمال</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const res = recalculateAllAttendanceRecords();
+                    showFeedback(`تمت إعادة احتساب وتطبيق السياسات المحفوظة لكافة العمال بنجاح على ${res.updated} سجل حضور.`, 'success');
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs transition shadow-2xs"
+                  title="إعادة احتساب وتطبيق السياسات المحفوظة على كافة سجلات الحضور السابقة والجديدة لجميع العمال"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>تطبيق السياسات على كافة سجلات الحضور</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleApplyStandardPresetToAll}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg font-bold text-xs border border-gray-300 transition"
+                  title="تعميم السياسة القياسية (08:00 إلى 16:30 وأوفرتايم 1.5x) على الجميع"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span>تعميم المواعيد القياسية (08:00 - 16:30)</span>
+                </button>
               </div>
             </div>
 
+            {/* Notification Banner about Auto-Apply */}
+            <div className="bg-indigo-50/70 border border-indigo-200/90 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-indigo-950 font-medium">
+                <Info className="w-5 h-5 text-indigo-600 shrink-0" />
+                <span>
+                  <strong>تطبيق تلقائي فوري:</strong> عند حفظ إعدادات أي عامل بواسطة أيقونة الحفظ 💾، يتم اعتمادها وتطبيقها تلقائياً على أي إدخال يومي جديد، وأي تعديل على أيام الحضور للعامل، مع تحديث كافة السجلات السابقة والجديدة.
+                </span>
+              </div>
+            </div>
+
+            {/* Filter / Search within Settings */}
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="بحث عن عامل بالاسم أو الرقم الوظيفي..."
+                  value={policySearchQuery}
+                  onChange={(e) => setPolicySearchQuery(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg pr-9 pl-3 py-1.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* Employee Policy Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {employees.map(emp => (
-                <div key={emp.id} className="bg-gray-50 p-5 rounded-2xl border border-gray-200 space-y-4">
-                  <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-                    <div>
-                      <h4 className="font-bold text-gray-900 text-sm">{emp.name}</h4>
-                      <span className="text-xs text-indigo-600 font-medium">{getDepartmentLabel(emp.department)}</span>
-                    </div>
-                    <span className="text-xs font-mono font-bold bg-white px-2 py-1 rounded border border-gray-200">
-                      {emp.code}
-                    </span>
-                  </div>
+              {employees
+                .filter(emp => {
+                  if (!policySearchQuery.trim()) return true;
+                  const q = policySearchQuery.toLowerCase();
+                  return emp.name.toLowerCase().includes(q) || (emp.code && emp.code.toLowerCase().includes(q));
+                })
+                .map(emp => {
+                  const draft = getEmployeePolicyDraft(emp);
+                  const officialDailyHours = draft.officialDailyHours || 8;
+                  const baseHourlyRate = draft.hourlyRateCalculation === 'fixed_custom' && draft.customHourlyRate && draft.customHourlyRate > 0
+                    ? draft.customHourlyRate
+                    : computeDefaultBaseHourlyRate(emp, officialDailyHours);
+                  
+                  let effectiveOvertimeRate = 0;
+                  if (draft.overtimeMethod === 'fixed_rate' && draft.customOvertimeRate && draft.customOvertimeRate > 0) {
+                    effectiveOvertimeRate = draft.customOvertimeRate;
+                  } else {
+                    effectiveOvertimeRate = Number((baseHourlyRate * (draft.overtimeMultiplier || 1.5)).toFixed(2));
+                  }
 
-                  <div className="space-y-3 text-xs">
-                    {/* Official Daily Hours */}
-                    <div>
-                      <label className="block text-gray-700 font-bold mb-1">
-                        ساعات العمل الرسمية المطلوبة باليوم:
-                      </label>
-                      <input
-                        type="number"
-                        defaultValue={emp.officialDailyHours || 8}
-                        onChange={(e) => updateEmployee(emp.id, { officialDailyHours: parseFloat(e.target.value) || 8 })}
-                        className="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 font-mono font-bold text-gray-800 text-sm"
-                        min="1"
-                        max="24"
-                        step="0.5"
-                      />
-                    </div>
-
-                    {/* Official Start & End Time */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-gray-600 font-semibold mb-1">الحضور الرسمي:</label>
-                        <div className="flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
-                          <input
-                            type="time"
-                            defaultValue={emp.officialStartTime || '08:00'}
-                            id={`start-time-${emp.id}`}
-                            onChange={(e) => updateEmployee(emp.id, { officialStartTime: e.target.value })}
-                            className="w-full bg-transparent border-0 px-2 py-1 font-mono text-xs font-bold focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const nowTime = getCurrentTimeString();
-                              updateEmployee(emp.id, { officialStartTime: nowTime });
-                              const el = document.getElementById(`start-time-${emp.id}`) as HTMLInputElement;
-                              if (el) el.value = nowTime;
-                              showFeedback(`تم تعيين وقت الحضور الرسمي لـ ${emp.name} إلى (${nowTime})`, 'info');
-                            }}
-                            className="px-1.5 py-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition border-r border-gray-200"
-                            title="تعيين الوقت الحالي الآن"
-                          >
-                            <Clock className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-gray-600 font-semibold mb-1">الانصراف الرسمي:</label>
-                        <div className="flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
-                          <input
-                            type="time"
-                            defaultValue={emp.officialEndTime || '16:00'}
-                            id={`end-time-${emp.id}`}
-                            onChange={(e) => updateEmployee(emp.id, { officialEndTime: e.target.value })}
-                            className="w-full bg-transparent border-0 px-2 py-1 font-mono text-xs font-bold focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const nowTime = getCurrentTimeString();
-                              updateEmployee(emp.id, { officialEndTime: nowTime });
-                              const el = document.getElementById(`end-time-${emp.id}`) as HTMLInputElement;
-                              if (el) el.value = nowTime;
-                              showFeedback(`تم تعيين وقت الانصراف الرسمي لـ ${emp.name} إلى (${nowTime})`, 'info');
-                            }}
-                            className="px-1.5 py-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition border-r border-gray-200"
-                            title="تعيين الوقت الحالي الآن"
-                          >
-                            <Clock className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Split Shift Default Policy (نظام الدوام على مرحلتين / فترتين) */}
-                    <div className="bg-white p-2.5 rounded-xl border border-gray-200 space-y-2">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          defaultChecked={emp.defaultSplitShift || false}
-                          onChange={(e) => updateEmployee(emp.id, { defaultSplitShift: e.target.checked })}
-                          className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
-                        />
-                        <span className="font-bold text-gray-800 text-xs">نظام الدوام الافتراضي: على مرحلتين (خروج لمشوار)</span>
-                      </label>
-
-                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-100 text-[11px]">
+                  return (
+                    <div
+                      key={emp.id}
+                      className={`rounded-2xl border transition-all space-y-4 p-5 ${
+                        draft.isDirty
+                          ? 'bg-amber-50/30 border-amber-300 ring-2 ring-amber-200 shadow-md'
+                          : 'bg-gray-50/70 border-gray-200 shadow-2xs hover:shadow-sm'
+                      }`}
+                    >
+                      {/* Worker Header Card */}
+                      <div className="flex items-start justify-between border-b border-gray-200 pb-3 gap-2">
                         <div>
-                          <label className="block text-gray-500 mb-0.5">المرحلة 1 (حضور ➔ خروج):</label>
-                          <div className="flex items-center gap-1 font-mono">
-                            <input
-                              type="time"
-                              defaultValue={emp.defaultShift1StartTime || '08:00'}
-                              onChange={(e) => updateEmployee(emp.id, { defaultShift1StartTime: e.target.value })}
-                              className="w-full bg-gray-50 border border-gray-200 rounded px-1 py-0.5 font-bold"
-                            />
-                            <span>➔</span>
-                            <input
-                              type="time"
-                              defaultValue={emp.defaultShift1EndTime || '10:00'}
-                              onChange={(e) => updateEmployee(emp.id, { defaultShift1EndTime: e.target.value })}
-                              className="w-full bg-gray-50 border border-gray-200 rounded px-1 py-0.5 font-bold"
-                            />
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-black text-gray-900 text-sm">{emp.name}</h4>
+                            <span className="text-[10px] font-mono font-bold bg-white px-1.5 py-0.5 rounded border border-gray-200 text-gray-600">
+                              {emp.code}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-indigo-600 font-semibold">{getDepartmentLabel(emp.department)}</span>
+                            <span className="text-gray-300">•</span>
+                            <span className="text-[11px] text-gray-500 font-medium">
+                              {emp.salaryType === 'daily'
+                                ? `يومي: ${emp.salaryAmount} ${currencySymbol}`
+                                : emp.salaryType === 'weekly'
+                                ? `أسبوعي: ${emp.salaryAmount} ${currencySymbol}`
+                                : `شهري: ${emp.salaryAmount} ${currencySymbol}`}
+                            </span>
                           </div>
                         </div>
 
+                        {/* Top Actions: Save Icon & Batch Recompute */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleApplyPolicyToRecords(emp.id)}
+                            className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-lg border border-gray-200 transition"
+                            title="إعادة احتساب وتطبيق السياسة المحفوظة فوراً على سجلات الحضور السابقة والجديدة لهذا العامل"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyPolicyToAll(emp)}
+                            className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-lg border border-gray-200 transition"
+                            title="نسخ وتعميم هذه السياسة على كافة العمال الآخرين"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEmployeePolicy(emp.id)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition shadow-2xs ${
+                              draft.isDirty
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-300 ring-offset-1 animate-pulse'
+                                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                            }`}
+                            title="حفظ الإعدادات وتطبيقها تلقائياً على أي إدخال أو تعديل لحضور هذا العامل"
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                            <span>{draft.isDirty ? 'حفظ السياسة *' : 'حفظ'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Status indicator badge */}
+                      <div className="flex items-center justify-between text-[11px]">
+                        {draft.isDirty ? (
+                          <span className="inline-flex items-center gap-1 font-bold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-full border border-amber-200">
+                            <AlertCircle className="w-3 h-3 text-amber-600" />
+                            يوجد تعديلات غير محفوظة
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            <BookmarkCheck className="w-3 h-3 text-emerald-600" />
+                            السياسة محفوظة ومطبقة تلقائياً
+                          </span>
+                        )}
+                        <span className="text-gray-400 font-mono text-[10px]">
+                          الساعة: {baseHourlyRate} {currencySymbol} | الإضافي: {effectiveOvertimeRate} {currencySymbol}
+                        </span>
+                      </div>
+
+                      <div className="space-y-3.5 text-xs">
+                        {/* 1. Official Daily Hours & Schedule */}
                         <div>
-                          <label className="block text-gray-500 mb-0.5">المرحلة 2 (عودة ➔ انصراف):</label>
-                          <div className="flex items-center gap-1 font-mono">
+                          <label className="block text-gray-800 font-bold mb-1">
+                            ساعات العمل الرسمية اليومية المطلوبة:
+                          </label>
+                          <div className="flex items-center gap-2">
                             <input
-                              type="time"
-                              defaultValue={emp.defaultShift2StartTime || '12:00'}
-                              onChange={(e) => updateEmployee(emp.id, { defaultShift2StartTime: e.target.value })}
-                              className="w-full bg-gray-50 border border-gray-200 rounded px-1 py-0.5 font-bold"
+                              type="number"
+                              value={draft.officialDailyHours}
+                              onChange={(e) => handlePolicyDraftChange(emp.id, 'officialDailyHours', parseFloat(e.target.value) || 8)}
+                              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 font-mono font-bold text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500"
+                              min="1"
+                              max="24"
+                              step="0.5"
                             />
-                            <span>➔</span>
-                            <input
-                              type="time"
-                              defaultValue={emp.defaultShift2EndTime || '16:00'}
-                              onChange={(e) => updateEmployee(emp.id, { defaultShift2EndTime: e.target.value })}
-                              className="w-full bg-gray-50 border border-gray-200 rounded px-1 py-0.5 font-bold"
-                            />
+                            <span className="text-gray-500 font-bold shrink-0 text-xs">ساعات / يوم</span>
                           </div>
+                        </div>
+
+                        {/* 2. Official Shift Start & End Time */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-gray-700 font-semibold mb-1">الحضور الرسمي:</label>
+                            <div className="flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
+                              <input
+                                type="time"
+                                value={draft.officialStartTime}
+                                id={`start-time-${emp.id}`}
+                                onChange={(e) => handlePolicyDraftChange(emp.id, 'officialStartTime', e.target.value)}
+                                className="w-full bg-transparent border-0 px-2 py-1 font-mono text-xs font-bold focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nowTime = getCurrentTimeString();
+                                  handlePolicyDraftChange(emp.id, 'officialStartTime', nowTime);
+                                  showFeedback(`تم ضبط وقت الحضور الرسمي لـ "${emp.name}" إلى (${nowTime})`, 'info');
+                                }}
+                                className="px-1.5 py-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition border-r border-gray-200"
+                                title="تعيين الوقت الحالي الآن"
+                              >
+                                <Clock className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-gray-700 font-semibold mb-1">الانصراف الرسمي:</label>
+                            <div className="flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
+                              <input
+                                type="time"
+                                value={draft.officialEndTime}
+                                id={`end-time-${emp.id}`}
+                                onChange={(e) => handlePolicyDraftChange(emp.id, 'officialEndTime', e.target.value)}
+                                className="w-full bg-transparent border-0 px-2 py-1 font-mono text-xs font-bold focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nowTime = getCurrentTimeString();
+                                  handlePolicyDraftChange(emp.id, 'officialEndTime', nowTime);
+                                  showFeedback(`تم ضبط وقت الانصراف الرسمي لـ "${emp.name}" إلى (${nowTime})`, 'info');
+                                }}
+                                className="px-1.5 py-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition border-r border-gray-200"
+                                title="تعيين الوقت الحالي الآن"
+                              >
+                                <Clock className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Shift Span Indicator */}
+                        <div className="bg-indigo-50/50 border border-indigo-100 rounded-lg px-2.5 py-1 text-[11px] text-indigo-900 flex items-center justify-between font-mono">
+                          <span>⏱️ الدوام المعتمد: {draft.officialStartTime} ➔ {draft.officialEndTime}</span>
+                          <span className="font-bold">المطلوب: {draft.officialDailyHours} س</span>
+                        </div>
+
+                        {/* 3. Overtime Policy */}
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 space-y-2">
+                          <label className="block text-gray-800 font-bold">
+                            طريقة وسياسة احتساب ساعات الأوفرتايم (الإضافي):
+                          </label>
+                          <select
+                            value={draft.overtimeMethod === 'fixed_rate' ? 'fixed_rate' : String(draft.overtimeMultiplier || 1.5)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === 'fixed_rate') {
+                                handlePolicyDraftChange(emp.id, 'overtimeMethod', 'fixed_rate');
+                              } else {
+                                handlePolicyDraftChange(emp.id, 'overtimeMethod', 'multiplier');
+                                handlePolicyDraftChange(emp.id, 'overtimeMultiplier', parseFloat(val) || 1.5);
+                              }
+                            }}
+                            className="w-full bg-gray-50 border border-gray-300 rounded-lg px-2.5 py-1.5 font-bold text-xs text-gray-800 focus:ring-2 focus:ring-indigo-500"
+                          >
+                            <option value="1.5">ساعة ونصف (1.5x / 150%) - المعتمد والشائع</option>
+                            <option value="2.0">ساعتان (2.0x / 200%) - مضاعف كامل</option>
+                            <option value="1.0">ساعة بساعة (1.0x / 100%) - بدون زيادة</option>
+                            <option value="1.25">ساعة وربع (1.25x / 125%)</option>
+                            <option value="fixed_rate">أجر مقطوع محدد لكل ساعة أوفرتايم</option>
+                          </select>
+
+                          {/* Fixed rate input if selected */}
+                          {draft.overtimeMethod === 'fixed_rate' && (
+                            <div className="flex items-center gap-2 pt-1">
+                              <span className="text-[11px] text-gray-600 font-bold shrink-0">أجر الساعة الإضافية:</span>
+                              <input
+                                type="number"
+                                value={draft.customOvertimeRate || ''}
+                                placeholder="مثلاً: 25"
+                                onChange={(e) => handlePolicyDraftChange(emp.id, 'customOvertimeRate', parseFloat(e.target.value) || 0)}
+                                className="w-full bg-white border border-gray-300 rounded px-2 py-1 font-mono text-xs font-bold text-amber-700"
+                              />
+                              <span className="text-gray-500 font-bold">{currencySymbol} / س</span>
+                            </div>
+                          )}
+
+                          {/* Effective Overtime Result Banner */}
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-center justify-between text-[11px] text-amber-900 font-bold">
+                            <span className="flex items-center gap-1">
+                              <Zap className="w-3.5 h-3.5 text-amber-600" />
+                              أجر ساعة الأوفرتايم المعتمد:
+                            </span>
+                            <span className="font-mono text-xs text-amber-800">
+                              {effectiveOvertimeRate} {currencySymbol} / ساعة
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 4. Base Hourly Rate Configuration */}
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 space-y-2">
+                          <label className="block text-gray-800 font-bold">
+                            أجر الساعة العادية:
+                          </label>
+                          <div className="space-y-1.5">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`rate-calc-${emp.id}`}
+                                checked={draft.hourlyRateCalculation !== 'fixed_custom'}
+                                onChange={() => {
+                                  handlePolicyDraftChange(emp.id, 'hourlyRateCalculation', 'auto_from_salary');
+                                  handlePolicyDraftChange(emp.id, 'customHourlyRate', undefined);
+                                }}
+                                className="text-indigo-600 focus:ring-indigo-500"
+                              />
+                              <span className="text-gray-700 text-xs">
+                                تلقائي من الراتب / اليومية ({computeDefaultBaseHourlyRate(emp, draft.officialDailyHours)} {currencySymbol}/س)
+                              </span>
+                            </label>
+
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`rate-calc-${emp.id}`}
+                                checked={draft.hourlyRateCalculation === 'fixed_custom'}
+                                onChange={() => handlePolicyDraftChange(emp.id, 'hourlyRateCalculation', 'fixed_custom')}
+                                className="text-indigo-600 focus:ring-indigo-500"
+                              />
+                              <span className="text-gray-700 text-xs">تحديد أجر ساعة مخصص يدوياً:</span>
+                            </label>
+
+                            {draft.hourlyRateCalculation === 'fixed_custom' && (
+                              <div className="flex items-center gap-2 pt-1 mr-5">
+                                <input
+                                  type="number"
+                                  value={draft.customHourlyRate || ''}
+                                  placeholder={`افتراضي: ${computeDefaultBaseHourlyRate(emp, draft.officialDailyHours)}`}
+                                  onChange={(e) => handlePolicyDraftChange(emp.id, 'customHourlyRate', parseFloat(e.target.value) || 0)}
+                                  className="w-full bg-gray-50 border border-gray-300 rounded px-2 py-1 font-mono text-xs font-bold text-gray-900"
+                                />
+                                <span className="text-gray-500 font-bold">{currencySymbol}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 5. Midday Errand Policy (المشوار أثناء الدوام) */}
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 space-y-2">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={draft.defaultSplitShift}
+                              onChange={(e) => handlePolicyDraftChange(emp.id, 'defaultSplitShift', e.target.checked)}
+                              className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                            />
+                            <span className="font-bold text-gray-800 text-xs">
+                              تفعيل نظام المشوار أثناء الدوام افتراضياً (مرحلتين)
+                            </span>
+                          </label>
+
+                          {draft.defaultSplitShift && (
+                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100 text-[11px]">
+                              <div>
+                                <label className="block text-gray-500 mb-0.5">م1 (حضور ➔ خروج لمشوار):</label>
+                                <div className="flex items-center gap-1 font-mono">
+                                  <input
+                                    type="time"
+                                    value={draft.defaultShift1StartTime}
+                                    onChange={(e) => handlePolicyDraftChange(emp.id, 'defaultShift1StartTime', e.target.value)}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded px-1 py-0.5 font-bold"
+                                  />
+                                  <span>➔</span>
+                                  <input
+                                    type="time"
+                                    value={draft.defaultShift1EndTime}
+                                    onChange={(e) => handlePolicyDraftChange(emp.id, 'defaultShift1EndTime', e.target.value)}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded px-1 py-0.5 font-bold"
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-gray-500 mb-0.5">م2 (عودة ➔ انصراف نهائي):</label>
+                                <div className="flex items-center gap-1 font-mono">
+                                  <input
+                                    type="time"
+                                    value={draft.defaultShift2StartTime}
+                                    onChange={(e) => handlePolicyDraftChange(emp.id, 'defaultShift2StartTime', e.target.value)}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded px-1 py-0.5 font-bold"
+                                  />
+                                  <span>➔</span>
+                                  <input
+                                    type="time"
+                                    value={draft.defaultShift2EndTime}
+                                    onChange={(e) => handlePolicyDraftChange(emp.id, 'defaultShift2EndTime', e.target.value)}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded px-1 py-0.5 font-bold"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 6. Break & Late Deduction Policy */}
+                        <div className="grid grid-cols-2 gap-2 bg-white p-3 rounded-xl border border-gray-200">
+                          <div>
+                            <label className="block text-gray-600 font-semibold mb-1">استراحة إضافية:</label>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={draft.defaultBreakMinutes}
+                                onChange={(e) => handlePolicyDraftChange(emp.id, 'defaultBreakMinutes', parseInt(e.target.value, 10) || 0)}
+                                className="w-full bg-gray-50 border border-gray-300 rounded px-2 py-1 font-mono text-xs font-bold"
+                                min="0"
+                                step="15"
+                              />
+                              <span className="text-gray-400 text-[10px]">دقيقة</span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-gray-600 font-semibold mb-1">خصم التأخير:</label>
+                            <label className="flex items-center gap-1.5 cursor-pointer mt-1.5">
+                              <input
+                                type="checkbox"
+                                checked={draft.deductLateMinutes}
+                                onChange={(e) => handlePolicyDraftChange(emp.id, 'deductLateMinutes', e.target.checked)}
+                                className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
+                              />
+                              <span className="text-[11px] text-gray-700 font-semibold">خصم تلقائي</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Card Bottom Save Button */}
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEmployeePolicy(emp.id)}
+                            className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl font-bold text-xs transition shadow-xs ${
+                              draft.isDirty
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-300 ring-offset-1'
+                                : 'bg-gray-100 hover:bg-indigo-600 hover:text-white text-gray-700 border border-gray-200'
+                            }`}
+                          >
+                            <Save className="w-4 h-4" />
+                            <span>
+                              {draft.isDirty ? '💾 حفظ وتثبيت السياسة وتطبيقها فوراً' : '✓ السياسة محفوظة ومطبقة تلقائياً'}
+                            </span>
+                          </button>
                         </div>
                       </div>
                     </div>
-
-                    {/* Default Break Minutes */}
-                    <div>
-                      <label className="block text-gray-600 font-semibold mb-1">مدة الاستراحة الإضافية (بالدقائق):</label>
-                      <input
-                        type="number"
-                        defaultValue={emp.defaultBreakMinutes !== undefined ? emp.defaultBreakMinutes : 0}
-                        onChange={(e) => updateEmployee(emp.id, { defaultBreakMinutes: parseInt(e.target.value, 10) || 0 })}
-                        className="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 font-mono font-bold text-xs"
-                        min="0"
-                        step="15"
-                      />
-                    </div>
-
-                    {/* Overtime Policy */}
-                    <div>
-                      <label className="block text-gray-700 font-bold mb-1">طريقة احتساب الساعة الإضافية (الأوفرتايم):</label>
-                      <select
-                        defaultValue={emp.overtimeMultiplier || 1.5}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value);
-                          if (val === -1) {
-                            updateEmployee(emp.id, { overtimeMethod: 'fixed_rate' });
-                          } else {
-                            updateEmployee(emp.id, { overtimeMethod: 'multiplier', overtimeMultiplier: val });
-                          }
-                        }}
-                        className="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 font-semibold text-xs text-gray-800"
-                      >
-                        <option value="1.5">ساعة ونصف من أجر الساعة (1.5x / 150%)</option>
-                        <option value="2.0">ساعتين من أجر الساعة (2.0x / 200%)</option>
-                        <option value="1.0">ساعة بساعة (1.0x / 100%)</option>
-                        <option value="1.25">ساعة وربع (1.25x / 125%)</option>
-                        <option value="-1">مبلغ مالي ثابت ومحدد لكل ساعة إضافية</option>
-                      </select>
-                    </div>
-
-                    {/* Custom Hourly Rate Override */}
-                    <div>
-                      <label className="block text-gray-600 font-semibold mb-1">
-                        أجر الساعة المخصص (اختياري - يترك فارغاً للحساب من الراتب/اليومية):
-                      </label>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="number"
-                          placeholder={`تلقائي: ${computeDefaultBaseHourlyRate(emp)}`}
-                          defaultValue={emp.customHourlyRate || ''}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            updateEmployee(emp.id, { customHourlyRate: isNaN(val) ? undefined : val });
-                          }}
-                          className="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 font-mono text-xs font-bold"
-                        />
-                        <span className="text-gray-500 font-bold">{currencySymbol}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
             </div>
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* EDIT ATTENDANCE RECORD MODAL (عند تعديل أي يوم حضور للعامل) */}
+      {/* ========================================================================= */}
+      {editingRecord && editModalDraft && (() => {
+        const editEmp = employees.find(e => e.id === editingRecord.employeeId);
+        const liveMetrics = editEmp ? calculateRowLiveMetrics(editEmp, {
+          status: editModalDraft.status || 'present',
+          checkInTime: editModalDraft.checkInTime || '08:00',
+          checkOutTime: editModalDraft.checkOutTime || '16:30',
+          breakMinutes: editModalDraft.breakMinutes || 0,
+          officialDailyHours: editEmp.officialDailyHours || 8,
+          baseHourlyRate: editEmp.customHourlyRate || computeDefaultBaseHourlyRate(editEmp),
+          overtimeMethod: editEmp.overtimeMethod || 'multiplier',
+          overtimeMultiplier: editEmp.overtimeMultiplier || 1.5,
+          overtimeRatePerHour: editEmp.overtimeMethod === 'fixed_rate' && editEmp.customOvertimeRate
+            ? editEmp.customOvertimeRate
+            : Number((computeDefaultBaseHourlyRate(editEmp) * (editEmp.overtimeMultiplier || 1.5)).toFixed(2)),
+          hasSecondShift: editModalDraft.hasSecondShift,
+          shift1CheckInTime: editModalDraft.shift1CheckInTime,
+          shift1CheckOutTime: editModalDraft.shift1CheckOutTime,
+          shift2CheckInTime: editModalDraft.shift2CheckInTime,
+          shift2CheckOutTime: editModalDraft.shift2CheckOutTime
+        }) : null;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-lg w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+              {/* Modal Header */}
+              <div className="flex items-start justify-between border-b border-gray-200 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-50 rounded-xl border border-indigo-200">
+                    <Pencil className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-gray-900">
+                      تعديل سجل حضور يوم ({editingRecord.date})
+                    </h3>
+                    <p className="text-xs text-indigo-700 font-bold mt-0.5">
+                      العامل: {editingRecord.employeeName} ({editingRecord.employeeCode})
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingRecord(null);
+                    setEditModalDraft(null);
+                  }}
+                  className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Saved Policy Callout Banner */}
+              {editEmp && (
+                <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-3 text-xs text-indigo-950 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold flex items-center gap-1.5">
+                      <BookmarkCheck className="w-4 h-4 text-indigo-600" />
+                      السياسة المعتمدة المحفوظة للعامل:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditModalDraft(prev => ({
+                          ...prev,
+                          checkInTime: editEmp.officialStartTime || '08:00',
+                          checkOutTime: editEmp.officialEndTime || '16:30',
+                          hasSecondShift: false,
+                          shift1CheckInTime: editEmp.officialStartTime || '08:00',
+                          shift1CheckOutTime: '10:00',
+                          shift2CheckInTime: '12:00',
+                          shift2CheckOutTime: editEmp.officialEndTime || '16:30'
+                        }));
+                        showFeedback('تم استعادة المواعيد المعتمدة وفق سياسة العامل (08:00 - 16:30)', 'info');
+                      }}
+                      className="text-[11px] font-bold text-indigo-700 hover:underline flex items-center gap-1"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      استعادة مواعيد السياسة (08:00 - 16:30)
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-gray-600 font-mono">
+                    الدوام الرسمي: {editEmp.officialStartTime || '08:00'} إلى {editEmp.officialEndTime || '16:30'} ({editEmp.officialDailyHours || 8} س) | أوفرتايم: {editEmp.overtimeMethod === 'fixed_rate' ? `${editEmp.customOvertimeRate} ₪/س` : `${editEmp.overtimeMultiplier || 1.5}x`}
+                  </p>
+                </div>
+              )}
+
+              {/* Status Radio Choices */}
+              <div>
+                <label className="block text-xs font-bold text-gray-800 mb-1.5">حالة الحضور لهذا اليوم:</label>
+                <div className="grid grid-cols-4 gap-2 text-xs">
+                  {[
+                    { id: 'present', label: 'حاضر', color: 'emerald' },
+                    { id: 'late', label: 'متأخر', color: 'amber' },
+                    { id: 'excused_leave', label: 'إجازة', color: 'blue' },
+                    { id: 'absent', label: 'غائب', color: 'red' }
+                  ].map(st => (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => setEditModalDraft(prev => ({ ...prev, status: st.id as AttendanceStatus }))}
+                      className={`py-1.5 rounded-lg font-bold border transition text-center ${
+                        editModalDraft.status === st.id
+                          ? `bg-${st.color}-600 text-white border-${st.color}-600 ring-2 ring-${st.color}-300`
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Errand Toggle */}
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs">
+                <span className="font-bold text-gray-800 flex items-center gap-1.5">
+                  <Footprints className="w-4 h-4 text-purple-600" />
+                  مشوار وخروج أثناء الدوام (فترتين):
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEditModalDraft(prev => ({ ...prev, hasSecondShift: !prev?.hasSecondShift }))}
+                  className={`px-3 py-1 rounded-lg font-bold text-xs transition ${
+                    editModalDraft.hasSecondShift
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  {editModalDraft.hasSecondShift ? 'مفعل (خروج وعودة)' : 'مغلق (دوام مستمر)'}
+                </button>
+              </div>
+
+              {/* Time Inputs */}
+              {!editModalDraft.hasSecondShift ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">وقت الحضور:</label>
+                    <input
+                      type="time"
+                      value={editModalDraft.checkInTime || '08:00'}
+                      onChange={(e) => setEditModalDraft(prev => ({ ...prev, checkInTime: e.target.value }))}
+                      className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 font-mono text-xs font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">وقت الانصراف:</label>
+                    <input
+                      type="time"
+                      value={editModalDraft.checkOutTime || '16:30'}
+                      onChange={(e) => setEditModalDraft(prev => ({ ...prev, checkOutTime: e.target.value }))}
+                      className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 font-mono text-xs font-bold"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2 text-xs">
+                  <div className="grid grid-cols-2 gap-2 bg-purple-50/50 p-2.5 rounded-xl border border-purple-200">
+                    <div>
+                      <label className="block text-[11px] font-bold text-purple-900 mb-0.5">م1 حضور ➔ خروج لمشوار:</label>
+                      <div className="flex items-center gap-1 font-mono">
+                        <input
+                          type="time"
+                          value={editModalDraft.shift1CheckInTime || editModalDraft.checkInTime || '08:00'}
+                          onChange={(e) => setEditModalDraft(prev => ({ ...prev, shift1CheckInTime: e.target.value }))}
+                          className="w-full bg-white border border-gray-300 rounded px-1.5 py-1 text-xs font-bold"
+                        />
+                        <span>➔</span>
+                        <input
+                          type="time"
+                          value={editModalDraft.shift1CheckOutTime || '10:00'}
+                          onChange={(e) => setEditModalDraft(prev => ({ ...prev, shift1CheckOutTime: e.target.value }))}
+                          className="w-full bg-white border border-gray-300 rounded px-1.5 py-1 text-xs font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-emerald-900 mb-0.5">م2 عودة ➔ انصراف نهائي:</label>
+                      <div className="flex items-center gap-1 font-mono">
+                        <input
+                          type="time"
+                          value={editModalDraft.shift2CheckInTime || '12:00'}
+                          onChange={(e) => setEditModalDraft(prev => ({ ...prev, shift2CheckInTime: e.target.value }))}
+                          className="w-full bg-white border border-gray-300 rounded px-1.5 py-1 text-xs font-bold"
+                        />
+                        <span>➔</span>
+                        <input
+                          type="time"
+                          value={editModalDraft.shift2CheckOutTime || editModalDraft.checkOutTime || '16:30'}
+                          onChange={(e) => setEditModalDraft(prev => ({ ...prev, shift2CheckOutTime: e.target.value }))}
+                          className="w-full bg-white border border-gray-300 rounded px-1.5 py-1 text-xs font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Live Preview based on Employee Saved Policy */}
+              {liveMetrics && (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between text-gray-700 font-bold">
+                    <span>حساب الساعات والمستحقات بالسياسة المحفوظة:</span>
+                    <span className="font-mono text-indigo-700 font-black">
+                      {liveMetrics.totalPay.toLocaleString()} {currencySymbol}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-[11px] font-mono text-center pt-1 border-t border-gray-200">
+                    <div className="bg-white p-1 rounded border border-gray-200">
+                      <span className="block text-gray-500 text-[10px]">العمل الفعلي</span>
+                      <span className="font-bold text-gray-900">{liveMetrics.workedHours} س</span>
+                    </div>
+                    <div className="bg-white p-1 rounded border border-gray-200">
+                      <span className="block text-gray-500 text-[10px]">الأوفرتايم</span>
+                      <span className="font-black text-amber-700">+{liveMetrics.overtimeHours} س</span>
+                    </div>
+                    <div className="bg-white p-1 rounded border border-gray-200">
+                      <span className="block text-gray-500 text-[10px]">أجر الإضافي</span>
+                      <span className="font-black text-emerald-700">{liveMetrics.overtimePay} {currencySymbol}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingRecord(null);
+                    setEditModalDraft(null);
+                  }}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEditedRecord}
+                  className="flex items-center gap-1.5 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>حفظ التعديل وتطبيق السياسة المحفوظة</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

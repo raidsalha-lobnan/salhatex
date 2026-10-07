@@ -784,20 +784,22 @@ export interface Employee {
   // إعدادات ساعات العمل والدوام والأوفرتايم
   officialDailyHours?: number;    // ساعات العمل الرسمية باليوم (افتراضياً 8 ساعات)
   officialStartTime?: string;     // موعد الحضور الرسمي (مثلاً "08:00")
-  officialEndTime?: string;       // موعد الانصراف الرسمي (مثلاً "16:00")
-  defaultBreakMinutes?: number;   // وقت الاستراحة الافتراضي بالدقائق (مثلاً 60 دقيقة)
+  officialEndTime?: string;       // موعد الانصراف الرسمي (مثلاً "16:30")
+  defaultBreakMinutes?: number;   // وقت الاستراحة الافتراضي بالدقائق (مثلاً 0 دقيقة)
   hourlyRateCalculation?: 'auto_from_salary' | 'fixed_custom'; // طريقة حساب أجر الساعة العادية
   customHourlyRate?: number;      // أجر الساعة المخصص (إذا تم اختياره يدوياً)
   overtimeMethod?: 'multiplier' | 'fixed_rate'; // طريقة حساب الأوفرتايم: مضاعف من الساعة أو مبلغ ثابت
   overtimeMultiplier?: number;    // مضاعف الأوفرتايم: 1.0 (ساعة بساعة), 1.25, 1.5 (ساعة ونصف), 2.0 (ساعتين)
   customOvertimeRate?: number;    // أجر الساعة الإضافية المقطوع (مثلاً 25 شيكل لكل ساعة أوفرتايم)
-  
+  deductLateMinutes?: boolean;    // خصم دقائق التأخير تلقائياً من الأجر اليومي
+  overtimeGraceMinutes?: number;  // فترة سماح بالدقائق قبل بدء احتساب الأوفرتايم
+
   // إعدادات الدوام على مرحلتين / فترتين (الدوام المقسم أو خروج لمشوار والعودة)
   defaultSplitShift?: boolean;       // تفعيل نظام الفترتين افتراضياً للعامل
   defaultShift1StartTime?: string;   // حضور المرحلة الأولى (مثلاً 08:00)
   defaultShift1EndTime?: string;     // خروج المرحلة الأولى لمشوار (مثلاً 10:00)
   defaultShift2StartTime?: string;   // رجوع وحضور المرحلة الثانية (مثلاً 12:00)
-  defaultShift2EndTime?: string;     // انصراف نهاية الدوام بالمرحلة الثانية (مثلاً 16:00)
+  defaultShift2EndTime?: string;     // انصراف نهاية الدوام بالمرحلة الثانية (مثلاً 16:30)
 }
 
 // أنواع وحالات الحضور والغياب

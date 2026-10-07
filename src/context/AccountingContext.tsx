@@ -235,6 +235,8 @@ interface AccountingContextType {
   saveDailyAttendanceBatch: (date: string, records: Array<Partial<AttendanceRecord> & { employeeId: string }>) => void;
   getAttendanceForDate: (date: string) => AttendanceRecord[];
   transferOvertimeToIncentives: (dateOrMonth: string, recordsToTransfer?: AttendanceRecord[]) => { count: number; totalAmount: number };
+  recalculateEmployeeAttendanceRecords: (employeeId: string) => { count: number; updated: number };
+  recalculateAllAttendanceRecords: () => { count: number; updated: number };
 
   payrollSheets: PayrollSheet[];
   createDraftPayrollSheet: (
@@ -3838,7 +3840,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const s1Out = params.shift1CheckOutTime || employee.defaultShift1EndTime || '10:00';
       // المرحلة الثانية: من العودة حتى الانصراف النهائي
       const s2In = params.shift2CheckInTime || employee.defaultShift2StartTime || '12:00';
-      const s2Out = params.shift2CheckOutTime || params.checkOutTime || employee.defaultShift2EndTime || employee.officialEndTime || '16:00';
+      const s2Out = params.shift2CheckOutTime || params.checkOutTime || employee.defaultShift2EndTime || employee.officialEndTime || '16:30';
 
       const s1InMin = parseMinutes(s1In);
       const s1OutMin = parseMinutes(s1Out);
@@ -3861,7 +3863,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } else {
       // الدوام المستمر المعتاد
       const checkIn = params.checkInTime || employee.officialStartTime || '08:00';
-      const checkOut = params.checkOutTime || employee.officialEndTime || '16:00';
+      const checkOut = params.checkOutTime || employee.officialEndTime || '16:30';
       const inMinutes = parseMinutes(checkIn);
       const outMinutes = parseMinutes(checkOut);
       firstInMinutes = inMinutes;
@@ -3881,8 +3883,10 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const regularPayEarned = Number((regularHours * baseHourlyRate).toFixed(2));
     const overtimePayEarned = Number((overtimeHours * overtimeRatePerHour).toFixed(2));
-    const lateDeductionAmount = 0; // بدون خصم تعسفي إلا بطلب الإدارة
-    const totalDailyEarnings = Number((regularPayEarned + overtimePayEarned - lateDeductionAmount).toFixed(2));
+    const lateDeductionAmount = (employee.deductLateMinutes && lateMinutes > 0)
+      ? Number(((lateMinutes / 60) * baseHourlyRate).toFixed(2))
+      : 0;
+    const totalDailyEarnings = Math.max(0, Number((regularPayEarned + overtimePayEarned - lateDeductionAmount).toFixed(2)));
 
     return {
       breakMinutes,
@@ -3930,8 +3934,37 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setAttendanceRecords(prev =>
       prev.map(r => {
         if (r.id === id) {
-          const updated = { ...r, ...updates, updatedAt: new Date().toISOString() };
-          return updated;
+          const emp = employees.find(e => e.id === r.employeeId);
+          const merged = { ...r, ...updates };
+
+          // Automatically recalculate metrics applying the worker's saved policies and overtime settings
+          if (emp) {
+            const metrics = calculateAttendanceMetrics({
+              employee: emp,
+              status: merged.status,
+              checkInTime: merged.checkInTime,
+              checkOutTime: merged.checkOutTime,
+              breakMinutes: merged.breakMinutes,
+              hasSecondShift: merged.hasSecondShift,
+              shift1CheckInTime: merged.shift1CheckInTime,
+              shift1CheckOutTime: merged.shift1CheckOutTime,
+              shift2CheckInTime: merged.shift2CheckInTime,
+              shift2CheckOutTime: merged.shift2CheckOutTime,
+              officialDailyHoursOverride: updates.officialDailyHours ?? emp.officialDailyHours,
+              baseHourlyRateOverride: updates.baseHourlyRate ?? emp.customHourlyRate,
+              overtimeMethodOverride: updates.overtimeMethod ?? emp.overtimeMethod,
+              overtimeMultiplierOverride: updates.overtimeMultiplier ?? emp.overtimeMultiplier,
+              customOvertimeRateOverride: updates.overtimeRatePerHour ?? emp.customOvertimeRate
+            });
+
+            return {
+              ...merged,
+              ...metrics,
+              updatedAt: new Date().toISOString()
+            };
+          }
+
+          return { ...merged, updatedAt: new Date().toISOString() };
         }
         return r;
       })
@@ -3985,8 +4018,8 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             ? (item.shift1CheckInTime || item.checkInTime || emp.officialStartTime || '08:00')
             : (item.checkInTime || emp.officialStartTime || '08:00'),
           checkOutTime: item.hasSecondShift
-            ? (item.shift2CheckOutTime || item.checkOutTime || emp.officialEndTime || '16:00')
-            : (item.checkOutTime || emp.officialEndTime || '16:00'),
+            ? (item.shift2CheckOutTime || item.checkOutTime || emp.officialEndTime || '16:30')
+            : (item.checkOutTime || emp.officialEndTime || '16:30'),
           breakMinutes: metrics.breakMinutes,
           hasSecondShift: item.hasSecondShift,
           shift1CheckInTime: item.shift1CheckInTime,
@@ -4052,6 +4085,71 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
 
     return { count, totalAmount: Number(totalAmount.toFixed(2)) };
+  };
+
+  const recalculateEmployeeAttendanceRecords = (employeeId: string): { count: number; updated: number } => {
+    const emp = employees.find(e => e.id === employeeId);
+    if (!emp) return { count: 0, updated: 0 };
+
+    let updatedCount = 0;
+    setAttendanceRecords(prev =>
+      prev.map(r => {
+        if (r.employeeId === employeeId) {
+          const metrics = calculateAttendanceMetrics({
+            employee: emp,
+            status: r.status,
+            checkInTime: r.checkInTime,
+            checkOutTime: r.checkOutTime,
+            breakMinutes: r.breakMinutes,
+            hasSecondShift: r.hasSecondShift,
+            shift1CheckInTime: r.shift1CheckInTime,
+            shift1CheckOutTime: r.shift1CheckOutTime,
+            shift2CheckInTime: r.shift2CheckInTime,
+            shift2CheckOutTime: r.shift2CheckOutTime
+          });
+          updatedCount++;
+          return {
+            ...r,
+            ...metrics,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return r;
+      })
+    );
+
+    return { count: attendanceRecords.filter(r => r.employeeId === employeeId).length, updated: updatedCount };
+  };
+
+  const recalculateAllAttendanceRecords = (): { count: number; updated: number } => {
+    let updatedCount = 0;
+    setAttendanceRecords(prev =>
+      prev.map(r => {
+        const emp = employees.find(e => e.id === r.employeeId);
+        if (!emp) return r;
+
+        const metrics = calculateAttendanceMetrics({
+          employee: emp,
+          status: r.status,
+          checkInTime: r.checkInTime,
+          checkOutTime: r.checkOutTime,
+          breakMinutes: r.breakMinutes,
+          hasSecondShift: r.hasSecondShift,
+          shift1CheckInTime: r.shift1CheckInTime,
+          shift1CheckOutTime: r.shift1CheckOutTime,
+          shift2CheckInTime: r.shift2CheckInTime,
+          shift2CheckOutTime: r.shift2CheckOutTime
+        });
+        updatedCount++;
+        return {
+          ...r,
+          ...metrics,
+          updatedAt: new Date().toISOString()
+        };
+      })
+    );
+
+    return { count: attendanceRecords.length, updated: updatedCount };
   };
 
   const createDraftPayrollSheet = (
@@ -7041,6 +7139,8 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         saveDailyAttendanceBatch,
         getAttendanceForDate,
         transferOvertimeToIncentives,
+        recalculateEmployeeAttendanceRecords,
+        recalculateAllAttendanceRecords,
         payrollSheets,
         createDraftPayrollSheet,
         updateDraftPayrollSheet,
