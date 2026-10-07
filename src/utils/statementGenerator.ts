@@ -11,7 +11,8 @@ import {
   Employee,
   EmployeeAdvance,
   EmployeeDeduction,
-  EmployeeIncentive
+  EmployeeIncentive,
+  AttendanceRecord
 } from '../types';
 import { isInvoiceAccountingEligible } from './invoiceStatusUtils';
 
@@ -669,14 +670,43 @@ export interface EmployeeStatementRow {
   type: 'opening' | 'salary_accrual' | 'advance' | 'deduction' | 'incentive' | 'payment_disbursement';
   typeLabel: string;
   description: string;
-  entitlement: number;   // دائن للموظف: راتب مستحق، حافز، مكافأة، بدل
+  entitlement: number;   // دائن للموظف: راتب مستحق، حافز، مكافأة، بدل، أجر ساعات إضافية
   advance: number;       // مدين على الموظف: سلفة نقدية مسحوبة
-  deduction: number;     // مدين على الموظف: خصم أو جزاء
+  deduction: number;     // مدين على الموظف: خصم أو جزاء أو خصم تأخير
   disbursement: number;  // مدين على الموظف: صرف فعلي مسدد له نقدياً أو بنكياً
   runningBalance: number;// الرصيد التراكمي المتبقي للموظف (موجب = مستحق له، سالب = سلف عليه)
   paymentMethod?: string;
   period?: string;
   notes?: string;
+  presentDays?: number;
+  workedHours?: number;
+  overtimeHours?: number;
+  absentDays?: number;
+}
+
+export interface EmployeeStatementAttendanceSummary {
+  presentDays: number;
+  absentDays: number;
+  unpaidLeaveDays: number;
+  excusedLeaveDays: number;
+  totalWorkedHours: number;
+  officialHoursExpected: number;
+  overtimeHours: number;
+  overtimePay: number;
+  lateMinutes: number;
+  lateDeductionAmount: number;
+  dailyRate: number;
+  hourlyRate: number;
+  salaryType: 'monthly' | 'daily' | 'weekly' | 'hourly' | 'piece_rate';
+  expectedBasicSalary: number;
+  allowances: number;
+  incentives: number;
+  grossExpectedEarnings: number;
+  advancesTotal: number;
+  deductionsTotal: number;
+  totalDeductionsCombined: number;
+  netExpectedPayable: number;
+  calculationExplanation: string;
 }
 
 export interface EmployeeStatementResult {
@@ -685,12 +715,13 @@ export interface EmployeeStatementResult {
   toDate?: string;
   openingBalance: number;
   rows: EmployeeStatementRow[];
-  totalEntitlements: number;   // إجمالي المستحقات (رواتب ومكافآت)
+  totalEntitlements: number;   // إجمالي المستحقات (رواتب ومكافآت وإضافي)
   totalAdvances: number;       // إجمالي السلف
-  totalDeductions: number;     // إجمالي الخصومات
+  totalDeductions: number;     // إجمالي الخصومات والجزاءات
   totalDisbursements: number;  // إجمالي الصرف الفعلي
   closingBalance: number;      // صافي الرصيد الختامي المتبقي للموظف
   statementDate: string;
+  attendanceSummary: EmployeeStatementAttendanceSummary;
 }
 
 export function generateEmployeeStatement(params: {
@@ -701,6 +732,7 @@ export function generateEmployeeStatement(params: {
   advances?: EmployeeAdvance[];
   deductions?: EmployeeDeduction[];
   incentives?: EmployeeIncentive[];
+  attendanceRecords?: AttendanceRecord[];
 }): EmployeeStatementResult {
   const {
     employee,
@@ -709,9 +741,128 @@ export function generateEmployeeStatement(params: {
     vouchers = [],
     advances = [],
     deductions = [],
-    incentives = []
+    incentives = [],
+    attendanceRecords = []
   } = params;
 
+  // 1. تصفية سجلات الدوام الخاصة بالموظف للفترة المحددة
+  const empAttendance = attendanceRecords.filter(r =>
+    r.employeeId === employee.id &&
+    (!fromDate || r.date >= fromDate) &&
+    (!toDate || r.date <= toDate)
+  );
+
+  const presentDays = empAttendance.filter(r => r.status === 'present' || r.status === 'late' || r.status === 'half_day').length;
+  const absentDays = empAttendance.filter(r => r.status === 'absent' || r.status === 'unpaid_leave').length;
+  const unpaidLeaveDays = empAttendance.filter(r => r.status === 'unpaid_leave').length;
+  const excusedLeaveDays = empAttendance.filter(r => r.status === 'excused_leave').length;
+  const totalWorkedHours = Number(empAttendance.reduce((sum, r) => sum + (r.actualWorkedHours || 0), 0).toFixed(1));
+  const overtimeHours = Number(empAttendance.reduce((sum, r) => sum + (r.overtimeHours || 0), 0).toFixed(1));
+  const overtimePay = Number(empAttendance.reduce((sum, r) => sum + (r.overtimePayEarned || 0), 0).toFixed(2));
+  const lateDeductions = Number(empAttendance.reduce((sum, r) => sum + (r.lateDeductionAmount || 0), 0).toFixed(2));
+  const lateMinutes = empAttendance.reduce((sum, r) => sum + (r.lateMinutes || 0), 0);
+  const officialDailyHours = employee.officialDailyHours || 8;
+  const officialHoursExpected = (presentDays + absentDays) * officialDailyHours;
+
+  const baseSalaryAmount = Number(employee.salaryAmount || 0);
+  let dailyRate = 0;
+  let hourlyRate = 0;
+
+  if (employee.salaryType === 'daily') {
+    dailyRate = baseSalaryAmount;
+    hourlyRate = dailyRate / officialDailyHours;
+  } else if (employee.salaryType === 'weekly') {
+    dailyRate = baseSalaryAmount / 6;
+    hourlyRate = dailyRate / officialDailyHours;
+  } else {
+    // monthly
+    dailyRate = baseSalaryAmount / 30;
+    hourlyRate = dailyRate / officialDailyHours;
+  }
+
+  // احتساب الراتب الأساسي المفترض للفترة بناءً على الحضور والغياب وساعات العمل
+  let expectedBasicSalary = 0;
+  let calculationExplanation = '';
+
+  if (employee.salaryType === 'daily') {
+    if (empAttendance.length > 0) {
+      const regularPaySum = Number(empAttendance.reduce((sum, r) => sum + (r.regularPayEarned || 0), 0).toFixed(2));
+      expectedBasicSalary = regularPaySum > 0 ? regularPaySum : Number((dailyRate * presentDays).toFixed(2));
+      calculationExplanation = `أجر يومي: ${dailyRate.toFixed(2)} ₪ × ${presentDays} يوم عمل (${totalWorkedHours} ساعة عمل فعلية صافية)`;
+    } else {
+      expectedBasicSalary = Number((dailyRate * 26).toFixed(2));
+      calculationExplanation = `أجر يومي تقديري: ${dailyRate.toFixed(2)} ₪ × 26 يوم عمل افتراضي`;
+    }
+  } else if (employee.salaryType === 'weekly') {
+    const rawWeekly = baseSalaryAmount * 4;
+    const absDed = Number((dailyRate * absentDays).toFixed(2));
+    expectedBasicSalary = Math.max(0, Number((rawWeekly - absDed).toFixed(2)));
+    calculationExplanation = `أجر أسبوعي: (${baseSalaryAmount.toFixed(2)} ₪ × 4 أسابيع) - خصم غياب ${absentDays} أيام (${absDed.toFixed(2)} ₪)`;
+  } else {
+    // monthly
+    const absDed = Number((dailyRate * absentDays).toFixed(2));
+    expectedBasicSalary = Math.max(0, Number((baseSalaryAmount - absDed).toFixed(2)));
+    calculationExplanation = absentDays > 0
+      ? `راتب شهري: ${baseSalaryAmount.toFixed(2)} ₪ - خصم غياب ${absentDays} يوم (${absDed.toFixed(2)} ₪)`
+      : `راتب شهري كامل: ${baseSalaryAmount.toFixed(2)} ₪ (${presentDays > 0 ? `${presentDays} يوم دوام مسجل` : 'دون غياب مسجل'})`;
+  }
+
+  const allowances = Number(employee.allowances || 0);
+
+  // جمع الحوافز والسلف والخصومات للفترة المحددة
+  const filteredIncentives = incentives.filter(i =>
+    i.employeeId === employee.id &&
+    (!fromDate || i.date >= fromDate) &&
+    (!toDate || i.date <= toDate)
+  );
+  const totalIncentivesPeriod = Number(filteredIncentives.reduce((sum, i) => sum + i.amount, 0).toFixed(2));
+
+  const filteredAdvances = advances.filter(a =>
+    a.employeeId === employee.id &&
+    a.status !== 'cancelled' &&
+    (!fromDate || a.date >= fromDate) &&
+    (!toDate || a.date <= toDate)
+  );
+  const totalAdvancesPeriod = Number(filteredAdvances.reduce((sum, a) => sum + a.amount, 0).toFixed(2));
+
+  const filteredDeductions = deductions.filter(d =>
+    d.employeeId === employee.id &&
+    d.status !== 'cancelled' &&
+    (!fromDate || d.date >= fromDate) &&
+    (!toDate || d.date <= toDate)
+  );
+  const totalDeductionsPeriod = Number(filteredDeductions.reduce((sum, d) => sum + d.amount, 0).toFixed(2));
+
+  const grossExpectedEarnings = Number((expectedBasicSalary + overtimePay + allowances + totalIncentivesPeriod).toFixed(2));
+  const totalDeductionsCombined = Number((totalAdvancesPeriod + totalDeductionsPeriod + lateDeductions).toFixed(2));
+  const netExpectedPayable = Math.max(0, Number((grossExpectedEarnings - totalDeductionsCombined).toFixed(2)));
+
+  const attendanceSummary: EmployeeStatementAttendanceSummary = {
+    presentDays,
+    absentDays,
+    unpaidLeaveDays,
+    excusedLeaveDays,
+    totalWorkedHours,
+    officialHoursExpected,
+    overtimeHours,
+    overtimePay,
+    lateMinutes,
+    lateDeductionAmount: lateDeductions,
+    dailyRate: Number(dailyRate.toFixed(2)),
+    hourlyRate: Number(hourlyRate.toFixed(2)),
+    salaryType: employee.salaryType,
+    expectedBasicSalary,
+    allowances,
+    incentives: totalIncentivesPeriod,
+    grossExpectedEarnings,
+    advancesTotal: totalAdvancesPeriod,
+    deductionsTotal: totalDeductionsPeriod,
+    totalDeductionsCombined,
+    netExpectedPayable,
+    calculationExplanation
+  };
+
+  // 2. إعداد الحركات المالية التاريخية للموظف
   interface RawEmpTx {
     id: string;
     date: string;
@@ -726,6 +877,10 @@ export function generateEmployeeStatement(params: {
     paymentMethod?: string;
     period?: string;
     notes?: string;
+    presentDays?: number;
+    workedHours?: number;
+    overtimeHours?: number;
+    absentDays?: number;
   }
 
   const allTx: RawEmpTx[] = [];
@@ -733,13 +888,12 @@ export function generateEmployeeStatement(params: {
   // 1. Payment history from Employee record
   (employee.paymentHistory || []).forEach(record => {
     if (record.type === 'advance') {
-      // Advance paid to employee
       allTx.push({
         id: record.id,
         date: record.date,
         refNum: record.voucherNumber || `ADV-${record.id.slice(0, 6)}`,
         type: 'advance',
-        typeLabel: 'سلفة',
+        typeLabel: 'سلفة نقدية',
         description: record.notes || `سلفة نقدية مستلمة (${record.paymentMethod === 'cash' ? 'نقداً' : 'تحويل'})`,
         entitlement: 0,
         advance: record.amount,
@@ -750,7 +904,6 @@ export function generateEmployeeStatement(params: {
         notes: record.notes
       });
     } else {
-      // Salary payment / disbursement
       allTx.push({
         id: record.id,
         date: record.date,
@@ -779,7 +932,7 @@ export function generateEmployeeStatement(params: {
           date: adv.date,
           refNum: adv.voucherNumber || `ADV-${adv.id.slice(0, 6)}`,
           type: 'advance',
-          typeLabel: 'سلفة',
+          typeLabel: 'سلفة نقدية',
           description: adv.reason || 'طلب سلفة نقدية معتمدة',
           entitlement: 0,
           advance: adv.amount,
@@ -799,8 +952,8 @@ export function generateEmployeeStatement(params: {
         date: ded.date,
         refNum: `DED-${ded.id.slice(0, 6)}`,
         type: 'deduction',
-        typeLabel: 'خصم',
-        description: ded.reason || 'خصم إداري',
+        typeLabel: 'خصم / جزاء',
+        description: ded.reason || 'خصم إداري معتمد',
         entitlement: 0,
         advance: 0,
         deduction: ded.amount,
@@ -818,7 +971,7 @@ export function generateEmployeeStatement(params: {
         date: inc.date,
         refNum: `INC-${inc.id.slice(0, 6)}`,
         type: 'incentive',
-        typeLabel: 'مكافأة',
+        typeLabel: 'مكافأة / حافز',
         description: inc.reason || 'مكافأة تميز وحافز أداء',
         entitlement: inc.amount,
         advance: 0,
@@ -853,7 +1006,7 @@ export function generateEmployeeStatement(params: {
     }
   });
 
-  // 6. Base Monthly Salary Entitlements (Generate monthly accrual if active)
+  // 6. Base Monthly Salary Entitlements with Attendance Breakdown
   const hireYear = Math.max(2023, parseInt((employee.hireDate || '2024-01-01').split('-')[0], 10) || 2024);
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
@@ -863,11 +1016,50 @@ export function generateEmployeeStatement(params: {
     for (let m = 1; m <= maxM; m++) {
       const monthStr = `${y}-${String(m).padStart(2, '0')}`;
       const accrualDate = `${monthStr}-28`;
-      
+
       if (accrualDate >= (employee.hireDate || '2020-01-01')) {
-        const salaryBase = Number(employee.salaryAmount || 0);
-        const allowances = Number(employee.allowances || 0);
-        const totalMonthSalary = salaryBase + allowances;
+        // فحص سجلات دوام هذا الشهر تحديداً
+        const mAttendance = attendanceRecords.filter(r =>
+          r.employeeId === employee.id && r.date.startsWith(monthStr)
+        );
+
+        let mPresentDays = mAttendance.filter(r => r.status === 'present' || r.status === 'late' || r.status === 'half_day').length;
+        let mAbsentDays = mAttendance.filter(r => r.status === 'absent' || r.status === 'unpaid_leave').length;
+        let mWorkedHours = Number(mAttendance.reduce((sum, r) => sum + (r.actualWorkedHours || 0), 0).toFixed(1));
+        let mOvertimeHours = Number(mAttendance.reduce((sum, r) => sum + (r.overtimeHours || 0), 0).toFixed(1));
+        let mOvertimePay = Number(mAttendance.reduce((sum, r) => sum + (r.overtimePayEarned || 0), 0).toFixed(2));
+        let mLateDed = Number(mAttendance.reduce((sum, r) => sum + (r.lateDeductionAmount || 0), 0).toFixed(2));
+
+        let monthBasicSalary = 0;
+        let attendanceNotes = '';
+
+        if (employee.salaryType === 'daily') {
+          const dRate = Number(employee.salaryAmount || 0);
+          if (mAttendance.length > 0) {
+            const regPay = Number(mAttendance.reduce((sum, r) => sum + (r.regularPayEarned || 0), 0).toFixed(2));
+            monthBasicSalary = regPay > 0 ? regPay : Number((dRate * mPresentDays).toFixed(2));
+            attendanceNotes = ` [دوام: ${mPresentDays} يوم (${mWorkedHours} ساعة عمل)]`;
+          } else {
+            monthBasicSalary = Number((dRate * 26).toFixed(2));
+            attendanceNotes = ` [أجر يومي: ${dRate} ₪ × 26 يوم]`;
+          }
+        } else if (employee.salaryType === 'weekly') {
+          const wRate = Number(employee.salaryAmount || 0);
+          const rawW = wRate * 4;
+          const absDed = mAbsentDays > 0 ? Number(((wRate / 6) * mAbsentDays).toFixed(2)) : 0;
+          monthBasicSalary = Math.max(0, rawW - absDed);
+          attendanceNotes = mAbsentDays > 0 ? ` [غياب: ${mAbsentDays} يوم - خصم ${absDed} ₪]` : ` [حضور كامل]`;
+        } else {
+          // monthly
+          const mAmount = Number(employee.salaryAmount || 0);
+          const absDed = mAbsentDays > 0 ? Number(((mAmount / 30) * mAbsentDays).toFixed(2)) : 0;
+          monthBasicSalary = Math.max(0, mAmount - absDed);
+          attendanceNotes = mAbsentDays > 0
+            ? ` [غياب: ${mAbsentDays} يوم - خصم ${absDed} ₪]`
+            : mPresentDays > 0 ? ` [دوام: ${mPresentDays} يوم (${mWorkedHours} س)]` : '';
+        }
+
+        const totalMonthSalary = Number((monthBasicSalary + allowances + mOvertimePay).toFixed(2));
 
         if (totalMonthSalary > 0) {
           allTx.push({
@@ -875,11 +1067,32 @@ export function generateEmployeeStatement(params: {
             date: accrualDate,
             refNum: `SAL-${monthStr}`,
             type: 'salary_accrual',
-            typeLabel: 'راتب شهري',
-            description: `استحقاق راتب شهر ${monthStr} (أساسي: ${salaryBase.toFixed(2)}${allowances > 0 ? ` + بدلات: ${allowances.toFixed(2)}` : ''})`,
+            typeLabel: employee.salaryType === 'daily' ? 'أجر يوميات الدوام' : 'راتب شهري مستحق',
+            description: `استحقاق راتب شهر ${monthStr} (أساسي: ${monthBasicSalary.toFixed(2)}${allowances > 0 ? ` + بدلات: ${allowances.toFixed(2)}` : ''}${mOvertimePay > 0 ? ` + إضافي: ${mOvertimePay.toFixed(2)}` : ''})${attendanceNotes}`,
             entitlement: totalMonthSalary,
             advance: 0,
             deduction: 0,
+            disbursement: 0,
+            period: monthStr,
+            presentDays: mPresentDays,
+            workedHours: mWorkedHours,
+            overtimeHours: mOvertimeHours,
+            absentDays: mAbsentDays
+          });
+        }
+
+        // إضافة حركة خصم التأخير المسجلة إن وجدت في سجلات الدوام لهذا الشهر
+        if (mLateDed > 0) {
+          allTx.push({
+            id: `late-ded-${employee.id}-${monthStr}`,
+            date: `${monthStr}-27`,
+            refNum: `LATE-${monthStr}`,
+            type: 'deduction',
+            typeLabel: 'خصم تأخير الدوام',
+            description: `خصم التأخير عن مواعيد الدوام لشهر ${monthStr}`,
+            entitlement: 0,
+            advance: 0,
+            deduction: mLateDed,
             disbursement: 0,
             period: monthStr
           });
@@ -888,10 +1101,10 @@ export function generateEmployeeStatement(params: {
     }
   }
 
-  // Sort chronologically
+  // ترتيب الحركات تصاعدياً حسب التاريخ
   allTx.sort((a, b) => a.date.localeCompare(b.date));
 
-  // Compute opening balance before fromDate
+  // احتساب الرصيد الافتتاحي والحركات قبل fromDate
   let periodOpeningBalance = 0;
   const filteredTx: RawEmpTx[] = [];
 
@@ -935,7 +1148,11 @@ export function generateEmployeeStatement(params: {
       runningBalance: running,
       paymentMethod: tx.paymentMethod,
       period: tx.period,
-      notes: tx.notes
+      notes: tx.notes,
+      presentDays: tx.presentDays,
+      workedHours: tx.workedHours,
+      overtimeHours: tx.overtimeHours,
+      absentDays: tx.absentDays
     });
   });
 
@@ -950,7 +1167,8 @@ export function generateEmployeeStatement(params: {
     totalDeductions,
     totalDisbursements,
     closingBalance: running,
-    statementDate: new Date().toISOString().split('T')[0]
+    statementDate: new Date().toISOString().split('T')[0],
+    attendanceSummary
   };
 }
 
@@ -1010,7 +1228,7 @@ export function exportStatementToCSV(statement: StatementResult, currencySymbol:
 }
 
 /**
- * Export Employee Statement to CSV format
+ * Export Employee Statement to CSV format (with Attendance & Working Hours breakdown)
  */
 export function exportEmployeeStatementToCSV(statement: EmployeeStatementResult, currencySymbol: string = '₪'): void {
   const headers = [
@@ -1018,7 +1236,7 @@ export function exportEmployeeStatementToCSV(statement: EmployeeStatementResult,
     'التاريخ',
     'رقم المرجع',
     'نوع الحركة',
-    'البيان والتفاصيل',
+    'البيان والتفاصيل وساعات الدوام',
     `المستحقات (${currencySymbol})`,
     `السلف المسحوبة (${currencySymbol})`,
     `الخصومات (${currencySymbol})`,
@@ -1039,8 +1257,23 @@ export function exportEmployeeStatementToCSV(statement: EmployeeStatementResult,
     r.runningBalance.toFixed(2)
   ]);
 
+  const summary = statement.attendanceSummary;
+
   const summaryRows = [
     [],
+    ['=== ملخص احتساب ساعات الدوام والراتب المفترض ==='],
+    ['أيام الحضور الفعلي', `${summary.presentDays} يوم`],
+    ['أيام الغياب غير المدفوع', `${summary.absentDays} يوم`],
+    ['مجموع ساعات العمل الفعلية الصافية', `${summary.totalWorkedHours} ساعة`],
+    ['ساعات العمل الإضافي (الأوفرتايم)', `${summary.overtimeHours} ساعة (${summary.overtimePay.toFixed(2)} ${currencySymbol})`],
+    ['الراتب الأساسي المحتسب بناءً على الدوام', `${summary.expectedBasicSalary.toFixed(2)} ${currencySymbol}`],
+    ['العلاوات والبدلات الثابتة', `${summary.allowances.toFixed(2)} ${currencySymbol}`],
+    ['المكافآت والحوافز المعتمدة', `${summary.incentives.toFixed(2)} ${currencySymbol}`],
+    ['إجمالي الاستحقاقات المفترضة', `${summary.grossExpectedEarnings.toFixed(2)} ${currencySymbol}`],
+    ['إجمالي السلف والخصومات وجزاءات التأخير', `${summary.totalDeductionsCombined.toFixed(2)} ${currencySymbol}`],
+    ['صافي الراتب المفترض للصرف', `${summary.netExpectedPayable.toFixed(2)} ${currencySymbol}`],
+    [],
+    ['=== ملخص الحركات المالية وكشف الحساب ==='],
     ['', '', '', 'إجمالي المستحقات والرواتب', '', statement.totalEntitlements.toFixed(2), '', '', '', ''],
     ['', '', '', 'إجمالي السلف المسحوبة', '', '', statement.totalAdvances.toFixed(2), '', '', ''],
     ['', '', '', 'إجمالي الخصومات والجزاءات', '', '', '', statement.totalDeductions.toFixed(2), '', ''],
@@ -1049,10 +1282,12 @@ export function exportEmployeeStatementToCSV(statement: EmployeeStatementResult,
   ];
 
   const csvContent = '\uFEFF' + [
-    [`"كشف مالي تفصيلي للموظف: ${statement.employee.name}"`],
+    [`"كشف مالي وحساب تفصيلي للعامل/الموظف: ${statement.employee.name}"`],
     [`"الكود: ${statement.employee.code || 'غير محدد'}"`],
-    [`"الوظيفة: ${statement.employee.jobTitle || 'موظف'}"`],
-    [`"الفترة: ${statement.fromDate || 'البداية'} إلى ${statement.toDate || 'الآن'}"`],
+    [`"الوظيفة: ${statement.employee.position || 'موظف'}"`],
+    [`"نظام الراتب: ${statement.employee.salaryType === 'daily' ? 'أجر يومي (يوميات)' : statement.employee.salaryType === 'weekly' ? 'راتب أسبوعي' : 'راتب شهري'}"`],
+    [`"الفترة المحددة: ${statement.fromDate || 'بداية التعامل'} إلى ${statement.toDate || 'الآن'}"`],
+    [`"معادلة الاحتساب: ${summary.calculationExplanation}"`],
     [],
     headers.join(','),
     ...rows.map(row => row.join(',')),
@@ -1063,8 +1298,9 @@ export function exportEmployeeStatementToCSV(statement: EmployeeStatementResult,
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `كشف_مالي_موظف_${statement.employee.name.replace(/\s+/g, '_')}_${statement.statementDate}.csv`);
+  link.setAttribute('download', `كشف_حساب_موظف_${statement.employee.name.replace(/\s+/g, '_')}_${statement.statementDate}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
 }
+

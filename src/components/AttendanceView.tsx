@@ -32,7 +32,8 @@ import {
   BookmarkCheck,
   Zap,
   Info,
-  Sliders
+  Sliders,
+  FileText
 } from 'lucide-react';
 import { useAccounting } from '../context/AccountingContext';
 import { AttendanceRecord, AttendanceStatus, Employee, OvertimeMethod, EmployeeDepartment } from '../types';
@@ -47,6 +48,7 @@ export const AttendanceView: React.FC = () => {
     transferOvertimeToIncentives,
     recalculateEmployeeAttendanceRecords,
     recalculateAllAttendanceRecords,
+    setSelectedEmployeeForStatement,
     settings,
     updateEmployee
   } = useAccounting();
@@ -1872,6 +1874,19 @@ export const AttendanceView: React.FC = () => {
                         </td>
                         <td className="py-3 px-3 text-center">
                           <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const emp = employees.find(e => e.id === rec.employeeId);
+                                if (emp) {
+                                  setSelectedEmployeeForStatement(emp);
+                                }
+                              }}
+                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition"
+                              title="عرض كشف الحساب التفصيلي واحتساب الراتب بناء على ساعات الحضور"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </button>
                             <button
                               type="button"
                               onClick={() => {

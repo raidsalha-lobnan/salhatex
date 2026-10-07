@@ -761,6 +761,7 @@ export interface Employee {
   code: string;
   name: string;
   jobTitle: string;
+  position?: string;
   department: EmployeeDepartment;
   nationalId?: string;
   phone: string;
