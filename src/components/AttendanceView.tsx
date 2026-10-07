@@ -266,10 +266,18 @@ export const AttendanceView: React.FC = () => {
 
     const saved = recordsMapByEmpId.get(emp.id);
     if (saved) {
+      const isSecond = Boolean(saved.hasSecondShift);
+      const actualCheckIn = isSecond
+        ? (saved.shift1CheckInTime || saved.checkInTime || emp.officialStartTime || '08:00')
+        : (saved.checkInTime || emp.officialStartTime || '08:00');
+      const actualCheckOut = isSecond
+        ? (saved.shift2CheckOutTime || saved.checkOutTime || emp.officialEndTime || '16:30')
+        : (saved.checkOutTime || emp.officialEndTime || '16:30');
+
       return {
         status: saved.status,
-        checkInTime: saved.shift1CheckInTime || saved.checkInTime || emp.officialStartTime || '08:00',
-        checkOutTime: saved.shift2CheckOutTime || saved.checkOutTime || emp.officialEndTime || '16:30',
+        checkInTime: actualCheckIn,
+        checkOutTime: actualCheckOut,
         breakMinutes: saved.breakMinutes !== undefined ? saved.breakMinutes : (emp.defaultBreakMinutes !== undefined ? emp.defaultBreakMinutes : 30),
         officialDailyHours: saved.officialDailyHours || emp.officialDailyHours || 8,
         baseHourlyRate: saved.baseHourlyRate || computeDefaultBaseHourlyRate(emp),
@@ -278,11 +286,11 @@ export const AttendanceView: React.FC = () => {
         overtimeRatePerHour: saved.overtimeRatePerHour || Number((computeDefaultBaseHourlyRate(emp) * (emp.overtimeMultiplier || 1.5)).toFixed(2)),
         notes: saved.notes || '',
         isDirty: false,
-        hasSecondShift: Boolean(saved.hasSecondShift),
-        shift1CheckInTime: saved.shift1CheckInTime || saved.checkInTime || emp.officialStartTime || '08:00',
+        hasSecondShift: isSecond,
+        shift1CheckInTime: actualCheckIn,
         shift1CheckOutTime: saved.shift1CheckOutTime || '10:00',
         shift2CheckInTime: saved.shift2CheckInTime || '12:00',
-        shift2CheckOutTime: saved.shift2CheckOutTime || saved.checkOutTime || emp.officialEndTime || '16:30'
+        shift2CheckOutTime: actualCheckOut
       };
     }
 
@@ -295,10 +303,13 @@ export const AttendanceView: React.FC = () => {
       ? emp.customOvertimeRate
       : Number((baseHourlyRate * overtimeMultiplier).toFixed(2));
 
+    const defaultCheckIn = emp.officialStartTime || '08:00';
+    const defaultCheckOut = emp.officialEndTime || '16:30';
+
     return {
       status: 'present' as AttendanceStatus,
-      checkInTime: emp.officialStartTime || '08:00',
-      checkOutTime: emp.officialEndTime || '16:30',
+      checkInTime: defaultCheckIn,
+      checkOutTime: defaultCheckOut,
       breakMinutes: emp.defaultBreakMinutes !== undefined ? emp.defaultBreakMinutes : 30,
       officialDailyHours,
       baseHourlyRate,
@@ -307,11 +318,11 @@ export const AttendanceView: React.FC = () => {
       overtimeRatePerHour,
       notes: '',
       isDirty: false,
-      hasSecondShift: false, // المشوار أثناء الدوام مغلق دائماً ويفعل عند الضغط على الأيقونة
-      shift1CheckInTime: emp.officialStartTime || '08:00',
-      shift1CheckOutTime: '10:00',
-      shift2CheckInTime: '12:00',
-      shift2CheckOutTime: emp.officialEndTime || '16:30'
+      hasSecondShift: Boolean(emp.defaultSplitShift),
+      shift1CheckInTime: emp.defaultShift1StartTime || defaultCheckIn,
+      shift1CheckOutTime: emp.defaultShift1EndTime || '10:00',
+      shift2CheckInTime: emp.defaultShift2StartTime || '12:00',
+      shift2CheckOutTime: emp.defaultShift2EndTime || defaultCheckOut
     };
   };
 
@@ -326,6 +337,20 @@ export const AttendanceView: React.FC = () => {
       [field]: value,
       isDirty: true
     };
+
+    // Keep check-in and check-out in sync with shift endpoints so they never overwrite with old defaults
+    if (field === 'checkInTime') {
+      updated.shift1CheckInTime = value;
+    }
+    if (field === 'checkOutTime') {
+      updated.shift2CheckOutTime = value;
+    }
+    if (field === 'shift1CheckInTime') {
+      updated.checkInTime = value;
+    }
+    if (field === 'shift2CheckOutTime') {
+      updated.checkOutTime = value;
+    }
 
     // If base rate or multiplier changed and method is multiplier, recompute overtimeRatePerHour
     if (field === 'baseHourlyRate' || field === 'overtimeMultiplier' || field === 'overtimeMethod') {
@@ -492,17 +517,21 @@ export const AttendanceView: React.FC = () => {
 
     activeEmployees.forEach(emp => {
       const state = getEmployeeDailyState(emp);
+      const isSecond = Boolean(state.hasSecondShift);
+      const effectiveCheckIn = state.checkInTime || (isSecond ? state.shift1CheckInTime : (emp.officialStartTime || '08:00'));
+      const effectiveCheckOut = state.checkOutTime || (isSecond ? state.shift2CheckOutTime : (emp.officialEndTime || '16:30'));
+
       batchList.push({
         employeeId: emp.id,
         status: state.status,
-        checkInTime: state.hasSecondShift ? state.shift1CheckInTime : state.checkInTime,
-        checkOutTime: state.hasSecondShift ? state.shift2CheckOutTime : state.checkOutTime,
+        checkInTime: effectiveCheckIn,
+        checkOutTime: effectiveCheckOut,
         breakMinutes: state.breakMinutes,
-        hasSecondShift: state.hasSecondShift,
-        shift1CheckInTime: state.shift1CheckInTime,
-        shift1CheckOutTime: state.shift1CheckOutTime,
-        shift2CheckInTime: state.shift2CheckInTime,
-        shift2CheckOutTime: state.shift2CheckOutTime,
+        hasSecondShift: isSecond,
+        shift1CheckInTime: effectiveCheckIn,
+        shift1CheckOutTime: isSecond ? state.shift1CheckOutTime : undefined,
+        shift2CheckInTime: isSecond ? state.shift2CheckInTime : undefined,
+        shift2CheckOutTime: effectiveCheckOut,
         officialDailyHours: state.officialDailyHours,
         baseHourlyRate: state.baseHourlyRate,
         overtimeMethod: state.overtimeMethod,
@@ -515,6 +544,44 @@ export const AttendanceView: React.FC = () => {
     saveDailyAttendanceBatch(selectedDate, batchList);
     setDailyDrafts({});
     showFeedback(`تم حفظ واعتماد كشف الحضور والدوام ليوم (${selectedDate}) بنجاح!`, 'success');
+  };
+
+  // Quick Action: Save single employee row
+  const handleSaveSingleRow = (empId: string) => {
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) return;
+
+    const state = getEmployeeDailyState(emp);
+    const isSecond = Boolean(state.hasSecondShift);
+    const effectiveCheckIn = state.checkInTime || (isSecond ? state.shift1CheckInTime : (emp.officialStartTime || '08:00'));
+    const effectiveCheckOut = state.checkOutTime || (isSecond ? state.shift2CheckOutTime : (emp.officialEndTime || '16:30'));
+
+    saveDailyAttendanceBatch(selectedDate, [{
+      employeeId: emp.id,
+      status: state.status,
+      checkInTime: effectiveCheckIn,
+      checkOutTime: effectiveCheckOut,
+      breakMinutes: state.breakMinutes,
+      hasSecondShift: isSecond,
+      shift1CheckInTime: effectiveCheckIn,
+      shift1CheckOutTime: isSecond ? state.shift1CheckOutTime : undefined,
+      shift2CheckInTime: isSecond ? state.shift2CheckInTime : undefined,
+      shift2CheckOutTime: effectiveCheckOut,
+      officialDailyHours: state.officialDailyHours,
+      baseHourlyRate: state.baseHourlyRate,
+      overtimeMethod: state.overtimeMethod,
+      overtimeMultiplier: state.overtimeMultiplier,
+      overtimeRatePerHour: state.overtimeRatePerHour,
+      notes: state.notes
+    }]);
+
+    setDailyDrafts(prev => {
+      const next = { ...prev };
+      delete next[empId];
+      return next;
+    });
+
+    showFeedback(`تم حفظ واعتماد دوام العامل "${emp.name}" ليوم (${selectedDate}) بنجاح!`, 'success');
   };
 
   // Date Navigation Helpers
@@ -737,7 +804,25 @@ export const AttendanceView: React.FC = () => {
   // Monthly Record Editing Save Handler (Tab 2)
   const handleSaveEditedRecord = () => {
     if (!editingRecord || !editModalDraft) return;
-    updateAttendanceRecord(editingRecord.id, editModalDraft);
+    const isSecond = Boolean(editModalDraft.hasSecondShift);
+    const finalCheckIn = isSecond
+      ? (editModalDraft.shift1CheckInTime || editModalDraft.checkInTime || '08:00')
+      : (editModalDraft.checkInTime || '08:00');
+    const finalCheckOut = isSecond
+      ? (editModalDraft.shift2CheckOutTime || editModalDraft.checkOutTime || '16:30')
+      : (editModalDraft.checkOutTime || '16:30');
+
+    updateAttendanceRecord(editingRecord.id, {
+      ...editModalDraft,
+      checkInTime: finalCheckIn,
+      checkOutTime: finalCheckOut,
+      hasSecondShift: isSecond,
+      shift1CheckInTime: finalCheckIn,
+      shift1CheckOutTime: isSecond ? editModalDraft.shift1CheckOutTime : undefined,
+      shift2CheckInTime: isSecond ? editModalDraft.shift2CheckInTime : undefined,
+      shift2CheckOutTime: finalCheckOut,
+      breakMinutes: editModalDraft.breakMinutes
+    });
     showFeedback(`تم تحديث سجل الدوام ليوم ${editingRecord.date} للعامل "${editingRecord.employeeName}" وتطبيق السياسة المحفوظة بنجاح!`, 'success');
     setEditingRecord(null);
     setEditModalDraft(null);
@@ -1142,6 +1227,7 @@ export const AttendanceView: React.FC = () => {
                     <th className="py-2.5 px-2 text-center whitespace-nowrap">أجر الساعة</th>
                     <th className="py-2.5 px-3 text-left whitespace-nowrap">صافي اليوم ({currencySymbol})</th>
                     <th className="py-2.5 px-3 whitespace-nowrap">ملاحظات</th>
+                    <th className="py-2.5 px-3 text-center whitespace-nowrap bg-indigo-50/40 text-indigo-900">حفظ السجل</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-sm">
@@ -1499,6 +1585,23 @@ export const AttendanceView: React.FC = () => {
                             onChange={(e) => handleDraftChange(emp.id, 'notes', e.target.value)}
                             className="w-28 sm:w-36 bg-gray-50 border border-gray-200 rounded-lg px-2 py-0.5 text-xs text-gray-700 placeholder-gray-400 focus:bg-white focus:ring-1 focus:ring-indigo-500"
                           />
+                        </td>
+
+                        {/* Individual Save Action */}
+                        <td className="py-2 px-3 text-center whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => handleSaveSingleRow(emp.id)}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer ${
+                              state.isDirty
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-300 ring-offset-1 animate-pulse'
+                                : 'bg-gray-100 hover:bg-emerald-50 hover:text-emerald-700 text-gray-700 border border-gray-200'
+                            }`}
+                            title="حفظ واعتماد هذا السجل للعامل مباشرة وتطبيق إعدادات احتساب الدوام"
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                            <span>{state.isDirty ? 'حفظ *' : 'حفظ'}</span>
+                          </button>
                         </td>
                       </tr>
                     );

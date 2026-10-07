@@ -3988,17 +3988,25 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const emp = employees.find(e => e.id === item.employeeId);
         if (!emp) return;
 
+        const isSecond = Boolean(item.hasSecondShift);
+        const resolvedCheckIn = isSecond
+          ? (item.shift1CheckInTime || item.checkInTime || emp.officialStartTime || '08:00')
+          : (item.checkInTime || emp.officialStartTime || '08:00');
+        const resolvedCheckOut = isSecond
+          ? (item.shift2CheckOutTime || item.checkOutTime || emp.officialEndTime || '16:30')
+          : (item.checkOutTime || emp.officialEndTime || '16:30');
+
         const metrics = calculateAttendanceMetrics({
           employee: emp,
           status: item.status || 'present',
-          checkInTime: item.checkInTime,
-          checkOutTime: item.checkOutTime,
+          checkInTime: resolvedCheckIn,
+          checkOutTime: resolvedCheckOut,
           breakMinutes: item.breakMinutes,
-          hasSecondShift: item.hasSecondShift,
-          shift1CheckInTime: item.shift1CheckInTime,
-          shift1CheckOutTime: item.shift1CheckOutTime,
-          shift2CheckInTime: item.shift2CheckInTime,
-          shift2CheckOutTime: item.shift2CheckOutTime,
+          hasSecondShift: isSecond,
+          shift1CheckInTime: resolvedCheckIn,
+          shift1CheckOutTime: isSecond ? item.shift1CheckOutTime : undefined,
+          shift2CheckInTime: isSecond ? item.shift2CheckInTime : undefined,
+          shift2CheckOutTime: resolvedCheckOut,
           officialDailyHoursOverride: item.officialDailyHours,
           baseHourlyRateOverride: item.baseHourlyRate,
           overtimeMethodOverride: item.overtimeMethod,
@@ -4006,26 +4014,24 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           customOvertimeRateOverride: item.overtimeRatePerHour
         });
 
+        const existingRecord = prev.find(r => r.employeeId === emp.id && r.date === date);
+
         const fullRecord: AttendanceRecord = {
-          id: item.id || ('att-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6)),
+          id: item.id || existingRecord?.id || ('att-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6)),
           date,
           employeeId: emp.id,
           employeeName: emp.name,
           employeeCode: emp.code,
           department: emp.department,
           status: item.status || 'present',
-          checkInTime: item.hasSecondShift
-            ? (item.shift1CheckInTime || item.checkInTime || emp.officialStartTime || '08:00')
-            : (item.checkInTime || emp.officialStartTime || '08:00'),
-          checkOutTime: item.hasSecondShift
-            ? (item.shift2CheckOutTime || item.checkOutTime || emp.officialEndTime || '16:30')
-            : (item.checkOutTime || emp.officialEndTime || '16:30'),
+          checkInTime: resolvedCheckIn,
+          checkOutTime: resolvedCheckOut,
           breakMinutes: metrics.breakMinutes,
-          hasSecondShift: item.hasSecondShift,
-          shift1CheckInTime: item.shift1CheckInTime,
-          shift1CheckOutTime: item.shift1CheckOutTime,
-          shift2CheckInTime: item.shift2CheckInTime,
-          shift2CheckOutTime: item.shift2CheckOutTime,
+          hasSecondShift: isSecond,
+          shift1CheckInTime: resolvedCheckIn,
+          shift1CheckOutTime: isSecond ? item.shift1CheckOutTime : undefined,
+          shift2CheckInTime: isSecond ? item.shift2CheckInTime : undefined,
+          shift2CheckOutTime: resolvedCheckOut,
           breakBetweenShiftsMinutes: metrics.breakBetweenShiftsMinutes,
           shift1WorkedHours: metrics.shift1WorkedHours,
           shift2WorkedHours: metrics.shift2WorkedHours,
@@ -4046,7 +4052,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           lateDeductionAmount: metrics.lateDeductionAmount,
           totalDailyEarnings: metrics.totalDailyEarnings,
           notes: item.notes || '',
-          createdAt: item.createdAt || nowStr,
+          createdAt: item.createdAt || existingRecord?.createdAt || nowStr,
           updatedAt: nowStr
         };
 
