@@ -919,13 +919,22 @@ export interface PayrollSheetItem {
   jobTitle: string;
   department: EmployeeDepartment;
   salaryType: SalaryType;
-  basicSalary: number;
-  allowances: number;
+  basicSalary: number; // الراتب الأساسي المستحق حسب أيام وساعات العمل
+  allowances: number; // العلاوات والبدلات الثابتة
   incentives: number; // حوافز ومكافآت
-  deductions: number; // خصومات
+  overtimeHours?: number; // ساعات العمل الإضافي (الأوفرتايم)
+  overtimePay?: number; // أجر ساعات الأوفرتايم
+  deductions: number; // خصومات وجزاءات
+  lateDeductions?: number; // خصومات التأخير والغياب
   advancesDeducted: number; // سلف مقتطعة
-  netSalary: number; // صافي الراتب المستحق = الأساسي + البدلات + الحوافز - الخصومات - السلف
+  grossEarnings?: number; // إجمالي الاستحقاقات = الأساسي + البدلات + الحوافز + الإضافي
+  totalDeductionsCombined?: number; // إجمالي الاستقطاعات = الخصومات + السلف + خصم التأخير
+  netSalary: number; // صافي الراتب المستحق = إجمالي الاستحقاقات - إجمالي الاستقطاعات
   daysWorked?: number;
+  workDays?: number; // أيام الحضور المحتسبة
+  presentDays?: number; // عدد أيام الحضور الفعلي
+  absentDays?: number; // عدد أيام الغياب
+  totalWorkedHours?: number; // إجمالي ساعات الدوام الفعلي
   isIncluded: boolean;
   notes?: string;
 }
@@ -947,12 +956,44 @@ export interface PayrollSheet {
   totalBasic: number;
   totalAllowances: number;
   totalIncentives: number;
+  totalOvertime?: number; // إجمالي مستحقات الأوفرتايم
   totalDeductions: number;
+  totalLateDeductions?: number; // إجمالي خصومات التأخير
   totalAdvances: number;
   totalNet: number;
   employeesCount: number;
   voucherNumber?: string;
   notes?: string;
+}
+
+export interface EmployeeSalaryCalculation {
+  employeeId: string;
+  salaryType: SalaryType;
+  presentDays: number;
+  absentDays: number;
+  unpaidLeaveDays: number;
+  excusedLeaveDays: number;
+  totalWorkedHours: number;
+  officialHoursExpected: number;
+  overtimeHours: number;
+  lateMinutes: number;
+  basicSalary: number;
+  overtimePay: number;
+  allowances: number;
+  incentives: number;
+  grossEarnings: number;
+  advancesDeducted: number;
+  deductions: number;
+  lateDeductions: number;
+  absentDeductions: number;
+  totalDeductionsCombined: number;
+  netSalary: number;
+  formulaExplanation: {
+    baseExplanation: string;
+    additionsSummary: string;
+    deductionsSummary: string;
+    finalFormula: string;
+  };
 }
 
 export interface ExpenseItem {

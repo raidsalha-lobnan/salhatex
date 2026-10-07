@@ -98,11 +98,13 @@ export const PayrollPrintModal: React.FC = () => {
                   <th className="p-2 border border-slate-300">اسم الموظف</th>
                   <th className="p-2 border border-slate-300">المسمى الوظيفي</th>
                   <th className="p-2 border border-slate-300 text-center">نظام الراتب</th>
+                  <th className="p-2 border border-slate-300 text-center">الدوام وساعات العمل</th>
                   <th className="p-2 border border-slate-300 text-center">الأساسي</th>
+                  <th className="p-2 border border-slate-300 text-center text-amber-800">+ الإضافي</th>
                   <th className="p-2 border border-slate-300 text-center">البدلات</th>
-                  <th className="p-2 border border-slate-300 text-center">الحوافز</th>
-                  <th className="p-2 border border-slate-300 text-center text-rose-700">الخصومات</th>
-                  <th className="p-2 border border-slate-300 text-center text-amber-700">السلف المستقطعة</th>
+                  <th className="p-2 border border-slate-300 text-center text-emerald-700">+ الحوافز</th>
+                  <th className="p-2 border border-slate-300 text-center text-rose-700">- الخصومات</th>
+                  <th className="p-2 border border-slate-300 text-center text-amber-800">- السلف</th>
                   <th className="p-2 border border-slate-300 text-center font-black bg-slate-200">الصافي المستحق</th>
                   <th className="p-2 border border-slate-300 text-center min-w-[90px]">توقيع المستلم</th>
                 </tr>
@@ -116,7 +118,13 @@ export const PayrollPrintModal: React.FC = () => {
                       <td className="p-2 border border-slate-300 font-bold text-slate-900">{item.employeeName}</td>
                       <td className="p-2 border border-slate-300 text-slate-600">{item.jobTitle}</td>
                       <td className="p-2 border border-slate-300 text-center text-slate-600">{salaryLabel}</td>
+                      <td className="p-2 border border-slate-300 text-center font-mono text-[10px]">
+                        {item.presentDays ?? item.workDays ?? 0}ح | {item.absentDays ?? 0}غ | {item.totalWorkedHours ?? 0}س
+                      </td>
                       <td className="p-2 border border-slate-300 text-center font-mono">{item.basicSalary.toLocaleString()}</td>
+                      <td className="p-2 border border-slate-300 text-center font-mono text-amber-800 font-bold">
+                        {item.overtimePay && item.overtimePay > 0 ? `+${item.overtimePay.toLocaleString()}` : '0'}
+                      </td>
                       <td className="p-2 border border-slate-300 text-center font-mono">{item.allowances.toLocaleString()}</td>
                       <td className="p-2 border border-slate-300 text-center font-mono text-emerald-700 font-bold">
                         {item.incentives > 0 ? `+${item.incentives.toLocaleString()}` : '0'}
@@ -127,8 +135,8 @@ export const PayrollPrintModal: React.FC = () => {
                       <td className="p-2 border border-slate-300 text-center font-mono text-amber-700">
                         {item.advancesDeducted > 0 ? `-${item.advancesDeducted.toLocaleString()}` : '0'}
                       </td>
-                      <td className="p-2 border border-slate-300 text-center font-mono font-black text-slate-900 bg-slate-100 text-sm">
-                        {item.netSalary.toLocaleString()} ر.س
+                      <td className="p-2 border border-slate-300 text-center font-mono font-black text-slate-900 bg-slate-100 text-xs">
+                        {item.netSalary.toLocaleString()} {settings.currency || '₪'}
                       </td>
                       <td className="p-2 border border-slate-300 text-center">
                         <div className="h-6 border-b border-dotted border-slate-400"></div>
@@ -139,16 +147,19 @@ export const PayrollPrintModal: React.FC = () => {
               </tbody>
               <tfoot>
                 <tr className="bg-slate-200 text-slate-900 font-black border-t-2 border-slate-400 text-xs">
-                  <td colSpan={4} className="p-2.5 border border-slate-300 text-center">
+                  <td colSpan={5} className="p-2.5 border border-slate-300 text-center">
                     المجموع الكلي ({sheet.employeesCount} موظف)
                   </td>
                   <td className="p-2.5 border border-slate-300 text-center font-mono">{sheet.totalBasic.toLocaleString()}</td>
+                  <td className="p-2.5 border border-slate-300 text-center font-mono text-amber-800">
+                    +{((sheet.totalOvertime !== undefined ? sheet.totalOvertime : sheet.items.reduce((s, i) => s + (i.overtimePay || 0), 0))).toLocaleString()}
+                  </td>
                   <td className="p-2.5 border border-slate-300 text-center font-mono">{sheet.totalAllowances.toLocaleString()}</td>
                   <td className="p-2.5 border border-slate-300 text-center font-mono text-emerald-700">+{sheet.totalIncentives.toLocaleString()}</td>
                   <td className="p-2.5 border border-slate-300 text-center font-mono text-rose-700">-{sheet.totalDeductions.toLocaleString()}</td>
                   <td className="p-2.5 border border-slate-300 text-center font-mono text-amber-800">-{sheet.totalAdvances.toLocaleString()}</td>
-                  <td className="p-2.5 border border-slate-300 text-center font-mono text-base font-black text-blue-900 bg-blue-100">
-                    {sheet.totalNet.toLocaleString()} ر.س
+                  <td className="p-2.5 border border-slate-300 text-center font-mono text-sm font-black text-blue-900 bg-blue-100">
+                    {sheet.totalNet.toLocaleString()} {settings.currency || '₪'}
                   </td>
                   <td className="p-2.5 border border-slate-300"></td>
                 </tr>

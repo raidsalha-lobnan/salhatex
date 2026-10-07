@@ -54,7 +54,8 @@ import {
   ExpenseItem,
   AttendanceRecord,
   AttendanceStatus,
-  OvertimeMethod
+  OvertimeMethod,
+  EmployeeSalaryCalculation
 } from '../types';
 import {
   initialSettings,
@@ -237,6 +238,12 @@ interface AccountingContextType {
   transferOvertimeToIncentives: (dateOrMonth: string, recordsToTransfer?: AttendanceRecord[]) => { count: number; totalAmount: number };
   recalculateEmployeeAttendanceRecords: (employeeId: string) => { count: number; updated: number };
   recalculateAllAttendanceRecords: () => { count: number; updated: number };
+  calculateEmployeeSalaryBreakdown: (
+    employee: Employee,
+    startDate?: string,
+    endDate?: string,
+    options?: { workDaysDaily?: number; weeksCount?: number }
+  ) => EmployeeSalaryCalculation;
 
   payrollSheets: PayrollSheet[];
   createDraftPayrollSheet: (
@@ -4158,6 +4165,128 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return { count: attendanceRecords.length, updated: updatedCount };
   };
 
+  const calculateEmployeeSalaryBreakdown = (
+    employee: Employee,
+    startDate?: string,
+    endDate?: string,
+    options?: { workDaysDaily?: number; weeksCount?: number }
+  ): EmployeeSalaryCalculation => {
+    // 1. سجلات الحضور والغياب المعتمدة للفترة المحددة
+    const empAttendance = attendanceRecords.filter(r =>
+      r.employeeId === employee.id &&
+      (!startDate || r.date >= startDate) &&
+      (!endDate || r.date <= endDate)
+    );
+
+    const presentDays = empAttendance.filter(r => r.status === 'present' || r.status === 'late' || r.status === 'half_day').length;
+    const absentDays = empAttendance.filter(r => r.status === 'absent' || r.status === 'unpaid_leave').length;
+    const unpaidLeaveDays = empAttendance.filter(r => r.status === 'unpaid_leave').length;
+    const excusedLeaveDays = empAttendance.filter(r => r.status === 'excused_leave').length;
+    const totalWorkedHours = Number(empAttendance.reduce((sum, r) => sum + (r.actualWorkedHours || 0), 0).toFixed(1));
+    const overtimeHours = Number(empAttendance.reduce((sum, r) => sum + (r.overtimeHours || 0), 0).toFixed(1));
+    const overtimePay = Number(empAttendance.reduce((sum, r) => sum + (r.overtimePayEarned || 0), 0).toFixed(2));
+    const lateDeductions = Number(empAttendance.reduce((sum, r) => sum + (r.lateDeductionAmount || 0), 0).toFixed(2));
+    const lateMinutes = empAttendance.reduce((sum, r) => sum + (r.lateMinutes || 0), 0);
+    const officialHoursExpected = (presentDays + absentDays) * (employee.officialDailyHours || 8);
+
+    // 2. الراتب الأساسي بناءً على أيام وساعات الحضور والغياب والتعاقد
+    let basicSalary = 0;
+    let absentDeductions = 0;
+    let baseExplanation = '';
+
+    const defaultWorkDays = options?.workDaysDaily ?? 26;
+    const weeksCount = options?.weeksCount ?? 4;
+
+    if (employee.salaryType === 'daily') {
+      const dailyRate = employee.salaryAmount || 0;
+      if (empAttendance.length > 0) {
+        // إذا كان هناك سجلات دوام: نحسب الأجر المستحق من مجموع الاستحقاق اليومي لساعات العمل العادية
+        const regularPaySum = Number(empAttendance.reduce((sum, r) => sum + (r.regularPayEarned || 0), 0).toFixed(2));
+        basicSalary = regularPaySum > 0 ? regularPaySum : Number((dailyRate * presentDays).toFixed(2));
+        baseExplanation = `أجر يومي: ${dailyRate} ₪ × ${presentDays} يوم حضور فعلي (${totalWorkedHours} ساعة عمل صافية بعد خصم الاستراحة)`;
+      } else {
+        basicSalary = Number((dailyRate * defaultWorkDays).toFixed(2));
+        baseExplanation = `أجر يومي افتراضي: ${dailyRate} ₪ × ${defaultWorkDays} يوم عمل`;
+      }
+    } else if (employee.salaryType === 'weekly') {
+      const weeklyRate = employee.salaryAmount || 0;
+      const rawWeekly = weeklyRate * weeksCount;
+      if (absentDays > 0) {
+        const dayRate = weeklyRate / 6;
+        absentDeductions = Number((dayRate * absentDays).toFixed(2));
+        basicSalary = Math.max(0, Number((rawWeekly - absentDeductions).toFixed(2)));
+        baseExplanation = `أجر أسبوعي: (${weeklyRate} ₪ × ${weeksCount} أسابيع) - خصم غياب ${absentDays} أيام (${absentDeductions} ₪)`;
+      } else {
+        basicSalary = rawWeekly;
+        baseExplanation = `أجر أسبوعي: ${weeklyRate} ₪ × ${weeksCount} أسابيع (حضور كامل)`;
+      }
+    } else {
+      // monthly
+      const monthlyAmount = employee.salaryAmount || 0;
+      if (absentDays > 0) {
+        const dailyRate = monthlyAmount / 30;
+        absentDeductions = Number((dailyRate * absentDays).toFixed(2));
+        basicSalary = Math.max(0, Number((monthlyAmount - absentDeductions).toFixed(2)));
+        baseExplanation = `راتب شهري: ${monthlyAmount} ₪ - خصم غياب ${absentDays} يوم (${absentDeductions} ₪)`;
+      } else {
+        basicSalary = monthlyAmount;
+        baseExplanation = `راتب شهري كامل: ${monthlyAmount} ₪ (${presentDays > 0 ? `${presentDays} يوم دوام مسجل` : 'دون غياب مسجل'})`;
+      }
+    }
+
+    // 3. الاستحقاقات والإضافات (+)
+    const allowances = employee.allowances || 0;
+    const pendingIncentives = employeeIncentives
+      .filter(i => i.employeeId === employee.id && i.status === 'pending')
+      .reduce((sum, i) => sum + i.amount, 0);
+
+    const grossEarnings = Number((basicSalary + overtimePay + allowances + pendingIncentives).toFixed(2));
+
+    // 4. الاستقطاعات والخصومات (-)
+    const pendingAdvances = employeeAdvances
+      .filter(a => a.employeeId === employee.id && a.status === 'pending')
+      .reduce((sum, a) => sum + a.amount, 0);
+
+    const pendingDeductions = employeeDeductions
+      .filter(d => d.employeeId === employee.id && d.status === 'pending')
+      .reduce((sum, d) => sum + d.amount, 0);
+
+    const totalDeductionsCombined = Number((pendingAdvances + pendingDeductions + lateDeductions).toFixed(2));
+
+    // 5. صافي الراتب المستحق للصرف
+    const netSalary = Math.max(0, Number((grossEarnings - totalDeductionsCombined).toFixed(2)));
+
+    return {
+      employeeId: employee.id,
+      salaryType: employee.salaryType,
+      presentDays,
+      absentDays,
+      unpaidLeaveDays,
+      excusedLeaveDays,
+      totalWorkedHours,
+      officialHoursExpected,
+      overtimeHours,
+      lateMinutes,
+      basicSalary,
+      overtimePay,
+      allowances,
+      incentives: pendingIncentives,
+      grossEarnings,
+      advancesDeducted: pendingAdvances,
+      deductions: pendingDeductions,
+      lateDeductions,
+      absentDeductions,
+      totalDeductionsCombined,
+      netSalary,
+      formulaExplanation: {
+        baseExplanation,
+        additionsSummary: `الأساسي (${basicSalary}) + الإضافي (${overtimePay}) + البدلات (${allowances}) + الحوافز (${pendingIncentives}) = ${grossEarnings}`,
+        deductionsSummary: `السلف (${pendingAdvances}) + الخصومات (${pendingDeductions}) + خصم التأخير (${lateDeductions}) = ${totalDeductionsCombined}`,
+        finalFormula: `الصافي المستحق = ${grossEarnings} (استحقاقات) - ${totalDeductionsCombined} (استقطاعات) = ${netSalary}`
+      }
+    };
+  };
+
   const createDraftPayrollSheet = (
     sheetData: Omit<PayrollSheet, 'id' | 'sheetNumber' | 'createdAt' | 'status'>
   ): PayrollSheet => {
@@ -7147,6 +7276,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         transferOvertimeToIncentives,
         recalculateEmployeeAttendanceRecords,
         recalculateAllAttendanceRecords,
+        calculateEmployeeSalaryBreakdown,
         payrollSheets,
         createDraftPayrollSheet,
         updateDraftPayrollSheet,

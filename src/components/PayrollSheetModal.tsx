@@ -8,6 +8,7 @@ import {
   SalaryType
 } from '../types';
 import { posSound } from '../utils/audio';
+import { EmployeePayslipModal } from './EmployeePayslipModal';
 import {
   X,
   FileSpreadsheet,
@@ -22,7 +23,13 @@ import {
   Send,
   PlusCircle,
   MinusCircle,
-  HelpCircle
+  HelpCircle,
+  RefreshCw,
+  FileText,
+  Clock,
+  TrendingUp,
+  TrendingDown,
+  Eye
 } from 'lucide-react';
 
 interface PayrollSheetModalProps {
@@ -39,12 +46,15 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
   const {
     employees,
     accounts,
+    attendanceRecords,
     employeeAdvances,
     employeeDeductions,
     employeeIncentives,
+    calculateEmployeeSalaryBreakdown,
     createDraftPayrollSheet,
     updateDraftPayrollSheet,
-    approveAndDisbursePayrollSheet
+    approveAndDisbursePayrollSheet,
+    settings
   } = useAccounting();
 
   // Wizard Configuration State
@@ -62,6 +72,9 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
 
   // Line items state
   const [items, setItems] = useState<PayrollSheetItem[]>([]);
+
+  // Selected item to view detailed payslip breakdown modal
+  const [selectedItemForPayslip, setSelectedItemForPayslip] = useState<PayrollSheetItem | null>(null);
 
   // Selected treasury details
   const selectedTreasury = accounts.find(a => a.code === treasuryAccountCode);
@@ -82,8 +95,8 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
       setTitle(editingSheet.title);
       setCalculationSystem(editingSheet.calculationSystem);
       setPeriod(editingSheet.period);
-      setStartDate(editingSheet.startDate);
-      setEndDate(editingSheet.endDate);
+      setStartDate(editingSheet.startDate || '');
+      setEndDate(editingSheet.endDate || '');
       setTreasuryAccountCode(editingSheet.treasuryAccountCode || '1101');
       setNotes(editingSheet.notes || '');
       setItems(editingSheet.items);
@@ -100,65 +113,55 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
       setTreasuryAccountCode('1101');
       setNotes(`مسودة كشف رواتب العاملين والموظفين لشهر ${currentMonthName}`);
 
-      generateInitialItems('all', 26, 4);
+      generateInitialItems('all', 26, 4, firstDay, lastDay);
     }
   }, [isOpen, editingSheet, employees]);
 
-  // Function to build line items from current active employees and their pending advances/deductions/incentives
+  // Function to build line items from current active employees, attendance records, and pending advances/deductions/incentives
   const generateInitialItems = (
     systemFilter: 'all' | SalaryType,
     workDaysDaily: number,
-    weeksCount: number
+    weeksCount: number,
+    filterStart?: string,
+    filterEnd?: string
   ) => {
     const activeEmployees = employees.filter(e => e.status === 'active');
     const filteredEmployees = systemFilter === 'all'
       ? activeEmployees
       : activeEmployees.filter(e => e.salaryType === systemFilter);
 
+    const sDate = filterStart !== undefined ? filterStart : startDate;
+    const eDate = filterEnd !== undefined ? filterEnd : endDate;
+
     const generatedItems: PayrollSheetItem[] = filteredEmployees.map(emp => {
-      // Calculate basic salary for the period
-      let basic = emp.salaryAmount || 0;
-      let actualDays: number | undefined = undefined;
-
-      if (emp.salaryType === 'daily') {
-        actualDays = workDaysDaily;
-        basic = (emp.salaryAmount || 0) * workDaysDaily;
-      } else if (emp.salaryType === 'weekly') {
-        basic = (emp.salaryAmount || 0) * weeksCount;
-      }
-
-      const allowances = emp.allowances || 0;
-
-      // Pending advances for this employee
-      const empPendingAdvances = employeeAdvances
-        .filter(a => a.employeeId === emp.id && a.status === 'pending')
-        .reduce((sum, a) => sum + a.amount, 0);
-
-      // Pending deductions
-      const empPendingDeductions = employeeDeductions
-        .filter(d => d.employeeId === emp.id && d.status === 'pending')
-        .reduce((sum, d) => sum + d.amount, 0);
-
-      // Pending incentives
-      const empPendingIncentives = employeeIncentives
-        .filter(i => i.employeeId === emp.id && i.status === 'pending')
-        .reduce((sum, i) => sum + i.amount, 0);
-
-      const netSalary = Math.max(0, basic + allowances + empPendingIncentives - empPendingDeductions - empPendingAdvances);
+      const calc = calculateEmployeeSalaryBreakdown(emp, sDate, eDate, {
+        workDaysDaily,
+        weeksCount
+      });
 
       return {
         id: 'psi-' + emp.id,
         employeeId: emp.id,
         employeeName: emp.name,
+        employeeCode: emp.code,
         jobTitle: emp.jobTitle,
+        department: emp.department,
         salaryType: emp.salaryType,
-        workDays: actualDays,
-        basicSalary: basic,
-        allowances,
-        incentives: empPendingIncentives,
-        deductions: empPendingDeductions,
-        advancesDeducted: empPendingAdvances,
-        netSalary,
+        workDays: calc.presentDays || (emp.salaryType === 'daily' ? workDaysDaily : undefined),
+        presentDays: calc.presentDays,
+        absentDays: calc.absentDays,
+        totalWorkedHours: calc.totalWorkedHours,
+        overtimeHours: calc.overtimeHours,
+        overtimePay: calc.overtimePay,
+        basicSalary: calc.basicSalary,
+        allowances: calc.allowances,
+        incentives: calc.incentives,
+        deductions: calc.deductions,
+        lateDeductions: calc.lateDeductions,
+        advancesDeducted: calc.advancesDeducted,
+        grossEarnings: calc.grossEarnings,
+        totalDeductionsCombined: calc.totalDeductionsCombined,
+        netSalary: calc.netSalary,
         isIncluded: true
       };
     });
@@ -170,7 +173,7 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
   const handleSystemFilterChange = (newSystem: 'all' | SalaryType) => {
     setCalculationSystem(newSystem);
     if (!editingSheet) {
-      generateInitialItems(newSystem, defaultWorkDaysDaily, defaultWeeksCount);
+      generateInitialItems(newSystem, defaultWorkDaysDaily, defaultWeeksCount, startDate, endDate);
       
       const today = new Date();
       if (newSystem === 'weekly') {
@@ -207,13 +210,17 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
         if (item.salaryType === 'daily') {
           const emp = employees.find(e => e.id === item.employeeId);
           const dailyRate = emp ? emp.salaryAmount : 0;
-          const newBasic = dailyRate * newDays;
-          const newNet = Math.max(0, newBasic + item.allowances + item.incentives - item.deductions - item.advancesDeducted);
+          const newBasic = Number((dailyRate * newDays).toFixed(2));
+          const gross = Number((newBasic + item.allowances + item.incentives + (item.overtimePay || 0)).toFixed(2));
+          const totalDed = Number((item.deductions + item.advancesDeducted + (item.lateDeductions || 0)).toFixed(2));
           return {
             ...item,
             workDays: newDays,
+            presentDays: newDays,
             basicSalary: newBasic,
-            netSalary: newNet
+            grossEarnings: gross,
+            totalDeductionsCombined: totalDed,
+            netSalary: Math.max(0, Number((gross - totalDed).toFixed(2)))
           };
         }
         return item;
@@ -233,7 +240,7 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
   // Update item numerical field
   const handleUpdateItemField = (
     itemId: string,
-    field: 'basicSalary' | 'allowances' | 'incentives' | 'deductions' | 'advancesDeducted' | 'workDays',
+    field: 'basicSalary' | 'allowances' | 'incentives' | 'deductions' | 'advancesDeducted' | 'workDays' | 'overtimePay' | 'lateDeductions',
     val: number
   ) => {
     setItems(prev =>
@@ -245,13 +252,15 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
           if (field === 'workDays' && item.salaryType === 'daily') {
             const emp = employees.find(e => e.id === item.employeeId);
             const dailyRate = emp ? emp.salaryAmount : 0;
-            updated.basicSalary = dailyRate * Math.max(0, val);
+            updated.basicSalary = Number((dailyRate * Math.max(0, val)).toFixed(2));
+            updated.presentDays = Math.max(0, val);
           }
 
-          updated.netSalary = Math.max(
-            0,
-            updated.basicSalary + updated.allowances + updated.incentives - updated.deductions - updated.advancesDeducted
-          );
+          const gross = Number((updated.basicSalary + updated.allowances + updated.incentives + (updated.overtimePay || 0)).toFixed(2));
+          const totalDed = Number((updated.deductions + updated.advancesDeducted + (updated.lateDeductions || 0)).toFixed(2));
+          updated.grossEarnings = gross;
+          updated.totalDeductionsCombined = totalDed;
+          updated.netSalary = Math.max(0, Number((gross - totalDed).toFixed(2)));
           return updated;
         }
         return item;
@@ -265,7 +274,9 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
     const totalBasic = included.reduce((s, i) => s + i.basicSalary, 0);
     const totalAllowances = included.reduce((s, i) => s + i.allowances, 0);
     const totalIncentives = included.reduce((s, i) => s + i.incentives, 0);
+    const totalOvertime = included.reduce((s, i) => s + (i.overtimePay || 0), 0);
     const totalDeductions = included.reduce((s, i) => s + i.deductions, 0);
+    const totalLateDeductions = included.reduce((s, i) => s + (i.lateDeductions || 0), 0);
     const totalAdvances = included.reduce((s, i) => s + i.advancesDeducted, 0);
     const totalNet = included.reduce((s, i) => s + i.netSalary, 0);
 
@@ -274,7 +285,9 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
       totalBasic,
       totalAllowances,
       totalIncentives,
+      totalOvertime,
       totalDeductions,
+      totalLateDeductions,
       totalAdvances,
       totalNet
     };
@@ -308,7 +321,9 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
       totalBasic: summary.totalBasic,
       totalAllowances: summary.totalAllowances,
       totalIncentives: summary.totalIncentives,
+      totalOvertime: summary.totalOvertime,
       totalDeductions: summary.totalDeductions,
+      totalLateDeductions: summary.totalLateDeductions,
       totalAdvances: summary.totalAdvances,
       totalNet: summary.totalNet,
       employeesCount: summary.employeesCount,
@@ -366,7 +381,9 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
       totalBasic: summary.totalBasic,
       totalAllowances: summary.totalAllowances,
       totalIncentives: summary.totalIncentives,
+      totalOvertime: summary.totalOvertime,
       totalDeductions: summary.totalDeductions,
+      totalLateDeductions: summary.totalLateDeductions,
       totalAdvances: summary.totalAdvances,
       totalNet: summary.totalNet,
       employeesCount: summary.employeesCount,
@@ -533,6 +550,49 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
             </div>
           )}
 
+          {/* Salary Calculation Policy & Formula Banner (آلية احتساب الراتب الصحيحة) */}
+          <div className="bg-linear-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-3.5 rounded-xl border border-indigo-700 shadow-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs flex items-center gap-1.5 text-blue-200">
+                <HelpCircle className="w-4 h-4 text-amber-400" />
+                <span>آلية وقواعد احتساب راتب العامل المعتمدة في النظام:</span>
+              </span>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded font-mono">
+                محاسبة دقيقة للدوام وساعات العمل
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-[11px] text-slate-200 pt-1">
+              <div className="bg-white/10 p-2 rounded-lg border border-white/10">
+                <span className="text-amber-300 font-bold block mb-0.5">1. أساس الدوام والساعات:</span>
+                <span className="text-[10px] text-slate-300 leading-relaxed block">
+                  يُحسب من أيام الحضور الفعلي وساعات العمل الصافية (بعد خصم دقائق الاستراحة) وخصم أيام الغياب.
+                </span>
+              </div>
+
+              <div className="bg-white/10 p-2 rounded-lg border border-white/10">
+                <span className="text-emerald-300 font-bold block mb-0.5">2. الإضافات والمستحقات (+):</span>
+                <span className="text-[10px] text-slate-300 leading-relaxed block">
+                  الأساسي المستحق + أجر ساعات الأوفرتايم + العلاوات والبدلات الثابتة + المكافآت والحوافز.
+                </span>
+              </div>
+
+              <div className="bg-white/10 p-2 rounded-lg border border-white/10">
+                <span className="text-rose-300 font-bold block mb-0.5">3. الاستقطاعات والخصومات (-):</span>
+                <span className="text-[10px] text-slate-300 leading-relaxed block">
+                  السلف المالية المستقطعة + الجزاءات والخصومات الإدارية + خصومات التأخير الصباحي.
+                </span>
+              </div>
+
+              <div className="bg-blue-500/20 p-2 rounded-lg border border-blue-400/30">
+                <span className="text-cyan-300 font-bold block mb-0.5">4. صافي الراتب المستحق:</span>
+                <span className="text-[10px] font-mono text-white block mt-0.5 font-bold">
+                  الصافي = إجمالي الاستحقاقات - إجمالي الاستقطاعات
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Employees Calculation Table */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -540,8 +600,8 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
                 <Users className="w-4 h-4 text-slate-600" />
                 <span>جدول احتساب رواتب الموظفين ({items.filter(i => i.isIncluded).length} من {items.length} موظف مشمول)</span>
               </h3>
-              <span className="text-[10px] text-slate-400 font-light">
-                يتم استدعاء السلف والخصومات والحوافز المعلقة تلقائياً وتطبيقها في المعادلة
+              <span className="text-[10px] text-slate-500 font-medium">
+                يمكنك الضغط على أيقونة 👁️ أمام أي عامل لمعاينة قسيمة الحسبة التفصيلية وطباعتها
               </span>
             </div>
 
@@ -550,15 +610,18 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
                 <table className="w-full text-right border-collapse">
                   <thead>
                     <tr className="bg-slate-100 text-slate-700 border-b border-slate-200 font-bold text-[11px]">
-                      <th className="p-2.5 text-center w-10">تضمين</th>
-                      <th className="p-2.5">الموظف والوظيفة</th>
-                      <th className="p-2.5 text-center">النظام</th>
-                      <th className="p-2.5 text-center min-w-[90px]">الأساسي</th>
-                      <th className="p-2.5 text-center min-w-[75px]">البدلات</th>
-                      <th className="p-2.5 text-center min-w-[85px] text-emerald-800">+ الحوافز</th>
-                      <th className="p-2.5 text-center min-w-[85px] text-rose-800">- الخصومات</th>
-                      <th className="p-2.5 text-center min-w-[95px] text-amber-900">- السلف المستقطعة</th>
-                      <th className="p-2.5 text-center min-w-[110px] font-black bg-blue-50 text-blue-900">صافي المستحق</th>
+                      <th className="p-2 text-center w-8">تضمين</th>
+                      <th className="p-2">الموظف والوظيفة</th>
+                      <th className="p-2 text-center">النظام</th>
+                      <th className="p-2 text-center bg-blue-50/60 min-w-[130px]">الحضور والغياب والساعات</th>
+                      <th className="p-2 text-center min-w-[85px]">الأساسي المستحق</th>
+                      <th className="p-2 text-center min-w-[85px] text-amber-800">+ الإضافي (أوفرتايم)</th>
+                      <th className="p-2 text-center min-w-[70px]">البدلات</th>
+                      <th className="p-2 text-center min-w-[75px] text-emerald-800">+ الحوافز</th>
+                      <th className="p-2 text-center min-w-[85px] text-rose-800">- الخصومات والتأخير</th>
+                      <th className="p-2 text-center min-w-[85px] text-amber-900">- السلف المستقطعة</th>
+                      <th className="p-2 text-center min-w-[100px] font-black bg-blue-50 text-blue-900">صافي المستحق</th>
+                      <th className="p-2 text-center w-12">قسيمة</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -574,7 +637,7 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
                           }`}
                         >
                           {/* Include checkbox */}
-                          <td className="p-2.5 text-center">
+                          <td className="p-2 text-center">
                             <input
                               type="checkbox"
                               checked={item.isIncluded}
@@ -584,13 +647,13 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
                           </td>
 
                           {/* Name & Job */}
-                          <td className="p-2.5">
-                            <div className="font-bold text-slate-900">{item.employeeName}</div>
-                            <div className="text-[9px] text-slate-400 font-light">{item.jobTitle}</div>
+                          <td className="p-2">
+                            <div className="font-bold text-slate-900 text-xs">{item.employeeName}</div>
+                            <div className="text-[10px] text-slate-500 font-mono">{item.employeeCode} | {item.jobTitle}</div>
                           </td>
 
                           {/* Salary Type & workdays */}
-                          <td className="p-2.5 text-center">
+                          <td className="p-2 text-center">
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                               {salaryLabel}
                             </span>
@@ -601,74 +664,122 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
                                   min="0"
                                   value={item.workDays || defaultWorkDaysDaily}
                                   onChange={e => handleUpdateItemField(item.id, 'workDays', parseInt(e.target.value) || 0)}
-                                  className="w-12 bg-slate-50 border border-slate-200 rounded px-1 py-0.5 text-center font-mono text-[10px]"
-                                  title="أيام العمل الفعلية"
+                                  className="w-11 bg-slate-50 border border-slate-200 rounded px-1 py-0.5 text-center font-mono text-[10px]"
+                                  title="أيام العمل المحتسبة"
                                 />
                                 <span className="text-[9px] text-slate-400">يوم</span>
                               </div>
                             )}
                           </td>
 
+                          {/* Attendance Days & Worked Hours */}
+                          <td className="p-2 text-center bg-blue-50/30">
+                            <div className="flex items-center justify-center gap-1 text-[10px] font-mono">
+                              <span className="text-emerald-700 font-bold bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200" title="أيام الحضور الفعلي">
+                                {item.presentDays ?? item.workDays ?? 0} حضور
+                              </span>
+                              <span className={`px-1 py-0.5 rounded border font-bold ${item.absentDays ? 'text-rose-700 bg-rose-50 border-rose-200' : 'text-slate-400 border-slate-100'}`} title="أيام الغياب">
+                                {item.absentDays ?? 0} غياب
+                              </span>
+                            </div>
+                            <div className="text-[9px] text-slate-500 font-mono mt-0.5">
+                              {item.totalWorkedHours ?? 0} ساعة عمل صافية
+                            </div>
+                          </td>
+
                           {/* Basic Salary */}
-                          <td className="p-2.5 text-center">
+                          <td className="p-2 text-center">
                             <input
                               type="number"
                               min="0"
                               value={item.basicSalary}
                               onChange={e => handleUpdateItemField(item.id, 'basicSalary', parseFloat(e.target.value) || 0)}
-                              className="w-20 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-center font-mono font-bold text-slate-800 focus:bg-white"
+                              className="w-20 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-center font-mono font-bold text-slate-800 focus:bg-white text-xs"
                             />
                           </td>
 
+                          {/* Overtime Pay */}
+                          <td className="p-2 text-center">
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.overtimePay || 0}
+                              onChange={e => handleUpdateItemField(item.id, 'overtimePay', parseFloat(e.target.value) || 0)}
+                              className="w-18 bg-amber-50/60 border border-amber-200 rounded-lg px-2 py-1 text-center font-mono font-bold text-amber-900 focus:bg-white text-xs"
+                            />
+                            {item.overtimeHours && item.overtimeHours > 0 ? (
+                              <div className="text-[9px] text-amber-700 font-mono mt-0.5">
+                                +{item.overtimeHours} ساعة
+                              </div>
+                            ) : null}
+                          </td>
+
                           {/* Allowances */}
-                          <td className="p-2.5 text-center">
+                          <td className="p-2 text-center">
                             <input
                               type="number"
                               min="0"
                               value={item.allowances}
                               onChange={e => handleUpdateItemField(item.id, 'allowances', parseFloat(e.target.value) || 0)}
-                              className="w-16 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-center font-mono text-slate-800 focus:bg-white"
+                              className="w-16 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-center font-mono text-slate-800 focus:bg-white text-xs"
                             />
                           </td>
 
                           {/* Incentives */}
-                          <td className="p-2.5 text-center">
+                          <td className="p-2 text-center">
                             <input
                               type="number"
                               min="0"
                               value={item.incentives}
                               onChange={e => handleUpdateItemField(item.id, 'incentives', parseFloat(e.target.value) || 0)}
-                              className="w-18 bg-emerald-50/60 border border-emerald-200 rounded-lg px-2 py-1 text-center font-mono font-bold text-emerald-800 focus:bg-white"
+                              className="w-18 bg-emerald-50/60 border border-emerald-200 rounded-lg px-2 py-1 text-center font-mono font-bold text-emerald-800 focus:bg-white text-xs"
                             />
                           </td>
 
-                          {/* Deductions */}
-                          <td className="p-2.5 text-center">
+                          {/* Deductions & Late */}
+                          <td className="p-2 text-center">
                             <input
                               type="number"
                               min="0"
                               value={item.deductions}
                               onChange={e => handleUpdateItemField(item.id, 'deductions', parseFloat(e.target.value) || 0)}
-                              className="w-18 bg-rose-50/60 border border-rose-200 rounded-lg px-2 py-1 text-center font-mono font-bold text-rose-800 focus:bg-white"
+                              className="w-18 bg-rose-50/60 border border-rose-200 rounded-lg px-2 py-1 text-center font-mono font-bold text-rose-800 focus:bg-white text-xs"
                             />
+                            {item.lateDeductions && item.lateDeductions > 0 ? (
+                              <div className="text-[9px] text-rose-600 font-mono mt-0.5" title="يشمل خصم تأخير">
+                                تأخير: {item.lateDeductions} ₪
+                              </div>
+                            ) : null}
                           </td>
 
                           {/* Advances Deducted */}
-                          <td className="p-2.5 text-center">
+                          <td className="p-2 text-center">
                             <input
                               type="number"
                               min="0"
                               value={item.advancesDeducted}
                               onChange={e => handleUpdateItemField(item.id, 'advancesDeducted', parseFloat(e.target.value) || 0)}
-                              className="w-20 bg-amber-50/60 border border-amber-200 rounded-lg px-2 py-1 text-center font-mono font-bold text-amber-900 focus:bg-white"
+                              className="w-18 bg-amber-50/60 border border-amber-200 rounded-lg px-2 py-1 text-center font-mono font-bold text-amber-900 focus:bg-white text-xs"
                             />
                           </td>
 
                           {/* Net Salary */}
-                          <td className="p-2.5 text-center bg-blue-50/40">
-                            <span className="font-mono font-black text-slate-900 text-sm">
-                              {item.netSalary.toLocaleString()} ر.س
+                          <td className="p-2 text-center bg-blue-50/40">
+                            <span className="font-mono font-black text-slate-900 text-xs">
+                              {item.netSalary.toLocaleString()} {settings.currency || '₪'}
                             </span>
+                          </td>
+
+                          {/* Payslip Action Button */}
+                          <td className="p-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedItemForPayslip(item)}
+                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100/60 rounded-lg transition-colors cursor-pointer"
+                              title="عرض قسيمة الراتب التفصيلية للموظف"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
                           </td>
                         </tr>
                       );
@@ -680,46 +791,46 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
           </div>
 
           {/* Totals Summary Banner */}
-          <div className="bg-slate-900 text-white rounded-xl p-4 shadow-sm grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
+          <div className="bg-slate-900 text-white rounded-xl p-4 shadow-sm grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700">
               <span className="text-[10px] text-slate-400 block">إجمالي الأساسي</span>
-              <span className="text-sm font-bold font-mono text-white mt-1 block">
-                {summary.totalBasic.toLocaleString()} ر.س
+              <span className="text-xs font-bold font-mono text-white mt-1 block">
+                {summary.totalBasic.toLocaleString()} {settings.currency || '₪'}
               </span>
             </div>
 
-            <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
-              <span className="text-[10px] text-slate-400 block">إجمالي البدلات</span>
-              <span className="text-sm font-bold font-mono text-white mt-1 block">
-                {summary.totalAllowances.toLocaleString()} ر.س
+            <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700">
+              <span className="text-[10px] text-amber-400 block">+ إجمالي الأوفرتايم</span>
+              <span className="text-xs font-bold font-mono text-amber-300 mt-1 block">
+                +{summary.totalOvertime.toLocaleString()} {settings.currency || '₪'}
               </span>
             </div>
 
-            <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
-              <span className="text-[10px] text-emerald-400 block">+ إجمالي الحوافز</span>
-              <span className="text-sm font-bold font-mono text-emerald-300 mt-1 block">
-                +{summary.totalIncentives.toLocaleString()} ر.س
+            <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700">
+              <span className="text-[10px] text-emerald-400 block">+ البدلات والحوافز</span>
+              <span className="text-xs font-bold font-mono text-emerald-300 mt-1 block">
+                +{(summary.totalAllowances + summary.totalIncentives).toLocaleString()} {settings.currency || '₪'}
               </span>
             </div>
 
-            <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
-              <span className="text-[10px] text-rose-400 block">- إجمالي الخصومات</span>
-              <span className="text-sm font-bold font-mono text-rose-300 mt-1 block">
-                -{summary.totalDeductions.toLocaleString()} ر.س
+            <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700">
+              <span className="text-[10px] text-rose-400 block">- الخصومات والتأخير</span>
+              <span className="text-xs font-bold font-mono text-rose-300 mt-1 block">
+                -{(summary.totalDeductions + (summary.totalLateDeductions || 0)).toLocaleString()} {settings.currency || '₪'}
               </span>
             </div>
 
-            <div className="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
-              <span className="text-[10px] text-amber-400 block">- سلف مستقطعة</span>
-              <span className="text-sm font-bold font-mono text-amber-300 mt-1 block">
-                -{summary.totalAdvances.toLocaleString()} ر.س
+            <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700">
+              <span className="text-[10px] text-amber-400 block">- السلف المستقطعة</span>
+              <span className="text-xs font-bold font-mono text-amber-300 mt-1 block">
+                -{summary.totalAdvances.toLocaleString()} {settings.currency || '₪'}
               </span>
             </div>
 
-            <div className="bg-blue-600 p-2.5 rounded-lg border border-blue-500">
+            <div className="bg-blue-600 p-2 rounded-lg border border-blue-500">
               <span className="text-[10px] text-blue-100 block font-bold">صافي الكشف للصرف</span>
-              <span className="text-base font-black font-mono text-white mt-0.5 block">
-                {summary.totalNet.toLocaleString()} ر.س
+              <span className="text-sm font-black font-mono text-white mt-0.5 block">
+                {summary.totalNet.toLocaleString()} {settings.currency || '₪'}
               </span>
             </div>
           </div>
@@ -763,6 +874,19 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Detailed Employee Payslip Modal */}
+        {selectedItemForPayslip && (
+          <EmployeePayslipModal
+            isOpen={Boolean(selectedItemForPayslip)}
+            onClose={() => setSelectedItemForPayslip(null)}
+            item={selectedItemForPayslip}
+            period={period}
+            sheetTitle={title}
+            startDate={startDate}
+            endDate={endDate}
+          />
+        )}
 
       </div>
     </div>

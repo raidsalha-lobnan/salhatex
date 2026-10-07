@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { PayrollSheet } from '../types';
 import { posSound } from '../utils/audio';
+import { EmployeePayslipModal } from './EmployeePayslipModal';
 import {
   FileSpreadsheet,
   PlusCircle,
@@ -44,6 +45,7 @@ export const PayrollSheetsView: React.FC<PayrollSheetsViewProps> = ({
 
   // State to inspect details of a specific sheet
   const [selectedSheetForDetails, setSelectedSheetForDetails] = useState<PayrollSheet | null>(null);
+  const [selectedItemForPayslip, setSelectedItemForPayslip] = useState<{ item: any; sheet: PayrollSheet } | null>(null);
 
   // Metrics
   const approvedSheets = payrollSheets.filter(s => s.status === 'approved');
@@ -432,54 +434,76 @@ export const PayrollSheetsView: React.FC<PayrollSheetsViewProps> = ({
                 <table className="w-full text-right border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                      <th className="p-2.5 text-center w-8">#</th>
-                      <th className="p-2.5">الموظف</th>
-                      <th className="p-2.5">المسمى الوظيفي</th>
-                      <th className="p-2.5 text-center">نظام الراتب</th>
-                      <th className="p-2.5 text-center">الأساسي</th>
-                      <th className="p-2.5 text-center">البدلات</th>
-                      <th className="p-2.5 text-center text-emerald-700">الحوافز</th>
-                      <th className="p-2.5 text-center text-rose-700">الخصومات</th>
-                      <th className="p-2.5 text-center text-amber-800">السلف</th>
-                      <th className="p-2.5 text-center font-black bg-blue-50 text-blue-900">صافي المستحق</th>
+                      <th className="p-2 text-center w-8">#</th>
+                      <th className="p-2">الموظف</th>
+                      <th className="p-2">المسمى الوظيفي</th>
+                      <th className="p-2 text-center">نظام الراتب</th>
+                      <th className="p-2 text-center bg-blue-50/60">الدوام وساعات العمل</th>
+                      <th className="p-2 text-center">الأساسي</th>
+                      <th className="p-2 text-center text-amber-800">+ الإضافي</th>
+                      <th className="p-2 text-center">البدلات</th>
+                      <th className="p-2 text-center text-emerald-700">+ الحوافز</th>
+                      <th className="p-2 text-center text-rose-700">- الخصومات</th>
+                      <th className="p-2 text-center text-amber-800">- السلف</th>
+                      <th className="p-2 text-center font-black bg-blue-50 text-blue-900">صافي المستحق</th>
+                      <th className="p-2 text-center w-10">قسيمة</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {selectedSheetForDetails.items.map((item, idx) => (
                       <tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                        <td className="p-2.5 text-center font-mono text-slate-500">{idx + 1}</td>
-                        <td className="p-2.5 font-bold text-slate-900">{item.employeeName}</td>
-                        <td className="p-2.5 text-slate-600">{item.jobTitle}</td>
-                        <td className="p-2.5 text-center text-slate-600">
+                        <td className="p-2 text-center font-mono text-slate-500">{idx + 1}</td>
+                        <td className="p-2 font-bold text-slate-900">{item.employeeName}</td>
+                        <td className="p-2 text-slate-600">{item.jobTitle}</td>
+                        <td className="p-2 text-center text-slate-600">
                           {item.salaryType === 'monthly' ? 'شهري' : item.salaryType === 'weekly' ? 'أسبوعي' : 'يومي'}
                         </td>
-                        <td className="p-2.5 text-center font-mono">{item.basicSalary.toLocaleString()}</td>
-                        <td className="p-2.5 text-center font-mono">{item.allowances.toLocaleString()}</td>
-                        <td className="p-2.5 text-center font-mono text-emerald-700">
+                        <td className="p-2 text-center font-mono text-[10px] bg-blue-50/30">
+                          {item.presentDays ?? item.workDays ?? 0}ح | {item.absentDays ?? 0}غ | {item.totalWorkedHours ?? 0}س
+                        </td>
+                        <td className="p-2 text-center font-mono">{item.basicSalary.toLocaleString()}</td>
+                        <td className="p-2 text-center font-mono text-amber-800 font-bold">
+                          {item.overtimePay && item.overtimePay > 0 ? `+${item.overtimePay.toLocaleString()}` : '0'}
+                        </td>
+                        <td className="p-2 text-center font-mono">{item.allowances.toLocaleString()}</td>
+                        <td className="p-2 text-center font-mono text-emerald-700">
                           {item.incentives > 0 ? `+${item.incentives.toLocaleString()}` : '0'}
                         </td>
-                        <td className="p-2.5 text-center font-mono text-rose-600">
+                        <td className="p-2 text-center font-mono text-rose-600">
                           {item.deductions > 0 ? `-${item.deductions.toLocaleString()}` : '0'}
                         </td>
-                        <td className="p-2.5 text-center font-mono text-amber-800">
+                        <td className="p-2 text-center font-mono text-amber-800">
                           {item.advancesDeducted > 0 ? `-${item.advancesDeducted.toLocaleString()}` : '0'}
                         </td>
-                        <td className="p-2.5 text-center font-mono font-black text-slate-900 bg-blue-50/30">
-                          {item.netSalary.toLocaleString()} ر.س
+                        <td className="p-2 text-center font-mono font-black text-slate-900 bg-blue-50/30">
+                          {item.netSalary.toLocaleString()} {settings.currency || '₪'}
+                        </td>
+                        <td className="p-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedItemForPayslip({ item, sheet: selectedSheetForDetails })}
+                            className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                            title="معاينة قسيمة الراتب"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-slate-200 font-bold text-slate-900 border-t-2 border-slate-300">
-                      <td colSpan={4} className="p-2.5 text-center">المجموع الكلي</td>
-                      <td className="p-2.5 text-center font-mono">{selectedSheetForDetails.totalBasic.toLocaleString()}</td>
-                      <td className="p-2.5 text-center font-mono">{selectedSheetForDetails.totalAllowances.toLocaleString()}</td>
-                      <td className="p-2.5 text-center font-mono text-emerald-700">+{selectedSheetForDetails.totalIncentives.toLocaleString()}</td>
-                      <td className="p-2.5 text-center font-mono text-rose-700">-{selectedSheetForDetails.totalDeductions.toLocaleString()}</td>
-                      <td className="p-2.5 text-center font-mono text-amber-800">-{selectedSheetForDetails.totalAdvances.toLocaleString()}</td>
-                      <td className="p-2.5 text-center font-mono font-black text-blue-900 bg-blue-100">
-                        {selectedSheetForDetails.totalNet.toLocaleString()} ر.س
+                    <tr className="bg-slate-200 font-bold text-slate-900 border-t-2 border-slate-300 text-xs">
+                      <td colSpan={5} className="p-2 text-center">المجموع الكلي ({selectedSheetForDetails.employeesCount} موظف)</td>
+                      <td className="p-2 text-center font-mono">{selectedSheetForDetails.totalBasic.toLocaleString()}</td>
+                      <td className="p-2 text-center font-mono text-amber-800">
+                        +{((selectedSheetForDetails.totalOvertime !== undefined ? selectedSheetForDetails.totalOvertime : selectedSheetForDetails.items.reduce((s, i) => s + (i.overtimePay || 0), 0))).toLocaleString()}
+                      </td>
+                      <td className="p-2 text-center font-mono">{selectedSheetForDetails.totalAllowances.toLocaleString()}</td>
+                      <td className="p-2 text-center font-mono text-emerald-700">+{selectedSheetForDetails.totalIncentives.toLocaleString()}</td>
+                      <td className="p-2 text-center font-mono text-rose-700">-{selectedSheetForDetails.totalDeductions.toLocaleString()}</td>
+                      <td className="p-2 text-center font-mono text-amber-800">-{selectedSheetForDetails.totalAdvances.toLocaleString()}</td>
+                      <td className="p-2 text-center font-mono font-black text-blue-900 bg-blue-100" colSpan={2}>
+                        {selectedSheetForDetails.totalNet.toLocaleString()} {settings.currency || '₪'}
                       </td>
                     </tr>
                   </tfoot>
@@ -504,6 +528,19 @@ export const PayrollSheetsView: React.FC<PayrollSheetsViewProps> = ({
 
           </div>
         </div>
+      )}
+
+      {/* Payslip Modal for Selected Employee */}
+      {selectedItemForPayslip && (
+        <EmployeePayslipModal
+          isOpen={Boolean(selectedItemForPayslip)}
+          onClose={() => setSelectedItemForPayslip(null)}
+          item={selectedItemForPayslip.item}
+          period={selectedItemForPayslip.sheet.period}
+          sheetTitle={selectedItemForPayslip.sheet.title}
+          startDate={selectedItemForPayslip.sheet.startDate}
+          endDate={selectedItemForPayslip.sheet.endDate}
+        />
       )}
 
     </div>

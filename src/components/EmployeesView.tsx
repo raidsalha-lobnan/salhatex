@@ -79,6 +79,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
     employeeAdvances,
     employeeDeductions,
     employeeIncentives,
+    calculateEmployeeSalaryBreakdown,
     payrollSheets,
     setSelectedEmployeeForStatement,
     settings
@@ -86,6 +87,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
 
   // Primary Sub-navigation tab
   const [activeSubTab, setActiveSubTab] = useState<'employees' | 'adjustments' | 'payroll_sheets' | 'attendance'>(initialSubTab);
+  const [payBreakdown, setPayBreakdown] = useState<any>(null);
 
   React.useEffect(() => {
     if (initialSubTab) {
@@ -218,7 +220,9 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
   // Open Pay Modal
   const handleOpenPay = (emp: Employee) => {
     setSelectedEmployeeForPay(emp);
-    const defaultAmount = (emp.salaryAmount || 0) + (emp.allowances || 0);
+    const calc = calculateEmployeeSalaryBreakdown(emp);
+    setPayBreakdown(calc);
+    const defaultAmount = calc.netSalary > 0 ? calc.netSalary : ((emp.salaryAmount || 0) + (emp.allowances || 0));
     setPayAmount(defaultAmount);
     setPayType('salary');
 
@@ -238,7 +242,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
     }
     setPayPeriod(defaultPeriodDesc);
     setPayMethod(emp.paymentMethod);
-    setPayNotes(`صرف مستحقات الموظف ${emp.name}`);
+    setPayNotes(`صرف مستحقات الموظف ${emp.name} (صافي حسبة الدوام والسلف والخصومات)`);
     setShowPayModal(true);
   };
 
@@ -1469,6 +1473,57 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
                   {selectedEmployeeForPay.paymentMethod === 'bank_transfer' ? 'تحويل بنكي' : 'نقداً من الصندوق'}
                 </div>
               </div>
+
+              {/* Live Attendance & Salary Breakdown Card */}
+              {payBreakdown && (
+                <div className="bg-slate-900 text-white p-3 rounded-xl border border-slate-800 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-blue-300 text-[11px] flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-blue-400" />
+                      <span>حسبة الدوام المستحقة آلياً للعامل:</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPayAmount(payBreakdown.netSalary)}
+                      className="text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-0.5 rounded font-bold transition cursor-pointer"
+                    >
+                      اعتماد الصافي المحتسب ({payBreakdown.netSalary} {settings.currency})
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5 text-center text-[10px]">
+                    <div className="bg-slate-800 p-1.5 rounded">
+                      <span className="text-slate-400 block">الحضور الفعلي:</span>
+                      <strong className="text-emerald-400 font-mono">{payBreakdown.presentDays} يوم</strong>
+                    </div>
+                    <div className="bg-slate-800 p-1.5 rounded">
+                      <span className="text-slate-400 block">الغياب:</span>
+                      <strong className={payBreakdown.absentDays ? 'text-rose-400 font-mono' : 'text-slate-300 font-mono'}>
+                        {payBreakdown.absentDays} يوم
+                      </strong>
+                    </div>
+                    <div className="bg-slate-800 p-1.5 rounded">
+                      <span className="text-slate-400 block">ساعات العمل:</span>
+                      <strong className="text-blue-300 font-mono">{payBreakdown.totalWorkedHours} س</strong>
+                    </div>
+                  </div>
+
+                  <div className="text-[10px] text-slate-300 space-y-1 bg-slate-800/80 p-2 rounded-lg font-mono">
+                    <div className="flex justify-between text-emerald-300">
+                      <span>الاستحقاقات (+): الأساسي {payBreakdown.basicSalary} + الإضافي {payBreakdown.overtimePay} + البدلات {payBreakdown.allowances} + الحوافز {payBreakdown.incentives}</span>
+                      <strong>={payBreakdown.grossEarnings}</strong>
+                    </div>
+                    <div className="flex justify-between text-rose-300">
+                      <span>الاستقطاعات (-): السلف {payBreakdown.advancesDeducted} + الخصومات {payBreakdown.deductions} + التأخير {payBreakdown.lateDeductions}</span>
+                      <strong>=-{payBreakdown.totalDeductionsCombined}</strong>
+                    </div>
+                    <div className="flex justify-between text-cyan-300 font-bold pt-1 border-t border-slate-700 text-[11px]">
+                      <span>صافي الراتب المستحق:</span>
+                      <span>{payBreakdown.netSalary} {settings.currency}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
