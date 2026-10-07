@@ -47,11 +47,11 @@ export const ReceiptVoucherModal: React.FC<ReceiptVoucherModalProps> = ({
   // Active currency
   const activeCurrency = useMemo(() => {
     return currencies.find(c => c.code === currencyCode) || currencies.find(c => c.isBase) || {
-      code: 'ILS',
-      symbol: '₪',
+      code: settings.baseCurrencyCode || 'ILS',
+      symbol: settings.currency || '₪',
       rateAgainstBase: 1.0
     };
-  }, [currencies, currencyCode]);
+  }, [currencies, currencyCode, settings.baseCurrencyCode, settings.currency]);
 
   // Filter treasuries matching payment method and currency when possible
   const matchingTreasuries = useMemo(() => {
@@ -274,7 +274,7 @@ export const ReceiptVoucherModal: React.FC<ReceiptVoucherModalProps> = ({
               >
                 {matchingTreasuries.map(t => (
                   <option key={t.id} value={t.accountCode}>
-                    {t.name} ({t.currency || '₪'})
+                    {t.name} ({t.currency || settings.currency || '₪'})
                   </option>
                 ))}
               </select>

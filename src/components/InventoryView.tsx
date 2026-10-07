@@ -74,19 +74,26 @@ export const InventoryView: React.FC = () => {
     return (parties || []).filter(p => (p.type === 'customer' || p.type === 'both') && !p.isSubCustomer);
   }, [parties]);
 
-  // Multi-Currency Display & Valuation (Base: ILS ₪)
-  const [selectedCurrencyCode, setSelectedCurrencyCode] = useState<string>(settings.baseCurrencyCode || 'ILS');
+  // Multi-Currency Display & Valuation
+  const currencySymbol = settings.currency || '₪';
+  const baseCurrency = useMemo(() => {
+    return currencies.find(c => c.isBase) ||
+      currencies.find(c => c.code.toUpperCase() === (settings.baseCurrencyCode || 'ILS').toUpperCase()) ||
+      currencies[0] || {
+        code: settings.baseCurrencyCode || 'ILS',
+        name: 'العملة الأساسية',
+        symbol: currencySymbol,
+        rateAgainstBase: 1.0,
+        isBase: true,
+        isActive: true
+      };
+  }, [currencies, settings.baseCurrencyCode, currencySymbol]);
+
+  const [selectedCurrencyCode, setSelectedCurrencyCode] = useState<string>(() => settings.baseCurrencyCode || 'ILS');
   const [selectedWarehouseFilter, setSelectedWarehouseFilter] = useState<string>('all');
   const activeCurrency = useMemo(() => {
-    return currencies.find(c => c.code === selectedCurrencyCode) || currencies.find(c => c.isBase) || {
-      code: 'ILS',
-      name: 'شيكل',
-      symbol: '₪',
-      rateAgainstBase: 1.0,
-      isBase: true,
-      isActive: true
-    };
-  }, [currencies, selectedCurrencyCode]);
+    return currencies.find(c => c.code === selectedCurrencyCode) || baseCurrency;
+  }, [currencies, selectedCurrencyCode, baseCurrency]);
 
   const [dailyExchangeRate, setDailyExchangeRate] = useState<number>(activeCurrency.rateAgainstBase || 1.0);
 
@@ -926,7 +933,7 @@ export const InventoryView: React.FC = () => {
                   </option>
                 ))}
               </select>
-              {selectedCurrencyCode !== 'ILS' && (
+              {selectedCurrencyCode !== baseCurrency.code && (
                 <div className="flex items-center gap-1 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 text-[10px]">
                   <span className="text-amber-800 font-bold">الصرف:</span>
                   <input
@@ -937,7 +944,7 @@ export const InventoryView: React.FC = () => {
                     onChange={e => setDailyExchangeRate(parseFloat(e.target.value) || 1.0)}
                     className="w-12 bg-white border border-amber-300 rounded px-1 text-center font-mono font-bold text-xs"
                   />
-                  <span className="text-slate-600 font-bold">₪</span>
+                  <span className="text-slate-600 font-bold">{currencySymbol}</span>
                 </div>
               )}
             </div>
@@ -1067,8 +1074,8 @@ export const InventoryView: React.FC = () => {
                     <div className="flex items-center justify-between font-mono">
                       <span className="text-[10px] text-slate-400 font-light font-sans">سعر البيع:</span>
                       <span className="font-bold text-blue-600 text-xs">
-                        {item.sellingPrice.toLocaleString('ar-SA')} ₪
-                        {selectedCurrencyCode !== 'ILS' && (
+                        {item.sellingPrice.toLocaleString('ar-SA')} {currencySymbol}
+                        {selectedCurrencyCode !== baseCurrency.code && (
                           <span className="text-[10px] text-emerald-600 font-normal mr-1">
                             (≈ {(item.sellingPrice / dailyExchangeRate).toFixed(1)} {activeCurrency.symbol})
                           </span>
@@ -1080,12 +1087,12 @@ export const InventoryView: React.FC = () => {
                       <div className="flex items-center gap-1.5 pt-1 text-[10px] font-mono">
                         {item.sellingPrice2 && (
                           <span className="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-200">
-                            س2: {item.sellingPrice2} ₪
+                            س2: {item.sellingPrice2} {currencySymbol}
                           </span>
                         )}
                         {item.sellingPrice3 && (
                           <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">
-                            س3: {item.sellingPrice3} ₪
+                            س3: {item.sellingPrice3} {currencySymbol}
                           </span>
                         )}
                       </div>
@@ -1252,16 +1259,16 @@ export const InventoryView: React.FC = () => {
                         </td>
                         <td className="p-2.5 text-slate-600">{item.unit}</td>
                         <td className="p-2.5 font-mono font-semibold text-slate-700">
-                          <div>{item.purchasePrice.toFixed(2)} ₪</div>
-                          {selectedCurrencyCode !== 'ILS' && (
+                          <div>{item.purchasePrice.toFixed(2)} {currencySymbol}</div>
+                          {selectedCurrencyCode !== baseCurrency.code && (
                             <div className="text-[10px] text-blue-600 font-bold">
                               ≈ {(item.purchasePrice / dailyExchangeRate).toFixed(2)} {activeCurrency.symbol}
                             </div>
                           )}
                         </td>
                         <td className="p-2.5 font-mono text-slate-900">
-                          <div className="font-bold">{item.sellingPrice.toFixed(2)} ₪</div>
-                          {selectedCurrencyCode !== 'ILS' && (
+                          <div className="font-bold">{item.sellingPrice.toFixed(2)} {currencySymbol}</div>
+                          {selectedCurrencyCode !== baseCurrency.code && (
                             <div className="text-[10px] text-emerald-600 font-bold">
                               ≈ {(item.sellingPrice / dailyExchangeRate).toFixed(2)} {activeCurrency.symbol}
                             </div>
@@ -1270,12 +1277,12 @@ export const InventoryView: React.FC = () => {
                             <div className="flex flex-wrap gap-1 mt-1 text-[10px]">
                               {item.sellingPrice2 && (
                                 <span className="bg-purple-50 text-purple-700 px-1 rounded border border-purple-200" title="سعر بيع 2">
-                                  س2: {item.sellingPrice2} ₪
+                                  س2: {item.sellingPrice2} {currencySymbol}
                                 </span>
                               )}
                               {item.sellingPrice3 && (
                                 <span className="bg-amber-50 text-amber-700 px-1 rounded border border-amber-200" title="سعر بيع 3">
-                                  س3: {item.sellingPrice3} ₪
+                                  س3: {item.sellingPrice3} {currencySymbol}
                                 </span>
                               )}
                             </div>
@@ -1339,8 +1346,8 @@ export const InventoryView: React.FC = () => {
                         <td className="p-2.5 font-mono font-semibold text-slate-800">
                           {isService ? '-' : (
                             <div>
-                              <div>{lineTotalCost.toLocaleString('ar-SA')} ₪</div>
-                              {selectedCurrencyCode !== 'ILS' && (
+                              <div>{lineTotalCost.toLocaleString('ar-SA')} {currencySymbol}</div>
+                              {selectedCurrencyCode !== baseCurrency.code && (
                                 <div className="text-[9px] text-slate-400 font-light font-bold">
                                   ≈ {(lineTotalCost / dailyExchangeRate).toLocaleString('ar-SA', { maximumFractionDigits: 2 })} {activeCurrency.symbol}
                                 </div>
@@ -1764,7 +1771,7 @@ export const InventoryView: React.FC = () => {
                     <h4 className="text-xs font-bold text-slate-800">أسعار البيع والتسعير المتعدد:</h4>
                   </div>
                   <span className="text-[9px] text-slate-400 font-light bg-white px-2 py-0.5 rounded border border-slate-200">
-                    العملة: {settings.currency} (₪)
+                    العملة الأساسية: {settings.currency || currencySymbol}
                   </span>
                 </div>
 
@@ -1784,7 +1791,7 @@ export const InventoryView: React.FC = () => {
                         onChange={e => setFormPurchasePrice(Number(e.target.value))}
                         className="w-full bg-white border border-slate-300 rounded-md p-1.5 font-mono text-xs text-slate-800 focus:ring-1 focus:ring-blue-500"
                       />
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">₪</span>
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">{currencySymbol}</span>
                     </div>
                   </div>
 
@@ -1809,7 +1816,7 @@ export const InventoryView: React.FC = () => {
                         className="w-full bg-white border-2 border-blue-400 rounded-md p-1.5 font-mono font-bold text-blue-900 text-xs focus:ring-1 focus:ring-blue-500"
                         placeholder="0.00"
                       />
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-600 font-bold">₪</span>
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-600 font-bold">{currencySymbol}</span>
                     </div>
                   </div>
 
@@ -1833,7 +1840,7 @@ export const InventoryView: React.FC = () => {
                         className="w-full bg-white border border-slate-300 rounded-md p-1.5 font-mono font-medium text-purple-900 text-xs focus:ring-1 focus:ring-purple-500"
                         placeholder="اختياري..."
                       />
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">₪</span>
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">{currencySymbol}</span>
                     </div>
                   </div>
 
@@ -1857,7 +1864,7 @@ export const InventoryView: React.FC = () => {
                         className="w-full bg-white border border-slate-300 rounded-md p-1.5 font-mono font-medium text-amber-900 text-xs focus:ring-1 focus:ring-amber-500"
                         placeholder="اختياري..."
                       />
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">₪</span>
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">{currencySymbol}</span>
                     </div>
                   </div>
                 </div>
@@ -1867,7 +1874,7 @@ export const InventoryView: React.FC = () => {
                   <span className="text-slate-600">هامش الربح (سعر 1):</span>
                   <div className="flex items-center gap-2 font-mono">
                     <span className="font-bold text-emerald-700">
-                      +{(formSellingPrice - formPurchasePrice).toFixed(2)} ₪
+                      +{(formSellingPrice - formPurchasePrice).toFixed(2)} {currencySymbol}
                     </span>
                     {formPurchasePrice > 0 && (
                       <span className="text-[9px] text-slate-400 font-light">
@@ -1921,7 +1928,7 @@ export const InventoryView: React.FC = () => {
 
                   <div className="sm:col-span-3">
                     <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
-                      السعر الخاص ({settings.currency}):
+                      السعر الخاص ({currencySymbol}):
                     </label>
                     <div className="relative">
                       <input
@@ -1933,7 +1940,7 @@ export const InventoryView: React.FC = () => {
                         placeholder="مثال: 12.50"
                         className="w-full bg-slate-50 border border-slate-300 rounded-md p-1.5 font-mono font-bold text-xs text-slate-900 focus:bg-white focus:ring-1 focus:ring-amber-500"
                       />
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">₪</span>
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">{currencySymbol}</span>
                     </div>
                   </div>
 
@@ -1990,18 +1997,18 @@ export const InventoryView: React.FC = () => {
                                 )}
                               </td>
                               <td className="p-2 font-mono font-bold text-amber-900">
-                                {entry.price.toFixed(2)} ₪
+                                {entry.price.toFixed(2)} {currencySymbol}
                               </td>
                               <td className="p-2 text-[11px] font-mono">
                                 {diff === 0 ? (
                                   <span className="text-slate-500">مطابق لسعر 1</span>
                                 ) : diff < 0 ? (
                                   <span className="text-emerald-700 font-bold">
-                                    خصم {Math.abs(diff).toFixed(2)} ₪
+                                    خصم {Math.abs(diff).toFixed(2)} {currencySymbol}
                                   </span>
                                 ) : (
                                   <span className="text-blue-700 font-bold">
-                                    +{diff.toFixed(2)} ₪
+                                    +{diff.toFixed(2)} {currencySymbol}
                                   </span>
                                 )}
                               </td>
@@ -2222,17 +2229,17 @@ export const InventoryView: React.FC = () => {
             <div className="grid grid-cols-3 gap-2 my-3 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
               <div>
                 <span className="text-slate-500 block text-[10px]">سعر التكلفة:</span>
-                <span className="font-bold font-mono text-slate-800">{viewingSpecialPricesItem.purchasePrice.toFixed(2)} ₪</span>
+                <span className="font-bold font-mono text-slate-800">{viewingSpecialPricesItem.purchasePrice.toFixed(2)} {currencySymbol}</span>
               </div>
               <div>
                 <span className="text-slate-500 block text-[10px]">سعر بيع 1 (أساسي):</span>
-                <span className="font-bold font-mono text-blue-600">{viewingSpecialPricesItem.sellingPrice.toFixed(2)} ₪</span>
+                <span className="font-bold font-mono text-blue-600">{viewingSpecialPricesItem.sellingPrice.toFixed(2)} {currencySymbol}</span>
               </div>
               <div>
                 <span className="text-slate-500 block text-[10px]">فئات أخرى:</span>
                 <span className="font-mono text-slate-700 text-[11px]">
-                  {viewingSpecialPricesItem.sellingPrice2 ? `س2: ${viewingSpecialPricesItem.sellingPrice2} ₪ ` : ''}
-                  {viewingSpecialPricesItem.sellingPrice3 ? `| س3: ${viewingSpecialPricesItem.sellingPrice3} ₪` : ''}
+                  {viewingSpecialPricesItem.sellingPrice2 ? `س2: ${viewingSpecialPricesItem.sellingPrice2} ${currencySymbol} ` : ''}
+                  {viewingSpecialPricesItem.sellingPrice3 ? `| س3: ${viewingSpecialPricesItem.sellingPrice3} ${currencySymbol}` : ''}
                   {!viewingSpecialPricesItem.sellingPrice2 && !viewingSpecialPricesItem.sellingPrice3 && 'لا يوجد'}
                 </span>
               </div>
@@ -2263,15 +2270,15 @@ export const InventoryView: React.FC = () => {
                           )}
                         </td>
                         <td className="p-2.5 font-mono font-bold text-amber-900">
-                          {sp.price.toFixed(2)} ₪
+                          {sp.price.toFixed(2)} {currencySymbol}
                         </td>
                         <td className="p-2.5 font-mono text-[11px]">
                           {diff === 0 ? (
                             <span className="text-slate-400">مطابق</span>
                           ) : diff < 0 ? (
-                            <span className="text-emerald-700 font-bold">خصم {Math.abs(diff).toFixed(2)} ₪</span>
+                            <span className="text-emerald-700 font-bold">خصم {Math.abs(diff).toFixed(2)} {currencySymbol}</span>
                           ) : (
-                            <span className="text-blue-700 font-bold">+{diff.toFixed(2)} ₪</span>
+                            <span className="text-blue-700 font-bold">+{diff.toFixed(2)} {currencySymbol}</span>
                           )}
                         </td>
                         <td className="p-2.5 text-slate-500 text-[11px]">

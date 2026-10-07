@@ -289,7 +289,7 @@ export const CustomerReceiptsLedgerModal: React.FC<CustomerReceiptsLedgerModalPr
             <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-[11px] font-semibold text-slate-700">
               <span>فقط وقدره: </span>
               <span className="font-bold text-slate-900 font-sans">
-                {tafqeet(totalReceiptsAmount)} {settings.baseCurrencyCode === 'ILS' ? 'شيكل لا غير' : 'ريال لا غير'}
+                {tafqeet(totalReceiptsAmount, settings.baseCurrencyCode || settings.currency || 'ILS')}
               </span>
             </div>
           )}

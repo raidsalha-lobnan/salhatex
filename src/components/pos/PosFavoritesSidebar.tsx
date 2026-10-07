@@ -27,7 +27,8 @@ export const PosFavoritesSidebar: React.FC<PosFavoritesSidebarProps> = ({
   onSelectItem,
   className = ''
 }) => {
-  const { inventory, updateInventoryItem } = useAccounting();
+  const { inventory, updateInventoryItem, settings } = useAccounting();
+  const currencySymbol = settings.currency || '₪';
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnlyFavorites, setShowOnlyFavorites] = useState<boolean>(() => {
     try {
@@ -352,7 +353,7 @@ export const PosFavoritesSidebar: React.FC<PosFavoritesSidebarProps> = ({
                   key={item.id}
                   onClick={() => handlePickItem(item)}
                   className="bg-white border border-slate-200 hover:border-blue-500 hover:shadow-md rounded-xl p-2 flex flex-col justify-between cursor-pointer transition-all group relative overflow-hidden active:scale-98"
-                  title={`${item.name} - ${item.sellingPrice.toFixed(2)} ₪ (انقر للإضافة إلى الفاتورة)`}
+                  title={`${item.name} - ${item.sellingPrice.toFixed(2)} ${currencySymbol} (انقر للإضافة إلى الفاتورة)`}
                 >
                   {/* حاوية صورة الصنف مع تظهير النجمة وحالة المخزون */}
                   <div className="relative w-full h-22 sm:h-24 bg-slate-50 rounded-lg overflow-hidden border border-slate-200 mb-1.5 flex items-center justify-center">
@@ -411,7 +412,7 @@ export const PosFavoritesSidebar: React.FC<PosFavoritesSidebarProps> = ({
 
                     <div className="pt-1 border-t border-slate-100 flex items-center justify-between">
                       <span className="font-mono font-black text-blue-700 text-xs sm:text-sm">
-                        {item.sellingPrice.toFixed(2)} ₪
+                        {item.sellingPrice.toFixed(2)} {currencySymbol}
                       </span>
                       <span className="p-1 bg-blue-50 text-blue-700 rounded-md group-hover:bg-blue-600 group-hover:text-white transition-colors">
                         <Plus className="w-3.5 h-3.5" />

@@ -1,10 +1,55 @@
 /**
  * Arabic Number to Words Converter (Tafqeet - تفقيط المبالغ المالية باللغة العربية)
+ * يدعم تفقيط المبالغ لكافة العملات المعتمدة في النظام بدقة مع أسماء العملات وأجزائها
  */
 
 const ONES = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة', 'عشرة', 'أحد عشر', 'اثنا عشر', 'ثلاثة عشر', 'أربعة عشر', 'خمسة عشر', 'ستة عشر', 'سبعة عشر', 'ثمانية عشر', 'تسعة عشر'];
 const TENS = ['', '', 'عشرون', 'ثلاثون', 'أربعون', 'خمسون', 'ستون', 'سبعون', 'ثمانون', 'تسعون'];
 const HUNDREDS = ['', 'مائة', 'مئتان', 'ثلاثمائة', 'أربعمائة', 'خمسمائة', 'ستمائة', 'سبعمائة', 'ثمانمائة', 'تسعمائة'];
+
+export const CURRENCY_TAFQEET_MAP: Record<string, { name: string; fraction: string }> = {
+  'ILS': { name: 'شيكل', fraction: 'أغورة' },
+  '₪': { name: 'شيكل', fraction: 'أغورة' },
+  'شيكل': { name: 'شيكل', fraction: 'أغورة' },
+  'SAR': { name: 'ريال سعودي', fraction: 'هللة' },
+  'ر.س': { name: 'ريال سعودي', fraction: 'هللة' },
+  'ريال': { name: 'ريال سعودي', fraction: 'هللة' },
+  'USD': { name: 'دولار أمريكي', fraction: 'سنت' },
+  '$': { name: 'دولار أمريكي', fraction: 'سنت' },
+  'دولار': { name: 'دولار أمريكي', fraction: 'سنت' },
+  'JOD': { name: 'دينار أردني', fraction: 'قرش' },
+  'د.أ': { name: 'دينار أردني', fraction: 'قرش' },
+  'دينار أردني': { name: 'دينار أردني', fraction: 'قرش' },
+  'EUR': { name: 'يورو أوروبي', fraction: 'سنت' },
+  '€': { name: 'يورو أوروبي', fraction: 'سنت' },
+  'يورو': { name: 'يورو أوروبي', fraction: 'سنت' },
+  'AED': { name: 'درهم إماراتي', fraction: 'فلس' },
+  'د.إ': { name: 'درهم إماراتي', fraction: 'فلس' },
+  'درهم': { name: 'درهم إماراتي', fraction: 'فلس' },
+  'EGP': { name: 'جنيه مصري', fraction: 'قرش' },
+  'ج.م': { name: 'جنيه مصري', fraction: 'قرش' },
+  'جنيه': { name: 'جنيه مصري', fraction: 'قرش' },
+  'KWD': { name: 'دينار كويتي', fraction: 'فلس' },
+  'د.ك': { name: 'دينار كويتي', fraction: 'فلس' },
+  'QAR': { name: 'ريال قطري', fraction: 'درهم' },
+  'ر.ق': { name: 'ريال قطري', fraction: 'درهم' },
+  'OMR': { name: 'ريال عماني', fraction: 'بيسة' },
+  'ر.ع': { name: 'ريال عماني', fraction: 'بيسة' },
+  'BHD': { name: 'دينار بحريني', fraction: 'فلس' },
+  'د.ب': { name: 'دينار بحريني', fraction: 'فلس' },
+  'TRY': { name: 'ليرة تركية', fraction: 'قرش' },
+  '₺': { name: 'ليرة تركية', fraction: 'قرش' },
+  'GBP': { name: 'جنيه إسترليني', fraction: 'بنس' },
+  '£': { name: 'جنيه إسترليني', fraction: 'بنس' }
+};
+
+export function getCurrencyTafqeetUnits(codeOrSymbol?: string): { name: string; fraction: string } {
+  if (!codeOrSymbol) return { name: 'شيكل', fraction: 'أغورة' };
+  const clean = codeOrSymbol.trim().toUpperCase();
+  if (CURRENCY_TAFQEET_MAP[clean]) return CURRENCY_TAFQEET_MAP[clean];
+  if (CURRENCY_TAFQEET_MAP[codeOrSymbol.trim()]) return CURRENCY_TAFQEET_MAP[codeOrSymbol.trim()];
+  return { name: codeOrSymbol.trim(), fraction: 'جزء' };
+}
 
 function convertGroup(num: number): string {
   if (num === 0) return '';
@@ -33,8 +78,16 @@ function convertGroup(num: number): string {
   return parts.join(' و');
 }
 
-export function tafqeet(amount: number, currencyName: string = 'شيكل', fractionalName: string = 'أغورة'): string {
-  if (amount === 0) return 'صفر ' + currencyName;
+export function tafqeet(amount: number, currencyNameOrCode: string = 'شيكل', fractionalName?: string): string {
+  if (amount === 0) {
+    const resolvedUnits = getCurrencyTafqeetUnits(currencyNameOrCode);
+    const finalName = fractionalName ? currencyNameOrCode : resolvedUnits.name;
+    return 'صفر ' + finalName;
+  }
+
+  const resolvedUnits = getCurrencyTafqeetUnits(currencyNameOrCode);
+  const finalCurrencyName = fractionalName ? currencyNameOrCode : resolvedUnits.name;
+  const finalFractionalName = fractionalName || resolvedUnits.fraction;
 
   const isNegative = amount < 0;
   const absAmount = Math.abs(amount);
@@ -73,10 +126,10 @@ export function tafqeet(amount: number, currencyName: string = 'شيكل', fract
     parts.push(convertGroup(units));
   }
 
-  let result = (isNegative ? 'سالب ' : '') + 'فقط ' + parts.join(' و') + ' ' + currencyName;
+  let result = (isNegative ? 'سالب ' : '') + 'فقط ' + parts.join(' و') + ' ' + finalCurrencyName;
 
   if (decimalPart > 0) {
-    result += ` و${convertGroup(decimalPart)} ${fractionalName}`;
+    result += ` و${convertGroup(decimalPart)} ${finalFractionalName}`;
   }
 
   result += ' لا غير.';

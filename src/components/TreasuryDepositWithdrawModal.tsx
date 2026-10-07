@@ -42,13 +42,29 @@ export const TreasuryDepositWithdrawModal: React.FC<TreasuryDepositWithdrawModal
     currencies,
     depositIntoTreasury,
     withdrawFromTreasury,
-    setSelectedVoucherForPrint
+    setSelectedVoucherForPrint,
+    settings
   } = useAccounting();
+
+  const baseCurrency = useMemo(() => {
+    return currencies.find(c => c.isBase) ||
+      currencies.find(c => c.code.toUpperCase() === (settings.baseCurrencyCode || 'ILS').toUpperCase()) ||
+      currencies[0] || {
+        code: settings.baseCurrencyCode || 'ILS',
+        name: 'العملة الأساسية',
+        symbol: settings.currency || '₪',
+        rateAgainstBase: 1.0,
+        isBase: true
+      };
+  }, [currencies, settings.baseCurrencyCode, settings.currency]);
+
+  const baseCode = settings.baseCurrencyCode || 'ILS';
+  const baseSymbol = settings.currency || '₪';
 
   const [mode, setMode] = useState<'deposit' | 'withdrawal'>(initialMode);
   const [treasuryId, setTreasuryId] = useState<string>('');
   const [amount, setAmount] = useState<number | ''>('');
-  const [currencyCode, setCurrencyCode] = useState<string>('ILS');
+  const [currencyCode, setCurrencyCode] = useState<string>(() => baseCode);
   const [exchangeRate, setExchangeRate] = useState<number>(1.0);
   const [contraAccountCode, setContraAccountCode] = useState<string>('3101');
   const [partyName, setPartyName] = useState<string>('');
@@ -68,7 +84,7 @@ export const TreasuryDepositWithdrawModal: React.FC<TreasuryDepositWithdrawModal
       const defaultTId = initialTreasuryId || treasuries[0]?.id || '';
       setTreasuryId(defaultTId);
       setAmount('');
-      setCurrencyCode('ILS');
+      setCurrencyCode(baseCode);
       setExchangeRate(1.0);
       setContraAccountCode(initialMode === 'deposit' ? '3101' : '3102');
       setPartyName('');
@@ -79,7 +95,7 @@ export const TreasuryDepositWithdrawModal: React.FC<TreasuryDepositWithdrawModal
       setCompletedMessage(null);
       setCompletedEntryNumber(null);
     }
-  }, [isOpen, initialMode, initialTreasuryId, treasuries]);
+  }, [isOpen, initialMode, initialTreasuryId, treasuries, baseCode]);
 
   // When mode changes manually
   const handleModeChange = (newMode: 'deposit' | 'withdrawal') => {
@@ -99,7 +115,7 @@ export const TreasuryDepositWithdrawModal: React.FC<TreasuryDepositWithdrawModal
   const handleCurrencyChange = (cCode: string) => {
     setCurrencyCode(cCode);
     const curr = currencies.find(c => c.code === cCode);
-    setExchangeRate(cCode === 'ILS' ? 1.0 : (curr?.rateAgainstBase || 1.0));
+    setExchangeRate(cCode === baseCode ? 1.0 : (curr?.rateAgainstBase || 1.0));
   };
 
   const selectedTreasury = useMemo(() => {
@@ -107,9 +123,9 @@ export const TreasuryDepositWithdrawModal: React.FC<TreasuryDepositWithdrawModal
   }, [treasuries, treasuryId]);
 
   const currencySymbol = useMemo(() => {
-    if (currencyCode === 'ILS') return '₪';
+    if (currencyCode === baseCode) return baseSymbol;
     return currencies.find(c => c.code === currencyCode)?.symbol || currencyCode;
-  }, [currencies, currencyCode]);
+  }, [currencies, currencyCode, baseCode, baseSymbol]);
 
   // Current balance of selected treasury in chosen currency
   const availableBalanceInCurr = useMemo(() => {
@@ -117,8 +133,8 @@ export const TreasuryDepositWithdrawModal: React.FC<TreasuryDepositWithdrawModal
     if (selectedTreasury.currencyBalances && selectedTreasury.currencyBalances[currencyCode] !== undefined) {
       return Number(selectedTreasury.currencyBalances[currencyCode]) || 0;
     }
-    return currencyCode === 'ILS' ? (selectedTreasury.balance || 0) : 0;
-  }, [selectedTreasury, currencyCode]);
+    return currencyCode === baseCode ? (selectedTreasury.balance || 0) : 0;
+  }, [selectedTreasury, currencyCode, baseCode]);
 
   const numAmount = Number(amount) || 0;
   const isOverdraft = mode === 'withdrawal' && numAmount > 0 && numAmount > availableBalanceInCurr;

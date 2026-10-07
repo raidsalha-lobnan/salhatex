@@ -150,6 +150,7 @@ export const WarehouseOperationsView: React.FC = () => {
     currentUser,
     settings
   } = useAccounting();
+  const currencySymbol = settings.currency || '₪';
 
   // Active View Tab
   const [activeMainTab, setActiveMainTab] = useState<'operations' | 'directory' | 'matrix' | 'audit_ledger'>('operations');
@@ -890,7 +891,7 @@ export const WarehouseOperationsView: React.FC = () => {
                             {op.totalQuantity.toLocaleString()}
                           </td>
                           <td className="p-3 font-mono font-bold text-emerald-700">
-                            {op.totalValue.toLocaleString()} ₪
+                            {op.totalValue.toLocaleString()} {currencySymbol}
                           </td>
                           <td className="p-3 text-center">
                             <button
@@ -1009,7 +1010,7 @@ export const WarehouseOperationsView: React.FC = () => {
                         <div>
                           <span className="text-[10px] text-slate-400 block">قيمة المخزون:</span>
                           <strong className="text-xs font-mono font-bold text-emerald-700">
-                            {totalValInWh.toLocaleString()} ₪
+                            {totalValInWh.toLocaleString()} {currencySymbol}
                           </strong>
                         </div>
                       </div>
@@ -1160,10 +1161,10 @@ export const WarehouseOperationsView: React.FC = () => {
                         })}
 
                         <td className="p-3 text-center font-mono text-slate-700">
-                          {item.purchasePrice} ₪
+                          {item.purchasePrice} {currencySymbol}
                         </td>
                         <td className="p-3 text-center font-mono font-bold text-emerald-700">
-                          {totalVal.toLocaleString()} ₪
+                          {totalVal.toLocaleString()} {currencySymbol}
                         </td>
                       </tr>
                     );
@@ -1538,7 +1539,7 @@ export const WarehouseOperationsView: React.FC = () => {
                               />
                             </div>
                             <div className="col-span-6 sm:col-span-3">
-                              <label className="block text-[9px] text-slate-400 font-light mb-0.5">تكلفة الوحدة (₪)</label>
+                              <label className="block text-[9px] text-slate-400 font-light mb-0.5">تكلفة الوحدة ({currencySymbol})</label>
                               <input
                                 type="number"
                                 step="0.1"
@@ -1935,10 +1936,10 @@ export const WarehouseOperationsView: React.FC = () => {
                           {item.quantity} {item.unit}
                         </td>
                         <td className="p-2.5 text-center font-mono text-slate-700">
-                          {item.unitCost} ₪
+                          {item.unitCost} {currencySymbol}
                         </td>
                         <td className="p-2.5 text-center font-mono font-bold text-emerald-700">
-                          {item.totalCost.toLocaleString()} ₪
+                          {item.totalCost.toLocaleString()} {currencySymbol}
                         </td>
                       </tr>
                     ))}
@@ -1951,7 +1952,7 @@ export const WarehouseOperationsView: React.FC = () => {
                       </td>
                       <td></td>
                       <td className="p-2.5 text-center font-mono text-emerald-700">
-                        {viewingOperation.totalValue.toLocaleString()} ₪
+                        {viewingOperation.totalValue.toLocaleString()} {currencySymbol}
                       </td>
                     </tr>
                   </tfoot>

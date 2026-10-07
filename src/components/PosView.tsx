@@ -311,18 +311,32 @@ export const PosView: React.FC = () => {
   // Single-Entry automation notification state
   const [lastSavedInvoiceNotice, setLastSavedInvoiceNotice] = useState<Invoice | null>(null);
 
-  // Multi-Currency State (العملة الأساسية: الشيكل الفلسطيني ₪)
-  const [selectedCurrencyCode, setSelectedCurrencyCode] = useState<string>(settings.baseCurrencyCode || 'ILS');
+  // Multi-Currency State (العملة الأساسية المعتمدة للنظام والمنشأة)
+  const baseCurrency = useMemo(() => {
+    return currencies.find(c => c.isBase) ||
+      currencies.find(c => c.code.toUpperCase() === (settings.baseCurrencyCode || 'ILS').toUpperCase()) ||
+      currencies[0] || {
+        code: settings.baseCurrencyCode || 'ILS',
+        name: 'العملة الأساسية',
+        symbol: settings.currency || '₪',
+        rateAgainstBase: 1.0,
+        isBase: true,
+        isActive: true
+      };
+  }, [currencies, settings.baseCurrencyCode, settings.currency]);
+
+  const [selectedCurrencyCode, setSelectedCurrencyCode] = useState<string>(() => settings.baseCurrencyCode || 'ILS');
+
+  // Synchronize when settings change
+  useEffect(() => {
+    if (settings.baseCurrencyCode) {
+      setSelectedCurrencyCode(prev => (currencies.some(c => c.code === prev) ? prev : settings.baseCurrencyCode!));
+    }
+  }, [settings.baseCurrencyCode, currencies]);
+
   const activeCurrency = useMemo(() => {
-    return currencies.find(c => c.code === selectedCurrencyCode) || currencies.find(c => c.isBase) || {
-      code: 'ILS',
-      name: 'شيكل',
-      symbol: '₪',
-      rateAgainstBase: 1.0,
-      isBase: true,
-      isActive: true
-    };
-  }, [currencies, selectedCurrencyCode]);
+    return currencies.find(c => c.code === selectedCurrencyCode) || baseCurrency;
+  }, [currencies, selectedCurrencyCode, baseCurrency]);
 
   const [customExchangeRate, setCustomExchangeRate] = useState<number>(activeCurrency.rateAgainstBase || 1.0);
 
@@ -368,7 +382,7 @@ export const PosView: React.FC = () => {
         name: c.name,
         code: c.code,
         subText: c.phone ? `هاتف: ${c.phone}` : (c.address || undefined),
-        badge: c.balance ? `${c.balance.toFixed(2)} ₪` : undefined,
+        badge: c.balance ? `${c.balance.toFixed(2)} ${settings.currency || '₪'}` : undefined,
         extraSearchCorpus: `${c.phone || ''} ${c.address || ''}`,
         raw: c
       }));
@@ -378,7 +392,7 @@ export const PosView: React.FC = () => {
         name: s.name,
         code: s.code,
         subText: s.phone ? `هاتف: ${s.phone}` : 'مورد معتمد',
-        badge: s.balance ? `${Math.abs(s.balance).toFixed(2)} ₪` : undefined,
+        badge: s.balance ? `${Math.abs(s.balance).toFixed(2)} ${settings.currency || '₪'}` : undefined,
         extraSearchCorpus: `${s.phone || ''}`,
         raw: s
       }));
@@ -534,7 +548,7 @@ export const PosView: React.FC = () => {
   useEffect(() => {
     currentEditingInvoiceIdRef.current = editingPosInvoiceId;
   }, [editingPosInvoiceId]);
-  const [cashCurrencyCode, setCashCurrencyCode] = useState<string>('ILS');
+  const [cashCurrencyCode, setCashCurrencyCode] = useState<string>(() => settings.baseCurrencyCode || 'ILS');
   const [cashExchangeRate, setCashExchangeRate] = useState<number>(1.0);
   const [cashTreasuryCode, setCashTreasuryCode] = useState<string>(() => {
     const def = treasuries?.find(t => t.type === 'cash_box' || t.isDefault);
@@ -543,7 +557,7 @@ export const PosView: React.FC = () => {
 
   // 2. Bank Payment State (المبلغ، عملة الدفع، سعر الصرف، الصندوق)
   const [bankAmountInput, setBankAmountInput] = useState<string>('0');
-  const [bankCurrencyCode, setBankCurrencyCode] = useState<string>('ILS');
+  const [bankCurrencyCode, setBankCurrencyCode] = useState<string>(() => settings.baseCurrencyCode || 'ILS');
   const [bankExchangeRate, setBankExchangeRate] = useState<number>(1.0);
   const [bankTreasuryCode, setBankTreasuryCode] = useState<string>(() => {
     const def = treasuries?.find(t => t.type === 'bank_account' || t.type === 'bank_app' || t.type === 'pos_terminal' || t.accountCode === '1102');
@@ -1784,10 +1798,10 @@ export const PosView: React.FC = () => {
       return;
     }
 
-    // 1. Force Base Currency: Palestinian Shekel (ILS ₪) with rate 1.0
-    setSelectedCurrencyCode('ILS');
+    // 1. Force Base Currency with rate 1.0
+    setSelectedCurrencyCode(baseCurrency.code);
     setCustomExchangeRate(1.0);
-    setCashCurrencyCode('ILS');
+    setCashCurrencyCode(baseCurrency.code);
     setCashExchangeRate(1.0);
 
     // 2. Force Main Cash Treasury (الصندوق الرئيسي 1101)
@@ -3047,7 +3061,7 @@ export const PosView: React.FC = () => {
               {subCustomerId ? 'رصيد الفرعي:' : 'الرصيد المستحق:'}
             </span>
             <span className="font-mono font-black text-red-600 text-[14px] sm:text-base">
-              {((subCustomerId ? parties.find(p => p.id === subCustomerId)?.balance : currentCustomer?.balance) ?? currentCustomer?.balance ?? 380).toFixed(2)} ₪
+              {((subCustomerId ? parties.find(p => p.id === subCustomerId)?.balance : currentCustomer?.balance) ?? currentCustomer?.balance ?? 0).toFixed(2)} {settings.currency || '₪'}
             </span>
             {subCustomerId && (
               <button
@@ -3775,8 +3789,8 @@ export const PosView: React.FC = () => {
                 >
                   <span className="text-[10px] text-blue-200 font-sans font-bold">الإجمالي:</span>
                   <span className="font-black text-xs sm:text-sm text-white">{calculatedSubtotal.toFixed(2)}</span>
-                  <span className="text-[10px] text-blue-200 font-sans">₪</span>
-                  {selectedCurrencyCode !== 'ILS' && (
+                  <span className="text-[10px] text-blue-200 font-sans">{settings.currency || '₪'}</span>
+                  {selectedCurrencyCode !== baseCurrency.code && (
                     <span className="text-[9px] text-amber-300 font-sans border-r border-blue-700 pr-1">
                       ≈ {(calculatedSubtotal / (customExchangeRate || 1)).toFixed(2)} {activeCurrency.symbol}
                     </span>
@@ -3830,8 +3844,8 @@ export const PosView: React.FC = () => {
                 >
                   <span className="text-[10px] text-rose-100 font-sans font-bold">المتبقي:</span>
                   <span className="font-black text-xs sm:text-sm tracking-wider">{calculatedRemaining.toFixed(2)}</span>
-                  <span className="text-[10px] text-white font-sans">₪</span>
-                  {selectedCurrencyCode !== 'ILS' && (
+                  <span className="text-[10px] text-white font-sans">{settings.currency || '₪'}</span>
+                  {selectedCurrencyCode !== baseCurrency.code && (
                     <span className="text-[9px] text-amber-200 font-sans border-r border-rose-400/50 pr-1">
                       ≈ {(calculatedRemaining / (customExchangeRate || 1)).toFixed(2)} {activeCurrency.symbol}
                     </span>
@@ -3917,7 +3931,7 @@ export const PosView: React.FC = () => {
             onQuickFullCash={handleQuickFullCash}
             onQuickFullBank={handleQuickFullBank}
             onQuickCredit={handleQuickCredit}
-            baseCurrencySymbol="₪"
+            baseCurrencySymbol={settings.currency || '₪'}
             isEditMode={isLiveCustomizing}
             onToggleVisibility={() => handleToggleLayoutSection('showPaymentConsole')}
           />
@@ -3991,7 +4005,7 @@ export const PosView: React.FC = () => {
                 >
                   {currencies.map(curr => (
                     <option key={curr.code} value={curr.code}>
-                      {curr.symbol} {curr.name} ({curr.code}) {curr.isBase ? '- العملة الأساسية' : ''}
+                      {curr.symbol} {curr.name} ({curr.code}) {curr.isBase || curr.code === baseCurrency.code ? '- العملة الأساسية' : ''}
                     </option>
                   ))}
                 </select>
@@ -3999,33 +4013,33 @@ export const PosView: React.FC = () => {
 
               <div>
                 <label className="block text-slate-600 mb-1 text-[11px] font-semibold">
-                  سعر الصرف المباشر (1 {activeCurrency.symbol} مقابل الشيكل ₪):
+                  سعر الصرف المباشر (1 {activeCurrency.symbol} مقابل {baseCurrency.name} {baseCurrency.symbol}):
                 </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
                     step="0.001"
                     min="0.001"
-                    disabled={selectedCurrencyCode === 'ILS'}
-                    value={selectedCurrencyCode === 'ILS' ? 1.0 : customExchangeRate}
+                    disabled={selectedCurrencyCode === baseCurrency.code}
+                    value={selectedCurrencyCode === baseCurrency.code ? 1.0 : customExchangeRate}
                     onChange={e => handleExchangeRateChange(parseFloat(e.target.value) || 1.0)}
                     className={`flex-1 border rounded-xl px-3 py-2 text-xs font-mono font-bold ${
-                      selectedCurrencyCode === 'ILS'
+                      selectedCurrencyCode === baseCurrency.code
                         ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
                         : 'bg-white border-amber-400 text-slate-900 focus:ring-2 focus:ring-amber-300'
                     }`}
                   />
-                  <span className="text-sm font-bold text-slate-700">₪ شيكل</span>
+                  <span className="text-sm font-bold text-slate-700">{baseCurrency.symbol} {baseCurrency.name}</span>
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">
-                  {selectedCurrencyCode === 'ILS'
-                    ? 'الشيكل الفلسطيني هو العملة الأساسية لكافة العمليات المحاسبية وسعر صرفه دائماً 1.0.'
+                  {selectedCurrencyCode === baseCurrency.code
+                    ? `${baseCurrency.name} (${baseCurrency.symbol}) هي العملة الأساسية لكافة العمليات المحاسبية وسعر صرفها دائماً 1.0.`
                     : `سعر صرف ${activeCurrency.name} حر وقابل للتعديل المباشر على مستوى الفاتورة.`}
                 </p>
               </div>
 
               {/* أزرار أسعار صرف شائعة سريعة */}
-              {selectedCurrencyCode !== 'ILS' && (
+              {selectedCurrencyCode !== baseCurrency.code && (
                 <div>
                   <span className="block text-[10px] text-slate-400 font-light mb-1 font-semibold">أسعار صرف مقترحة سريعة:</span>
                   <div className="flex gap-2 flex-wrap">
@@ -4040,7 +4054,7 @@ export const PosView: React.FC = () => {
                           customExchangeRate === r ? 'bg-amber-100 border-amber-500 text-amber-900' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'
                         }`}
                       >
-                        {r.toFixed(2)} ₪
+                        {r.toFixed(2)} {baseCurrency.symbol}
                       </button>
                     ))}
                   </div>
@@ -4050,10 +4064,10 @@ export const PosView: React.FC = () => {
               {/* ملخص التحويل المباشر */}
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-slate-600">إجمالي الفاتورة الأساسي بالشيكل:</span>
-                  <span className="font-bold font-mono text-slate-900">{calculatedTotalAmount.toFixed(2)} ₪</span>
+                  <span className="text-slate-600">إجمالي الفاتورة بالعملة الأساسية ({baseCurrency.name}):</span>
+                  <span className="font-bold font-mono text-slate-900">{calculatedTotalAmount.toFixed(2)} {baseCurrency.symbol}</span>
                 </div>
-                {selectedCurrencyCode !== 'ILS' && (
+                {selectedCurrencyCode !== baseCurrency.code && (
                   <div className="flex justify-between text-emerald-700 font-bold">
                     <span>ما يعادل بالعملة المختارة ({activeCurrency.name}):</span>
                     <span className="font-mono">

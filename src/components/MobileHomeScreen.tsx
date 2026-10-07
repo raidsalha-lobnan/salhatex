@@ -176,7 +176,7 @@ export const MobileHomeScreen: React.FC = () => {
             <div className="min-w-0 flex-1">
               <span className="text-[10px] text-slate-400 block">رصيد الصندوق</span>
               <span className="text-xs font-black text-emerald-600 font-mono truncate block">
-                {(mainTreasury?.balance || 0).toFixed(2)} ₪
+                {(mainTreasury?.balance || 0).toFixed(2)} {settings.currency || '₪'}
               </span>
             </div>
           </div>

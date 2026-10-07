@@ -2542,7 +2542,7 @@ export const AttendanceView: React.FC = () => {
                     </button>
                   </div>
                   <p className="text-[11px] text-gray-600 font-mono">
-                    الدوام: {editEmp.officialStartTime || '08:00'} إلى {editEmp.officialEndTime || '16:30'} ({editEmp.officialDailyHours || 8} س) | استراحة مخصومة: {editEmp.defaultBreakMinutes ?? 30} د | أوفرتايم: {editEmp.overtimeMethod === 'fixed_rate' ? `${editEmp.customOvertimeRate} ₪/س` : `${editEmp.overtimeMultiplier || 1.5}x`}
+                    الدوام: {editEmp.officialStartTime || '08:00'} إلى {editEmp.officialEndTime || '16:30'} ({editEmp.officialDailyHours || 8} س) | استراحة مخصومة: {editEmp.defaultBreakMinutes ?? 30} د | أوفرتايم: {editEmp.overtimeMethod === 'fixed_rate' ? `${editEmp.customOvertimeRate} ${currencySymbol}/س` : `${editEmp.overtimeMultiplier || 1.5}x`}
                   </p>
                 </div>
               )}

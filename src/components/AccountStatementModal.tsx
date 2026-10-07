@@ -142,17 +142,16 @@ export const AccountStatementModal: React.FC = () => {
       advances: employeeAdvances,
       deductions: employeeDeductions,
       incentives: employeeIncentives,
-      attendanceRecords
+      attendanceRecords,
+      currencySymbol: settings.currency || '₪'
     });
-  }, [statementMode, currentEmployee, fromDate, toDate, vouchers, employeeAdvances, employeeDeductions, employeeIncentives, attendanceRecords]);
+  }, [statementMode, currentEmployee, fromDate, toDate, vouchers, employeeAdvances, employeeDeductions, employeeIncentives, attendanceRecords, settings.currency]);
 
   const isOpen = Boolean(selectedPartyForStatement || selectedEmployeeForStatement);
 
   if (!isOpen) return null;
 
   const handleClose = () => {
-    setSelectedPartyForStatement(null);
-    setSelectedEmployeeForStatement(null);
     setSelectedPartyId('');
     setSelectedEmpId('');
   };
@@ -213,8 +212,9 @@ export const AccountStatementModal: React.FC = () => {
   const isCustomer = currentParty ? (currentParty.type === 'customer' || currentParty.type === 'both') : false;
   const isSupplier = currentParty ? (currentParty.type === 'supplier' || currentParty.type === 'both') : false;
 
-  const partyTafqeet = partyStatement ? tafqeet(partyStatement.closingBalance, 'شيكل', 'أغورة') : '';
-  const empTafqeet = employeeStatement ? tafqeet(employeeStatement.closingBalance, 'شيكل', 'أغورة') : '';
+  const currentCurrencyNameOrCode = settings.baseCurrencyCode || settings.currency || 'ILS';
+  const partyTafqeet = partyStatement ? tafqeet(partyStatement.closingBalance, currentCurrencyNameOrCode) : '';
+  const empTafqeet = employeeStatement ? tafqeet(employeeStatement.closingBalance, currentCurrencyNameOrCode) : '';
 
   return (
     <div className="fixed inset-0 z-[100] bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static print:overflow-visible print-area">

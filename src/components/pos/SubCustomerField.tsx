@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Party } from '../../types';
+import { useAccounting } from '../../context/AccountingContext';
 import { UserCheck, FileText, Phone, Link as LinkIcon, ChevronDown, Plus, AlertCircle } from 'lucide-react';
 
 interface SubCustomerFieldProps {
@@ -47,6 +48,8 @@ export const SubCustomerField: React.FC<SubCustomerFieldProps> = ({
   onSelectMainCustomer,
   onQuickAddSub
 }) => {
+  const { settings } = useAccounting();
+  const currencySymbol = settings.currency || '₪';
   const [showSuggestions, setShowSuggestions] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -226,7 +229,7 @@ export const SubCustomerField: React.FC<SubCustomerFieldProps> = ({
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`text-[11px] font-mono font-bold ${sub.balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                        {sub.balance.toFixed(2)} ₪
+                        {sub.balance.toFixed(2)} {currencySymbol}
                       </span>
                       <button
                         type="button"

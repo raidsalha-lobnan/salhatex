@@ -733,6 +733,7 @@ export function generateEmployeeStatement(params: {
   deductions?: EmployeeDeduction[];
   incentives?: EmployeeIncentive[];
   attendanceRecords?: AttendanceRecord[];
+  currencySymbol?: string;
 }): EmployeeStatementResult {
   const {
     employee,
@@ -742,7 +743,8 @@ export function generateEmployeeStatement(params: {
     advances = [],
     deductions = [],
     incentives = [],
-    attendanceRecords = []
+    attendanceRecords = [],
+    currencySymbol = '₪'
   } = params;
 
   // 1. تصفية سجلات الدوام الخاصة بالموظف للفترة المحددة
@@ -788,23 +790,23 @@ export function generateEmployeeStatement(params: {
     if (empAttendance.length > 0) {
       const regularPaySum = Number(empAttendance.reduce((sum, r) => sum + (r.regularPayEarned || 0), 0).toFixed(2));
       expectedBasicSalary = regularPaySum > 0 ? regularPaySum : Number((dailyRate * presentDays).toFixed(2));
-      calculationExplanation = `أجر يومي: ${dailyRate.toFixed(2)} ₪ × ${presentDays} يوم عمل (${totalWorkedHours} ساعة عمل فعلية صافية)`;
+      calculationExplanation = `أجر يومي: ${dailyRate.toFixed(2)} ${currencySymbol} × ${presentDays} يوم عمل (${totalWorkedHours} ساعة عمل فعلية صافية)`;
     } else {
       expectedBasicSalary = Number((dailyRate * 26).toFixed(2));
-      calculationExplanation = `أجر يومي تقديري: ${dailyRate.toFixed(2)} ₪ × 26 يوم عمل افتراضي`;
+      calculationExplanation = `أجر يومي تقديري: ${dailyRate.toFixed(2)} ${currencySymbol} × 26 يوم عمل افتراضي`;
     }
   } else if (employee.salaryType === 'weekly') {
     const rawWeekly = baseSalaryAmount * 4;
     const absDed = Number((dailyRate * absentDays).toFixed(2));
     expectedBasicSalary = Math.max(0, Number((rawWeekly - absDed).toFixed(2)));
-    calculationExplanation = `أجر أسبوعي: (${baseSalaryAmount.toFixed(2)} ₪ × 4 أسابيع) - خصم غياب ${absentDays} أيام (${absDed.toFixed(2)} ₪)`;
+    calculationExplanation = `أجر أسبوعي: (${baseSalaryAmount.toFixed(2)} ${currencySymbol} × 4 أسابيع) - خصم غياب ${absentDays} أيام (${absDed.toFixed(2)} ${currencySymbol})`;
   } else {
     // monthly
     const absDed = Number((dailyRate * absentDays).toFixed(2));
     expectedBasicSalary = Math.max(0, Number((baseSalaryAmount - absDed).toFixed(2)));
     calculationExplanation = absentDays > 0
-      ? `راتب شهري: ${baseSalaryAmount.toFixed(2)} ₪ - خصم غياب ${absentDays} يوم (${absDed.toFixed(2)} ₪)`
-      : `راتب شهري كامل: ${baseSalaryAmount.toFixed(2)} ₪ (${presentDays > 0 ? `${presentDays} يوم دوام مسجل` : 'دون غياب مسجل'})`;
+      ? `راتب شهري: ${baseSalaryAmount.toFixed(2)} ${currencySymbol} - خصم غياب ${absentDays} يوم (${absDed.toFixed(2)} ${currencySymbol})`
+      : `راتب شهري كامل: ${baseSalaryAmount.toFixed(2)} ${currencySymbol} (${presentDays > 0 ? `${presentDays} يوم دوام مسجل` : 'دون غياب مسجل'})`;
   }
 
   const allowances = Number(employee.allowances || 0);
@@ -1041,21 +1043,21 @@ export function generateEmployeeStatement(params: {
             attendanceNotes = ` [دوام: ${mPresentDays} يوم (${mWorkedHours} ساعة عمل)]`;
           } else {
             monthBasicSalary = Number((dRate * 26).toFixed(2));
-            attendanceNotes = ` [أجر يومي: ${dRate} ₪ × 26 يوم]`;
+            attendanceNotes = ` [أجر يومي: ${dRate} ${currencySymbol} × 26 يوم]`;
           }
         } else if (employee.salaryType === 'weekly') {
           const wRate = Number(employee.salaryAmount || 0);
           const rawW = wRate * 4;
           const absDed = mAbsentDays > 0 ? Number(((wRate / 6) * mAbsentDays).toFixed(2)) : 0;
           monthBasicSalary = Math.max(0, rawW - absDed);
-          attendanceNotes = mAbsentDays > 0 ? ` [غياب: ${mAbsentDays} يوم - خصم ${absDed} ₪]` : ` [حضور كامل]`;
+          attendanceNotes = mAbsentDays > 0 ? ` [غياب: ${mAbsentDays} يوم - خصم ${absDed} ${currencySymbol}]` : ` [حضور كامل]`;
         } else {
           // monthly
           const mAmount = Number(employee.salaryAmount || 0);
           const absDed = mAbsentDays > 0 ? Number(((mAmount / 30) * mAbsentDays).toFixed(2)) : 0;
           monthBasicSalary = Math.max(0, mAmount - absDed);
           attendanceNotes = mAbsentDays > 0
-            ? ` [غياب: ${mAbsentDays} يوم - خصم ${absDed} ₪]`
+            ? ` [غياب: ${mAbsentDays} يوم - خصم ${absDed} ${currencySymbol}]`
             : mPresentDays > 0 ? ` [دوام: ${mPresentDays} يوم (${mWorkedHours} س)]` : '';
         }
 

@@ -93,7 +93,14 @@ export const MobilePosView: React.FC<MobilePosViewProps> = ({ onSwitchToDesktop 
   } = useAccounting();
 
   // Multi-Currency
-  const baseCurrency = currencies.find(c => c.isBase) || { code: 'ILS', symbol: '₪', rateAgainstBase: 1.0 };
+  const baseCurrency = currencies.find(c => c.isBase) ||
+    currencies.find(c => c.code.toUpperCase() === (settings.baseCurrencyCode || 'ILS').toUpperCase()) ||
+    currencies[0] || {
+      code: settings.baseCurrencyCode || 'ILS',
+      name: 'العملة الأساسية',
+      symbol: settings.currency || '₪',
+      rateAgainstBase: 1.0
+    };
   const [selectedCurrencyCode, setSelectedCurrencyCode] = useState(settings.baseCurrencyCode || 'ILS');
   const activeCurrency = currencies.find(c => c.code === selectedCurrencyCode) || baseCurrency;
 
@@ -1627,7 +1634,7 @@ export const MobilePosView: React.FC<MobilePosViewProps> = ({ onSwitchToDesktop 
                         const code = e.target.value;
                         setCashCurrencyCode(code);
                         const curr = currencies.find(c => c.code === code);
-                        setCashExchangeRate(code === 'ILS' ? 1.0 : curr?.rateAgainstBase || 1.0);
+                        setCashExchangeRate(code === baseCurrency.code ? 1.0 : curr?.rateAgainstBase || 1.0);
                       }}
                       className="bg-emerald-50 text-[11px] font-bold text-emerald-950 px-2 py-1 rounded border border-emerald-300 focus:outline-none cursor-pointer"
                       title="عملة الدفع النقدي"
@@ -1644,13 +1651,13 @@ export const MobilePosView: React.FC<MobilePosViewProps> = ({ onSwitchToDesktop 
                         type="number"
                         step="any"
                         min="0.0001"
-                        disabled={cashCurrencyCode === 'ILS'}
-                        value={cashCurrencyCode === 'ILS' ? 1 : cashExchangeRate}
+                        disabled={cashCurrencyCode === baseCurrency.code}
+                        value={cashCurrencyCode === baseCurrency.code ? 1 : cashExchangeRate}
                         onChange={(e) => setCashExchangeRate(Math.max(0.0001, parseFloat(e.target.value) || 1.0))}
                         className={`w-12 text-center text-[11px] font-mono font-bold rounded px-0.5 py-0.5 ${
-                          cashCurrencyCode === 'ILS' ? 'opacity-60 cursor-not-allowed bg-slate-100' : 'bg-white text-slate-900'
+                          cashCurrencyCode === baseCurrency.code ? 'opacity-60 cursor-not-allowed bg-slate-100' : 'bg-white text-slate-900'
                         }`}
-                        title="سعر صرف العملة النقدية لتحديد القيمة بالشيكل"
+                        title={`سعر صرف العملة النقدية لتحديد القيمة بـ ${baseCurrency.name}`}
                       />
                     </div>
                   </div>
@@ -1694,7 +1701,7 @@ export const MobilePosView: React.FC<MobilePosViewProps> = ({ onSwitchToDesktop 
                         const code = e.target.value;
                         setBankCurrencyCode(code);
                         const curr = currencies.find(c => c.code === code);
-                        setBankExchangeRate(code === 'ILS' ? 1.0 : curr?.rateAgainstBase || 1.0);
+                        setBankExchangeRate(code === baseCurrency.code ? 1.0 : curr?.rateAgainstBase || 1.0);
                       }}
                       className="bg-blue-50 text-[11px] font-bold text-blue-950 px-2 py-1 rounded border border-blue-300 focus:outline-none cursor-pointer"
                       title="عملة الدفع البنكي / الشبكة"
@@ -1711,13 +1718,13 @@ export const MobilePosView: React.FC<MobilePosViewProps> = ({ onSwitchToDesktop 
                         type="number"
                         step="any"
                         min="0.0001"
-                        disabled={bankCurrencyCode === 'ILS'}
-                        value={bankCurrencyCode === 'ILS' ? 1 : bankExchangeRate}
+                        disabled={bankCurrencyCode === baseCurrency.code}
+                        value={bankCurrencyCode === baseCurrency.code ? 1 : bankExchangeRate}
                         onChange={(e) => setBankExchangeRate(Math.max(0.0001, parseFloat(e.target.value) || 1.0))}
                         className={`w-12 text-center text-[11px] font-mono font-bold rounded px-0.5 py-0.5 ${
-                          bankCurrencyCode === 'ILS' ? 'opacity-60 cursor-not-allowed bg-slate-100' : 'bg-white text-slate-900'
+                          bankCurrencyCode === baseCurrency.code ? 'opacity-60 cursor-not-allowed bg-slate-100' : 'bg-white text-slate-900'
                         }`}
-                        title="سعر صرف العملة البنكية لتحديد القيمة بالشيكل"
+                        title={`سعر صرف العملة البنكية لتحديد القيمة بـ ${baseCurrency.name}`}
                       />
                     </div>
                   </div>
@@ -2097,9 +2104,9 @@ export const MobilePosView: React.FC<MobilePosViewProps> = ({ onSwitchToDesktop 
                       setPayCurrencyCode(c.code);
                       setPayExchangeRate(c.rateAgainstBase || 1.0);
                       setCashCurrencyCode(c.code);
-                      setCashExchangeRate(c.code === 'ILS' ? 1.0 : c.rateAgainstBase || 1.0);
+                      setCashExchangeRate(c.code === baseCurrency.code ? 1.0 : c.rateAgainstBase || 1.0);
                       setBankCurrencyCode(c.code);
-                      setBankExchangeRate(c.code === 'ILS' ? 1.0 : c.rateAgainstBase || 1.0);
+                      setBankExchangeRate(c.code === baseCurrency.code ? 1.0 : c.rateAgainstBase || 1.0);
                       setShowCurrencyModal(false);
                       posSound.beep();
                     }}

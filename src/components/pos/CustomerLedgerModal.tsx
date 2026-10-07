@@ -166,7 +166,7 @@ export const CustomerLedgerModal: React.FC<CustomerLedgerModalProps> = ({
                   <span className="text-blue-700">{sub.name}</span>
                   {sub.phone && <span className="text-slate-500 font-mono text-[10px]">({sub.phone})</span>}
                   <span className={`font-mono text-[10px] font-black ${sub.balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                    {sub.balance.toFixed(2)} ₪
+                    {sub.balance.toFixed(2)} {settings.currency || '₪'}
                   </span>
                   <FileText className="w-3 h-3 text-amber-600 mr-0.5" />
                 </button>

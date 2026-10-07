@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Party } from '../../types';
+import { useAccounting } from '../../context/AccountingContext';
 import {
   Search,
   User,
@@ -53,6 +54,8 @@ export const PosCustomerSearchInput: React.FC<PosCustomerSearchInputProps> = ({
   placeholder = 'ابحث باسم العميل، رقمه، هاتفه، أو مدينته...',
   className = ''
 }) => {
+  const { settings } = useAccounting();
+  const currencySymbol = settings.currency || '₪';
   const [isOpen, setIsOpen] = useState(false);
   const [inputText, setInputText] = useState(customerName || '');
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
@@ -412,15 +415,15 @@ export const PosCustomerSearchInput: React.FC<PosCustomerSearchInputProps> = ({
                     <div className="text-left shrink-0 font-mono">
                       {balance > 0 ? (
                         <span className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
-                          مدين: {balance.toFixed(2)} ₪
+                          مدين: {balance.toFixed(2)} {currencySymbol}
                         </span>
                       ) : balance < 0 ? (
                         <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                          دائن: {Math.abs(balance).toFixed(2)} ₪
+                          دائن: {Math.abs(balance).toFixed(2)} {currencySymbol}
                         </span>
                       ) : (
                         <span className="text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
-                          0.00 ₪
+                          0.00 {currencySymbol}
                         </span>
                       )}
                     </div>

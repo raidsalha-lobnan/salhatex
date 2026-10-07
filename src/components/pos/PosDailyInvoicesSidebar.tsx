@@ -573,7 +573,7 @@ export const PosDailyInvoicesSidebar: React.FC<PosDailyInvoicesSidebarProps> = (
                 >
                   {treasuries.map(t => (
                     <option key={t.id} value={t.accountCode}>
-                      {t.name} - رصيد: {t.balance.toFixed(2)} ({t.currency || '₪'})
+                      {t.name} - رصيد: {t.balance.toFixed(2)} ({t.currency || settings.currency || '₪'})
                     </option>
                   ))}
                 </select>

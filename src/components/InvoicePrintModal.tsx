@@ -259,10 +259,10 @@ export const InvoicePrintModal: React.FC = () => {
                   <span>الإجمالي المستحق:</span>
                   <span className="font-mono text-indigo-700">{inv.totalAmount.toFixed(2)} {inv.currencySymbol || settings.currency}</span>
                 </div>
-                {inv.currency && inv.currency !== 'ILS' && inv.baseTotalAmount && (
+                {inv.currency && inv.currency !== (settings.baseCurrencyCode || 'ILS') && inv.baseTotalAmount && (
                   <div className="flex justify-between text-[11px] text-amber-800 bg-amber-50 p-1.5 rounded-lg border border-amber-200 font-bold">
-                    <span>المعادل بالشيكل (₪):</span>
-                    <span className="font-mono">{inv.baseTotalAmount.toFixed(2)} ₪ (سعر الصرف: {inv.exchangeRate})</span>
+                    <span>المعادل بالعملة الأساسية ({settings.currency || '₪'}):</span>
+                    <span className="font-mono">{inv.baseTotalAmount.toFixed(2)} {settings.currency || '₪'} (سعر الصرف: {inv.exchangeRate})</span>
                   </div>
                 )}
               </div>
@@ -517,10 +517,10 @@ export const InvoicePrintModal: React.FC = () => {
                 <span>الإجمالي الصافي:</span>
                 <span>{inv.totalAmount.toFixed(2)} {inv.currencySymbol || settings.currency}</span>
               </div>
-              {inv.currency && inv.currency !== 'ILS' && inv.baseTotalAmount && (
+              {inv.currency && inv.currency !== (settings.baseCurrencyCode || 'ILS') && inv.baseTotalAmount && (
                 <div className="flex justify-between text-[10px] text-slate-600 font-bold pt-0.5">
-                  <span>المعادل بالشيكل:</span>
-                  <span>{inv.baseTotalAmount.toFixed(2)} ₪</span>
+                  <span>المعادل بالعملة الأساسية:</span>
+                  <span>{inv.baseTotalAmount.toFixed(2)} {settings.currency || '₪'}</span>
                 </div>
               )}
             </div>

@@ -133,7 +133,7 @@ export const PosBottomPaymentConsole: React.FC<PosBottomPaymentConsoleProps> = (
   onQuickFullCash,
   onQuickFullBank,
   onQuickCredit,
-  baseCurrencySymbol = '₪',
+  baseCurrencySymbol,
 
   // Customization
   isEditMode = false,
@@ -146,19 +146,26 @@ export const PosBottomPaymentConsole: React.FC<PosBottomPaymentConsoleProps> = (
   onExchangeRateChange,
   onChangeNotes
 }) => {
-  // Resolve effective currency and exchange rate (Default ILS and 1.0)
-  const currentInvCurrencyCode = invoiceCurrencyCode || selectedCurrencyCode || 'ILS';
+  const { settings } = useAccounting();
+  const baseCurrencyCode = settings.baseCurrencyCode || 'ILS';
+  const effectiveBaseSymbol = baseCurrencySymbol || settings.currency || '₪';
+
+  // Resolve effective currency and exchange rate
+  const currentInvCurrencyCode = invoiceCurrencyCode || selectedCurrencyCode || baseCurrencyCode;
   const currentInvRate = invoiceExchangeRate ?? customExchangeRate ?? 1.0;
   const currentActiveCurrency =
     activeInvoiceCurrency ||
-    currencies.find(c => c.code === currentInvCurrencyCode) || {
-      code: 'ILS',
-      name: 'شيكل',
-      symbol: '₪',
+    currencies.find(c => c.code === currentInvCurrencyCode) ||
+    currencies.find(c => c.isBase) || {
+      code: baseCurrencyCode,
+      name: 'العملة الأساسية',
+      symbol: effectiveBaseSymbol,
       rateAgainstBase: 1.0,
       isBase: true,
       isActive: true
     };
+
+  const isBaseCurrency = currentInvCurrencyCode === baseCurrencyCode || Boolean(currentActiveCurrency.isBase);
 
   const handleCurrencySelect = (code: string) => {
     if (onSelectInvoiceCurrency) {
@@ -322,25 +329,25 @@ export const PosBottomPaymentConsole: React.FC<PosBottomPaymentConsoleProps> = (
               type="number"
               step="0.001"
               min="0.001"
-              disabled={currentInvCurrencyCode === 'ILS'}
-              value={currentInvCurrencyCode === 'ILS' ? 1 : currentInvRate}
+              disabled={isBaseCurrency}
+              value={isBaseCurrency ? 1 : currentInvRate}
               onChange={e => handleExchangeRateChange(parseFloat(e.target.value) || 1.0)}
               className={`w-16 bg-white text-slate-900 font-mono font-bold px-1.5 py-0.5 rounded text-xs text-center border ${
-                currentInvCurrencyCode === 'ILS'
+                isBaseCurrency
                   ? 'opacity-70 cursor-not-allowed border-slate-300'
                   : 'border-amber-400 focus:border-amber-600 focus:ring-1 focus:ring-amber-300'
               }`}
               title={
-                currentInvCurrencyCode === 'ILS'
-                  ? 'الشيكل هو العملة الأساسية للنظام (سعر الصرف 1 دائماً)'
-                  : `سعر صرف 1 ${currentActiveCurrency.symbol} مقابل الشيكل`
+                isBaseCurrency
+                  ? `${currentActiveCurrency.name || 'العملة'} هي العملة الأساسية للنظام (سعر الصرف 1 دائماً)`
+                  : `سعر صرف 1 ${currentActiveCurrency.symbol} مقابل ${effectiveBaseSymbol}`
               }
             />
-            <span className="text-xs text-amber-300 font-bold">{baseCurrencySymbol}</span>
+            <span className="text-xs text-amber-300 font-bold">{effectiveBaseSymbol}</span>
           </div>
 
-          {/* إجمالي الفاتورة بالعملة المختارة إذا كانت أجنبية */}
-          {currentInvCurrencyCode !== 'ILS' && (
+          {/* إجمالي الفاتورة بالعملة المختارة إذا كانت غير العملة الأساسية */}
+          {!isBaseCurrency && (
             <div className="bg-amber-500/20 text-amber-200 px-2 py-0.5 rounded text-[11px] font-bold border border-amber-400/40 shrink-0">
               المطلوب: {totalInInvoiceCurrency.toFixed(2)} {currentActiveCurrency.symbol}
             </div>

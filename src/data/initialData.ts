@@ -118,22 +118,8 @@ export const initialAccounts: Account[] = [
 // الأصناف والمخزون الافتراضي مصفّر بالكامل - تبدأ فارغة ليقوم المستخدم بإدخال أصنافه يدوياً
 export const initialInventory: InventoryItem[] = [];
 
-// العملاء والموردين - عميل نقدي افتراضي برصيد صفر
-export const initialParties: Party[] = [
-  {
-    id: 'pt-cash',
-    code: 'CUST-0001',
-    type: 'customer',
-    name: 'عميل نقدي (كاشير)',
-    phone: '0599000000',
-    balance: 0,
-    openingBalance: 0,
-    openingBalanceDate: new Date().toISOString().split('T')[0],
-    openingBalanceType: 'debit',
-    creditLimit: 0,
-    notes: 'حساب افتراضي للمبيعات النقدية المباشرة'
-  }
-];
+// العملاء والموردين - فارغة تماماً ليتم إدخالهم يدوياً
+export const initialParties: Party[] = [];
 
 // أوامر التشغيل وطلبات التفصيل - فارغة تماماً
 export const initialPrintOrders: PrintJobOrder[] = [];
