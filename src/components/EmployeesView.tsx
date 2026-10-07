@@ -154,8 +154,12 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
   const [formPhone, setFormPhone] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formSalaryType, setFormSalaryType] = useState<SalaryType>('monthly');
-  const [formSalaryAmount, setFormSalaryAmount] = useState<number>(3500);
+  const [formSalaryAmount, setFormSalaryAmount] = useState<number>(8000);
   const [formAllowances, setFormAllowances] = useState<number>(0);
+  const [formMonthlyWorkDays, setFormMonthlyWorkDays] = useState<number>(26);
+  const [formOfficialDailyHours, setFormOfficialDailyHours] = useState<number>(8);
+  const [formRoundHourlyRateUp, setFormRoundHourlyRateUp] = useState<boolean>(true);
+  const [formDeductLateMinutes, setFormDeductLateMinutes] = useState<boolean>(false);
   const [formHireDate, setFormHireDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [formStatus, setFormStatus] = useState<'active' | 'on_leave' | 'terminated'>('active');
   const [formPaymentMethod, setFormPaymentMethod] = useState<PaymentMethod>('bank_transfer');
@@ -178,12 +182,16 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
     setFormPhone('');
     setFormEmail('');
     setFormSalaryType('monthly');
-    setFormSalaryAmount(3500);
+    setFormSalaryAmount(8000);
     setFormAllowances(0);
+    setFormMonthlyWorkDays(26);
+    setFormOfficialDailyHours(8);
+    setFormRoundHourlyRateUp(true);
+    setFormDeductLateMinutes(false);
     setFormHireDate(new Date().toISOString().split('T')[0]);
     setFormStatus('active');
     setFormPaymentMethod('bank_transfer');
-    setFormBankName('مصرف الراجحي');
+    setFormBankName('');
     setFormIban('');
     setFormEmergencyName('');
     setFormEmergencyPhone('');
@@ -205,6 +213,10 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
     setFormSalaryType(emp.salaryType);
     setFormSalaryAmount(emp.salaryAmount);
     setFormAllowances(emp.allowances || 0);
+    setFormMonthlyWorkDays(emp.monthlyWorkDays || 26);
+    setFormOfficialDailyHours(emp.officialDailyHours || 8);
+    setFormRoundHourlyRateUp(emp.roundHourlyRateUp ?? true);
+    setFormDeductLateMinutes(emp.deductLateMinutes ?? false);
     setFormHireDate(emp.hireDate);
     setFormStatus(emp.status);
     setFormPaymentMethod(emp.paymentMethod);
@@ -265,6 +277,10 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
       salaryType: formSalaryType,
       salaryAmount: Number(formSalaryAmount) || 0,
       allowances: Number(formAllowances) || 0,
+      monthlyWorkDays: Number(formMonthlyWorkDays) || 26,
+      officialDailyHours: Number(formOfficialDailyHours) || 8,
+      roundHourlyRateUp: formRoundHourlyRateUp,
+      deductLateMinutes: formDeductLateMinutes,
       hireDate: formHireDate,
       status: formStatus,
       paymentMethod: formPaymentMethod,
@@ -1274,11 +1290,128 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
                   </div>
                 </div>
 
+                {/* Contract & Hourly Calculation Terms */}
+                <div className="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                  <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5 border-b border-slate-200 pb-1.5">
+                    <Clock className="w-4 h-4 text-blue-600" />
+                    <span>آلية واشتراطات احتساب الراتب واليومية والساعة:</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Monthly Work Days Divisor */}
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1 text-xs">
+                        عدد أيام العمل بالشهر (لتقسيم الراتب):
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="1"
+                          max="31"
+                          value={formMonthlyWorkDays}
+                          onChange={e => setFormMonthlyWorkDays(Math.max(1, Number(e.target.value) || 26))}
+                          className="w-full bg-white border border-slate-300 rounded-md p-1.5 pl-12 font-mono font-bold text-slate-900 text-xs focus:ring-1 focus:ring-blue-500"
+                        />
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-[11px]">
+                          يوم / شهر
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        مثلاً: 26 يوم (لخصم الجمعات) أو 30 يوم حسب الاتفاق
+                      </p>
+                    </div>
+
+                    {/* Daily Hours */}
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1 text-xs">
+                        ساعات العمل المطلوبة يومياً:
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="1"
+                          max="24"
+                          value={formOfficialDailyHours}
+                          onChange={e => setFormOfficialDailyHours(Math.max(1, Number(e.target.value) || 8))}
+                          className="w-full bg-white border border-slate-300 rounded-md p-1.5 pl-14 font-mono font-bold text-slate-900 text-xs focus:ring-1 focus:ring-blue-500"
+                        />
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-[11px]">
+                          ساعة / يوم
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        الدوام اليومي المعتمد (مثلاً 8 ساعات عمل)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Checkbox Toggles for Rounding & Late Deduction */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    {/* Round Hourly Rate Up */}
+                    <label className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={formRoundHourlyRateUp}
+                        onChange={e => setFormRoundHourlyRateUp(e.target.checked)}
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <div className="text-xs">
+                        <span className="font-bold text-slate-800 block">تقريب أجر الساعة لأعلى</span>
+                        <span className="text-[10px] text-slate-500 block">تقريب كسور أجر الساعة لأقرب كسر/نصف شيكل</span>
+                      </div>
+                    </label>
+
+                    {/* Deduct Late Minutes Toggle */}
+                    <label className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={formDeductLateMinutes}
+                        onChange={e => setFormDeductLateMinutes(e.target.checked)}
+                        className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                      />
+                      <div className="text-xs">
+                        <span className="font-bold text-slate-800 block">خصم على التأخير عن المواعيد</span>
+                        <span className="text-[10px] text-slate-500 block">
+                          {formDeductLateMinutes ? 'مفعل: يخصم التأخيرات الزمانية' : 'غير مفعل: احتساب بالدوام دون خصم المواعيد'}
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Live Breakdown Result Preview Box */}
+                  {(() => {
+                    const amt = Number(formSalaryAmount) || 0;
+                    const days = Math.max(1, Number(formMonthlyWorkDays) || 26);
+                    const hrs = Math.max(1, Number(formOfficialDailyHours) || 8);
+                    const rawDaily = amt / days;
+                    const rawHourly = rawDaily / hrs;
+                    const roundedHourly = formRoundHourlyRateUp ? Math.ceil(rawHourly * 10) / 10 : Number(rawHourly.toFixed(2));
+
+                    return (
+                      <div className="p-2.5 bg-blue-950 text-white rounded-lg border border-blue-800 space-y-1 text-xs">
+                        <div className="flex items-center justify-between font-bold text-amber-300">
+                          <span>معادلة اتفاق أجر هذا الموظف حياً:</span>
+                          <span className="font-mono bg-blue-900/80 px-2 py-0.5 rounded border border-blue-700/60 text-white">
+                            أجر الساعة الصافي: {roundedHourly.toFixed(1)} {settings.currency} / س
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-blue-100/90 leading-relaxed font-mono">
+                          • أجر اليومية = {amt.toLocaleString()} ÷ {days} يوم عمل = <strong>{rawDaily.toFixed(2)}</strong> {settings.currency} / يوم
+                          <br />
+                          • أجر الساعة الأساسي = {rawDaily.toFixed(2)} ÷ {hrs} ساعات = {rawHourly.toFixed(4)} {formRoundHourlyRateUp ? `➔ مقرب لأعلى = ${roundedHourly.toFixed(1)} ${settings.currency}` : `${settings.currency}`}
+                          <br />
+                          • سياسة التأخير: <strong className={formDeductLateMinutes ? 'text-amber-300' : 'text-emerald-300'}>{formDeductLateMinutes ? 'تخصم دقائق التأخير الصباحي' : 'غير مخصوم على المواعيد (تعتمد ساعات العمل بالمرونة)'}</strong>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
                 {/* Calculation breakdown summary */}
                 <div className="mt-2.5 p-2 bg-emerald-50 rounded-lg border border-emerald-200 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5 text-emerald-800 font-semibold">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>إجمالي الاستحقاق المالي:</span>
+                    <span>إجمالي الاستحقاق المالي التعاقدي:</span>
                   </div>
                   <div className="font-mono font-black text-emerald-900 text-sm">
                     {(Number(formSalaryAmount || 0) + Number(formAllowances || 0)).toLocaleString()}{' '}

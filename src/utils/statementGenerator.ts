@@ -1054,7 +1054,8 @@ export function generateEmployeeStatement(params: {
         } else {
           // monthly
           const mAmount = Number(employee.salaryAmount || 0);
-          const absDed = mAbsentDays > 0 ? Number(((mAmount / 30) * mAbsentDays).toFixed(2)) : 0;
+          const workDays = employee.monthlyWorkDays || 26;
+          const absDed = mAbsentDays > 0 ? Number(((mAmount / workDays) * mAbsentDays).toFixed(2)) : 0;
           monthBasicSalary = Math.max(0, mAmount - absDed);
           attendanceNotes = mAbsentDays > 0
             ? ` [غياب: ${mAbsentDays} يوم - خصم ${absDed} ${currencySymbol}]`

@@ -149,12 +149,28 @@ export const AccountStatementModal: React.FC = () => {
 
   const isOpen = Boolean(selectedPartyForStatement || selectedEmployeeForStatement);
 
-  if (!isOpen) return null;
-
   const handleClose = () => {
     setSelectedPartyId('');
     setSelectedEmpId('');
+    setSelectedPartyForStatement(null);
+    setSelectedEmployeeForStatement(null);
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
 
   const handlePrint = () => {
     document.body.classList.add('printing-mode');
@@ -217,8 +233,14 @@ export const AccountStatementModal: React.FC = () => {
   const empTafqeet = employeeStatement ? tafqeet(employeeStatement.closingBalance, currentCurrencyNameOrCode) : '';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static print:overflow-visible print-area">
-      <div className="bg-white rounded-xl max-w-5xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[94vh] print:max-h-none print:max-w-none print:border-none print:shadow-none print:w-full print:rounded-none">
+    <div
+      className="fixed inset-0 z-[100] bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static print:overflow-visible print-area cursor-pointer"
+      onClick={handleClose}
+    >
+      <div
+        className="bg-white rounded-xl max-w-5xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[94vh] print:max-h-none print:max-w-none print:border-none print:shadow-none print:w-full print:rounded-none cursor-default"
+        onClick={e => e.stopPropagation()}
+      >
         
         {/* Top Control Bar (Hidden in Print) */}
         <div className="bg-slate-900 text-white p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 print:hidden border-b border-slate-800">

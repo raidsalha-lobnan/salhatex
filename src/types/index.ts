@@ -783,7 +783,9 @@ export interface Employee {
   paymentHistory?: SalaryPaymentRecord[];
   
   // إعدادات ساعات العمل والدوام والأوفرتايم
+  monthlyWorkDays?: number;       // عدد أيام العمل المحتسب عليها الراتب بالشهر (مثلاً 26 يوم، 30 يوم، 22 يوم)
   officialDailyHours?: number;    // ساعات العمل الرسمية باليوم (افتراضياً 8 ساعات)
+  roundHourlyRateUp?: boolean;    // تقريب أجر الساعة لأعلى لأقرب 0.5 (مثل 38.4615 -> 38.5)
   officialStartTime?: string;     // موعد الحضور الرسمي (مثلاً "08:00")
   officialEndTime?: string;       // موعد الانصراف الرسمي (مثلاً "16:30")
   defaultBreakMinutes?: number;   // وقت الاستراحة المخصوم من ساعات الدوام بالدقائق (افتراضياً 30 دقيقة: 8.5 س - 30 د = 8 س عمل صافية)
@@ -792,7 +794,7 @@ export interface Employee {
   overtimeMethod?: 'multiplier' | 'fixed_rate'; // طريقة حساب الأوفرتايم: مضاعف من الساعة أو مبلغ ثابت
   overtimeMultiplier?: number;    // مضاعف الأوفرتايم: 1.0 (ساعة بساعة), 1.25, 1.5 (ساعة ونصف), 2.0 (ساعتين)
   customOvertimeRate?: number;    // أجر الساعة الإضافية المقطوع (مثلاً 25 شيكل لكل ساعة أوفرتايم)
-  deductLateMinutes?: boolean;    // خصم دقائق التأخير تلقائياً من الأجر اليومي
+  deductLateMinutes?: boolean;    // خصم دقائق التأخير تلقائياً عن مواعيد الدوام (نعم / لا)
   overtimeGraceMinutes?: number;  // فترة سماح بالدقائق قبل بدء احتساب الأوفرتايم
 
   // إعدادات الدوام على مرحلتين / فترتين (الدوام المقسم أو خروج لمشوار والعودة)

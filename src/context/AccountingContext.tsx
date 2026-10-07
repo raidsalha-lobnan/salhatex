@@ -3780,12 +3780,17 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (employee.customHourlyRate && employee.customHourlyRate > 0) {
         baseHourlyRate = employee.customHourlyRate;
       } else if (employee.salaryType === 'daily') {
-        baseHourlyRate = Number(((employee.salaryAmount || 140) / Math.max(1, officialDailyHours)).toFixed(2));
+        const rawRate = (employee.salaryAmount || 140) / Math.max(1, officialDailyHours);
+        baseHourlyRate = employee.roundHourlyRateUp ? Math.ceil(rawRate * 10) / 10 : Number(rawRate.toFixed(2));
       } else if (employee.salaryType === 'weekly') {
-        baseHourlyRate = Number(((employee.salaryAmount || 850) / 6 / Math.max(1, officialDailyHours)).toFixed(2));
+        const rawRate = (employee.salaryAmount || 850) / 6 / Math.max(1, officialDailyHours);
+        baseHourlyRate = employee.roundHourlyRateUp ? Math.ceil(rawRate * 10) / 10 : Number(rawRate.toFixed(2));
       } else {
-        // monthly
-        baseHourlyRate = Number(((employee.salaryAmount || 4500) / 30 / Math.max(1, officialDailyHours)).toFixed(2));
+        // monthly: salary / monthlyWorkDays (default 26) / dailyHours
+        const workDays = employee.monthlyWorkDays || 26;
+        const rawDailyRate = (employee.salaryAmount || 8000) / Math.max(1, workDays);
+        const rawHourlyRate = rawDailyRate / Math.max(1, officialDailyHours);
+        baseHourlyRate = employee.roundHourlyRateUp ? Math.ceil(rawHourlyRate * 10) / 10 : Number(rawHourlyRate.toFixed(2));
       }
     }
 
@@ -4246,14 +4251,15 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } else {
       // monthly
       const monthlyAmount = employee.salaryAmount || 0;
+      const workDays = employee.monthlyWorkDays || defaultWorkDays || 26;
       if (absentDays > 0) {
-        const dailyRate = monthlyAmount / 30;
+        const dailyRate = monthlyAmount / workDays;
         absentDeductions = Number((dailyRate * absentDays).toFixed(2));
         basicSalary = Math.max(0, Number((monthlyAmount - absentDeductions).toFixed(2)));
-        baseExplanation = `راتب شهري: ${monthlyAmount} ₪ - خصم غياب ${absentDays} يوم (${absentDeductions} ₪)`;
+        baseExplanation = `راتب شهري: ${monthlyAmount} - خصم غياب ${absentDays} يوم على أساس (${workDays} يوم عمل) (${absentDeductions})`;
       } else {
         basicSalary = monthlyAmount;
-        baseExplanation = `راتب شهري كامل: ${monthlyAmount} ₪ (${presentDays > 0 ? `${presentDays} يوم دوام مسجل` : 'دون غياب مسجل'})`;
+        baseExplanation = `راتب شهري كامل: ${monthlyAmount} (محسوب على أساس ${workDays} يوم عمل بالشهر)`;
       }
     }
 

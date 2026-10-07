@@ -133,13 +133,17 @@ export const AttendanceView: React.FC = () => {
     if (emp.customHourlyRate && emp.customHourlyRate > 0) return emp.customHourlyRate;
     const hours = Math.max(1, officialHours || emp.officialDailyHours || 8);
     if (emp.salaryType === 'daily') {
-      return Number(((emp.salaryAmount || 140) / hours).toFixed(2));
+      const raw = (emp.salaryAmount || 140) / hours;
+      return emp.roundHourlyRateUp ? Math.ceil(raw * 10) / 10 : Number(raw.toFixed(2));
     }
     if (emp.salaryType === 'weekly') {
-      return Number(((emp.salaryAmount || 850) / 6 / hours).toFixed(2));
+      const raw = (emp.salaryAmount || 850) / 6 / hours;
+      return emp.roundHourlyRateUp ? Math.ceil(raw * 10) / 10 : Number(raw.toFixed(2));
     }
-    // Monthly
-    return Number(((emp.salaryAmount || 4500) / 30 / hours).toFixed(2));
+    // Monthly (salary / monthlyWorkDays / hours)
+    const workDays = emp.monthlyWorkDays || 26;
+    const raw = (emp.salaryAmount || 8000) / Math.max(1, workDays) / hours;
+    return emp.roundHourlyRateUp ? Math.ceil(raw * 10) / 10 : Number(raw.toFixed(2));
   };
 
   // Helper to calculate live metrics for a row
