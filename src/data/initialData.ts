@@ -1038,7 +1038,7 @@ export const initialEmployees: Employee[] = [
     officialStartTime: '08:00',
     officialEndTime: '16:30',
     defaultSplitShift: false,
-    defaultBreakMinutes: 60,
+    defaultBreakMinutes: 30,
     overtimeMethod: 'multiplier',
     overtimeMultiplier: 1.5,
     customHourlyRate: 20,
@@ -1077,7 +1077,7 @@ export const initialEmployees: Employee[] = [
     officialStartTime: '08:00',
     officialEndTime: '16:30',
     defaultSplitShift: false,
-    defaultBreakMinutes: 60,
+    defaultBreakMinutes: 30,
     overtimeMethod: 'multiplier',
     overtimeMultiplier: 1.5, // ساعة ونصف
     paymentHistory: [
@@ -1113,7 +1113,7 @@ export const initialEmployees: Employee[] = [
     officialStartTime: '08:00',
     officialEndTime: '16:30',
     defaultSplitShift: false,
-    defaultBreakMinutes: 60,
+    defaultBreakMinutes: 30,
     overtimeMethod: 'multiplier',
     overtimeMultiplier: 1.5,
     paymentHistory: [
@@ -1148,7 +1148,7 @@ export const initialEmployees: Employee[] = [
     officialStartTime: '08:00',
     officialEndTime: '16:30',
     defaultSplitShift: false,
-    defaultBreakMinutes: 60,
+    defaultBreakMinutes: 30,
     overtimeMethod: 'multiplier',
     overtimeMultiplier: 2.0, // ساعتين لكل ساعة أوفر تايم في مواسم الذروة
     paymentHistory: [
@@ -1183,7 +1183,7 @@ export const initialEmployees: Employee[] = [
     officialStartTime: '08:00',
     officialEndTime: '16:30',
     defaultSplitShift: false,
-    defaultBreakMinutes: 45,
+    defaultBreakMinutes: 30,
     overtimeMethod: 'fixed_rate',
     customOvertimeRate: 20, // 20 شيكل لكل ساعة أوفر تايم
     paymentHistory: [

@@ -785,7 +785,7 @@ export interface Employee {
   officialDailyHours?: number;    // ساعات العمل الرسمية باليوم (افتراضياً 8 ساعات)
   officialStartTime?: string;     // موعد الحضور الرسمي (مثلاً "08:00")
   officialEndTime?: string;       // موعد الانصراف الرسمي (مثلاً "16:30")
-  defaultBreakMinutes?: number;   // وقت الاستراحة الافتراضي بالدقائق (مثلاً 0 دقيقة)
+  defaultBreakMinutes?: number;   // وقت الاستراحة المخصوم من ساعات الدوام بالدقائق (افتراضياً 30 دقيقة: 8.5 س - 30 د = 8 س عمل صافية)
   hourlyRateCalculation?: 'auto_from_salary' | 'fixed_custom'; // طريقة حساب أجر الساعة العادية
   customHourlyRate?: number;      // أجر الساعة المخصص (إذا تم اختياره يدوياً)
   overtimeMethod?: 'multiplier' | 'fixed_rate'; // طريقة حساب الأوفرتايم: مضاعف من الساعة أو مبلغ ثابت

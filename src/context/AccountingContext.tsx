@@ -3742,7 +3742,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }) => {
     const { employee, status } = params;
     const officialDailyHours = params.officialDailyHoursOverride ?? (employee.officialDailyHours || 8);
-    const breakMinutes = params.breakMinutes ?? (employee.defaultBreakMinutes !== undefined ? employee.defaultBreakMinutes : 60);
+    const breakMinutes = params.breakMinutes !== undefined ? params.breakMinutes : (employee.defaultBreakMinutes !== undefined ? employee.defaultBreakMinutes : 30);
 
     // Default base hourly rate: from custom rate, or salary / days / hours
     let baseHourlyRate = params.baseHourlyRateOverride;
@@ -4100,7 +4100,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             status: r.status,
             checkInTime: r.checkInTime,
             checkOutTime: r.checkOutTime,
-            breakMinutes: r.breakMinutes,
+            breakMinutes: r.breakMinutes !== undefined ? r.breakMinutes : (emp.defaultBreakMinutes ?? 30),
             hasSecondShift: r.hasSecondShift,
             shift1CheckInTime: r.shift1CheckInTime,
             shift1CheckOutTime: r.shift1CheckOutTime,
@@ -4133,7 +4133,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           status: r.status,
           checkInTime: r.checkInTime,
           checkOutTime: r.checkOutTime,
-          breakMinutes: r.breakMinutes,
+          breakMinutes: r.breakMinutes !== undefined ? r.breakMinutes : (emp.defaultBreakMinutes ?? 30),
           hasSecondShift: r.hasSecondShift,
           shift1CheckInTime: r.shift1CheckInTime,
           shift1CheckOutTime: r.shift1CheckOutTime,

@@ -270,7 +270,7 @@ export const AttendanceView: React.FC = () => {
         status: saved.status,
         checkInTime: saved.shift1CheckInTime || saved.checkInTime || emp.officialStartTime || '08:00',
         checkOutTime: saved.shift2CheckOutTime || saved.checkOutTime || emp.officialEndTime || '16:30',
-        breakMinutes: saved.breakMinutes !== undefined ? saved.breakMinutes : 0,
+        breakMinutes: saved.breakMinutes !== undefined ? saved.breakMinutes : (emp.defaultBreakMinutes !== undefined ? emp.defaultBreakMinutes : 30),
         officialDailyHours: saved.officialDailyHours || emp.officialDailyHours || 8,
         baseHourlyRate: saved.baseHourlyRate || computeDefaultBaseHourlyRate(emp),
         overtimeMethod: saved.overtimeMethod || emp.overtimeMethod || 'multiplier',
@@ -286,7 +286,7 @@ export const AttendanceView: React.FC = () => {
       };
     }
 
-    // Default for fresh day (المعتمد: الحضور 08:00 والانصراف 16:30 والمشوار مغلق افتراضياً)
+    // Default for fresh day (المعتمد: الحضور 08:00 والانصراف 16:30 والمشوار مغلق افتراضياً مع خصم الاستراحة 30 دقيقة = 8 ساعات عمل صافية)
     const officialDailyHours = emp.officialDailyHours || 8;
     const baseHourlyRate = computeDefaultBaseHourlyRate(emp, officialDailyHours);
     const overtimeMultiplier = emp.overtimeMultiplier || 1.5;
@@ -299,7 +299,7 @@ export const AttendanceView: React.FC = () => {
       status: 'present' as AttendanceStatus,
       checkInTime: emp.officialStartTime || '08:00',
       checkOutTime: emp.officialEndTime || '16:30',
-      breakMinutes: 0,
+      breakMinutes: emp.defaultBreakMinutes !== undefined ? emp.defaultBreakMinutes : 30,
       officialDailyHours,
       baseHourlyRate,
       overtimeMethod,
@@ -464,26 +464,26 @@ export const AttendanceView: React.FC = () => {
 
       newDrafts[emp.id] = {
         status: 'present',
-        checkInTime: '08:00',
-        checkOutTime: '16:30',
-        breakMinutes: 0,
+        checkInTime: emp.officialStartTime || '08:00',
+        checkOutTime: emp.officialEndTime || '16:30',
+        breakMinutes: emp.defaultBreakMinutes !== undefined ? emp.defaultBreakMinutes : 30,
         officialDailyHours,
         baseHourlyRate,
         overtimeMethod,
         overtimeMultiplier,
         overtimeRatePerHour,
-        notes: 'دوام رسمي موحد (08:00 - 16:30)',
+        notes: 'دوام رسمي موحد (08:00 - 16:30) مع استراحة 30 دقيقة',
         isDirty: true,
         hasSecondShift: false, // مغلق افتراضياً ويفعل عند الضغط على الأيقونة
-        shift1CheckInTime: '08:00',
+        shift1CheckInTime: emp.officialStartTime || '08:00',
         shift1CheckOutTime: '10:00',
         shift2CheckInTime: '12:00',
-        shift2CheckOutTime: '16:30'
+        shift2CheckOutTime: emp.officialEndTime || '16:30'
       };
     });
 
     setDailyDrafts(prev => ({ ...prev, ...newDrafts }));
-    showFeedback('تم ضبط الحضور الموحد للجميع (08:00 - 16:30) بنجاح والمشوار مغلق افتراضياً!', 'info');
+    showFeedback('تم ضبط الحضور للجميع (08:00 - 16:30) مع خصم 30 دقيقة استراحة (8 ساعات عمل صافية بدون أوفرتايم)!', 'info');
   };
 
   // Quick Action: Save entire daily sheet
@@ -545,7 +545,7 @@ export const AttendanceView: React.FC = () => {
       officialDailyHours: draft?.officialDailyHours ?? emp.officialDailyHours ?? 8,
       officialStartTime: draft?.officialStartTime ?? emp.officialStartTime ?? '08:00',
       officialEndTime: draft?.officialEndTime ?? emp.officialEndTime ?? '16:30',
-      defaultBreakMinutes: draft?.defaultBreakMinutes ?? emp.defaultBreakMinutes ?? 0,
+      defaultBreakMinutes: draft?.defaultBreakMinutes ?? (emp.defaultBreakMinutes !== undefined ? emp.defaultBreakMinutes : 30),
       hourlyRateCalculation: draft?.hourlyRateCalculation ?? emp.hourlyRateCalculation ?? 'auto_from_salary',
       customHourlyRate: draft?.customHourlyRate ?? emp.customHourlyRate,
       overtimeMethod: draft?.overtimeMethod ?? emp.overtimeMethod ?? 'multiplier',
@@ -625,6 +625,9 @@ export const AttendanceView: React.FC = () => {
         ...prev,
         [empId]: {
           ...cur,
+          checkInTime: updates.officialStartTime || cur.checkInTime,
+          checkOutTime: updates.officialEndTime || cur.checkOutTime,
+          breakMinutes: updates.defaultBreakMinutes !== undefined ? updates.defaultBreakMinutes : cur.breakMinutes,
           officialDailyHours: updates.officialDailyHours || 8,
           baseHourlyRate,
           overtimeMethod,
@@ -682,14 +685,14 @@ export const AttendanceView: React.FC = () => {
   };
 
   const handleApplyStandardPresetToAll = () => {
-    if (!confirm('هل ترغب بتطبيق السياسة القياسية (الحضور 08:00، الانصراف 16:30، 8 ساعات، أوفرتايم 1.5x) وحفظها لكافة العمال؟')) return;
+    if (!confirm('هل ترغب بتطبيق السياسة القياسية (الحضور 08:00، الانصراف 16:30، استراحة 30 دقيقة تخصم من الدوام = 8 ساعات عمل صافية، أوفرتايم 1.5x) وحفظها لكافة العمال؟')) return;
 
     employees.forEach(emp => {
       updateEmployee(emp.id, {
         officialDailyHours: 8,
         officialStartTime: '08:00',
         officialEndTime: '16:30',
-        defaultBreakMinutes: 0,
+        defaultBreakMinutes: 30,
         hourlyRateCalculation: 'auto_from_salary',
         overtimeMethod: 'multiplier',
         overtimeMultiplier: 1.5,
@@ -699,7 +702,7 @@ export const AttendanceView: React.FC = () => {
 
     setPolicyDrafts({});
     const res = recalculateAllAttendanceRecords();
-    showFeedback(`تم تطبيق السياسة القياسية الموحدة وحفظها لكافة العمال بنجاح (${res.updated} سجل تم تحديثه).`, 'success');
+    showFeedback(`تم تطبيق السياسة القياسية الموحدة (08:00 - 16:30 مع استراحة 30 د) وحفظها لكافة العمال بنجاح (${res.updated} سجل تم تحديثه).`, 'success');
   };
 
   const handleCopyPolicyToAll = (sourceEmp: Employee) => {
@@ -1126,6 +1129,12 @@ export const AttendanceView: React.FC = () => {
                     </th>
 
                     <th className="py-2.5 px-2 text-center whitespace-nowrap">المشوار (س)</th>
+                    <th className="py-2.5 px-2 text-center whitespace-nowrap bg-amber-50/40 text-amber-950 font-bold" title="وقت الاستراحة بالدقائق (يخصم من إجمالي ساعات الدوام)">
+                      <div className="flex items-center justify-center gap-1">
+                        <Coffee className="w-3.5 h-3.5 text-amber-700" />
+                        <span>الاستراحة (د)</span>
+                      </div>
+                    </th>
                     <th className="py-2.5 px-2 text-center whitespace-nowrap">الرسمية (س)</th>
                     <th className="py-2.5 px-2 text-center whitespace-nowrap font-bold text-gray-900">الفعلية (س)</th>
                     <th className="py-2.5 px-2 text-center whitespace-nowrap">الأوفرتايم (س)</th>
@@ -1377,6 +1386,23 @@ export const AttendanceView: React.FC = () => {
                           )}
                         </td>
 
+                        {/* Break Time (وقت الاستراحة يخصم من ساعات الدوام) */}
+                        <td className="py-2 px-2 text-center whitespace-nowrap bg-amber-50/20">
+                          <div className={`inline-flex items-center justify-center gap-1 ${isOff ? 'opacity-40 pointer-events-none' : ''}`}>
+                            <input
+                              type="number"
+                              disabled={isOff}
+                              value={state.breakMinutes}
+                              onChange={(e) => handleDraftChange(emp.id, 'breakMinutes', Math.max(0, parseInt(e.target.value, 10) || 0))}
+                              className="w-12 bg-white border border-amber-300 rounded-lg px-1 py-0.5 text-xs font-mono font-bold text-gray-800 text-center focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-2xs"
+                              min="0"
+                              step="5"
+                              title={`وقت الاستراحة المخصوم: ${state.breakMinutes} دقيقة`}
+                            />
+                            <span className="text-[10px] text-gray-500 font-bold">د</span>
+                          </div>
+                        </td>
+
                         {/* Official Hours */}
                         <td className="py-2 px-2 text-center whitespace-nowrap">
                           <input
@@ -1395,9 +1421,14 @@ export const AttendanceView: React.FC = () => {
                           <div className="font-mono font-black text-blue-900 text-xs sm:text-sm">
                             {metrics.workedHours} س
                           </div>
-                          {!isOff && state.hasSecondShift && (
-                            <div className="text-[10px] text-gray-500 font-mono" title={`م1: ${metrics.shift1Hours} س + م2: ${metrics.shift2Hours} س`}>
-                              ({metrics.shift1Hours} + {metrics.shift2Hours})
+                          {!isOff && (
+                            <div className="text-[10px] text-gray-500 font-mono">
+                              {state.breakMinutes > 0 && (
+                                <span className="text-amber-700 font-semibold" title={`خصم استراحة: ${state.breakMinutes} دقيقة`}>
+                                  (-{state.breakMinutes}د)
+                                </span>
+                              )}
+                              {state.hasSecondShift && ` (${metrics.shift1Hours}+${metrics.shift2Hours})`}
                             </div>
                           )}
                         </td>
@@ -1751,7 +1782,7 @@ export const AttendanceView: React.FC = () => {
                                   shift1CheckOutTime: rec.shift1CheckOutTime || '10:00',
                                   shift2CheckInTime: rec.shift2CheckInTime || '12:00',
                                   shift2CheckOutTime: rec.shift2CheckOutTime || rec.checkOutTime || '16:30',
-                                  breakMinutes: rec.breakMinutes || 0,
+                                  breakMinutes: rec.breakMinutes !== undefined ? rec.breakMinutes : (employees.find(e => e.id === rec.employeeId)?.defaultBreakMinutes ?? 30),
                                   notes: rec.notes || ''
                                 });
                               }}
@@ -2209,43 +2240,74 @@ export const AttendanceView: React.FC = () => {
                           )}
                         </div>
 
-                        {/* 6. Break & Late Deduction Policy */}
-                        <div className="grid grid-cols-2 gap-2 bg-white p-3 rounded-xl border border-gray-200">
-                          <div>
-                            <label className="block text-gray-600 font-semibold mb-1">استراحة إضافية:</label>
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                value={draft.defaultBreakMinutes}
-                                onChange={(e) => handlePolicyDraftChange(emp.id, 'defaultBreakMinutes', parseInt(e.target.value, 10) || 0)}
-                                className="w-full bg-gray-50 border border-gray-300 rounded px-2 py-1 font-mono text-xs font-bold"
-                                min="0"
-                                step="15"
-                              />
-                              <span className="text-gray-400 text-[10px]">دقيقة</span>
+                        {/* 6. Break Time Policy (وقت الاستراحة يخصم من ساعات الدوام) */}
+                        <div className="bg-amber-50/50 border border-amber-200/90 rounded-xl p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="font-bold text-amber-950 flex items-center gap-1.5 text-xs">
+                              <Coffee className="w-4 h-4 text-amber-700" />
+                              <span>وقت الاستراحة المخصوم من ساعات الدوام:</span>
+                            </label>
+                            <span className="text-[10px] text-amber-800 font-bold bg-amber-100/70 px-2 py-0.5 rounded">
+                              يخصم تلقائياً
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={draft.defaultBreakMinutes}
+                              onChange={(e) => handlePolicyDraftChange(emp.id, 'defaultBreakMinutes', Math.max(0, parseInt(e.target.value, 10) || 0))}
+                              className="w-20 bg-white border border-amber-300 rounded-lg px-2 py-1 font-mono text-xs font-bold text-amber-950 focus:ring-2 focus:ring-amber-500 shadow-2xs"
+                              min="0"
+                              step="5"
+                            />
+                            <span className="text-xs font-bold text-amber-900">دقيقة</span>
+                            <div className="flex items-center gap-1 mr-auto">
+                              {[0, 15, 30, 45, 60].map(mins => (
+                                <button
+                                  key={mins}
+                                  type="button"
+                                  onClick={() => handlePolicyDraftChange(emp.id, 'defaultBreakMinutes', mins)}
+                                  className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition cursor-pointer ${
+                                    draft.defaultBreakMinutes === mins
+                                      ? 'bg-amber-600 text-white shadow-2xs'
+                                      : 'bg-white border border-amber-200 text-amber-800 hover:bg-amber-100'
+                                  }`}
+                                >
+                                  {mins}د
+                                </button>
+                              ))}
                             </div>
                           </div>
 
-                          <div>
-                            <label className="block text-gray-600 font-semibold mb-1">خصم التأخير:</label>
-                            <label className="flex items-center gap-1.5 cursor-pointer mt-1.5">
-                              <input
-                                type="checkbox"
-                                checked={draft.deductLateMinutes}
-                                onChange={(e) => handlePolicyDraftChange(emp.id, 'deductLateMinutes', e.target.checked)}
-                                className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
-                              />
-                              <span className="text-[11px] text-gray-700 font-semibold">خصم تلقائي</span>
-                            </label>
+                          <div className="text-[11px] text-amber-900/90 bg-white/80 border border-amber-200/60 rounded-lg p-2 font-mono leading-relaxed">
+                            💡 عند الحضور 08:00 والانصراف 16:30 (8.5 س) ➔ خصم {draft.defaultBreakMinutes} دقيقة استراحة = <strong className="text-emerald-700 font-black">{Number(Math.max(0, 8.5 - (draft.defaultBreakMinutes / 60)).toFixed(2))} ساعة</strong> عمل محتسبة للعامل.
                           </div>
                         </div>
 
-                        {/* Card Bottom Save Button */}
-                        <div className="pt-2">
+                        {/* 7. Late Deduction Policy */}
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 flex items-center justify-between">
+                          <div>
+                            <span className="block text-gray-800 font-bold text-xs">خصم دقائق التأخير:</span>
+                            <span className="text-[11px] text-gray-500">خصم التأخير الصباحي عن ({draft.officialStartTime}) تلقائياً</span>
+                          </div>
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={draft.deductLateMinutes}
+                              onChange={(e) => handlePolicyDraftChange(emp.id, 'deductLateMinutes', e.target.checked)}
+                              className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                            />
+                            <span className="text-xs text-gray-700 font-bold">تفعيل</span>
+                          </label>
+                        </div>
+
+                        {/* Card Bottom Action Buttons */}
+                        <div className="pt-2 space-y-1.5">
                           <button
                             type="button"
                             onClick={() => handleSaveEmployeePolicy(emp.id)}
-                            className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl font-bold text-xs transition shadow-xs ${
+                            className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl font-bold text-xs transition shadow-xs cursor-pointer ${
                               draft.isDirty
                                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-300 ring-offset-1'
                                 : 'bg-gray-100 hover:bg-indigo-600 hover:text-white text-gray-700 border border-gray-200'
@@ -2255,6 +2317,16 @@ export const AttendanceView: React.FC = () => {
                             <span>
                               {draft.isDirty ? '💾 حفظ وتثبيت السياسة وتطبيقها فوراً' : '✓ السياسة محفوظة ومطبقة تلقائياً'}
                             </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleApplyPolicyToRecords(emp.id)}
+                            className="w-full flex items-center justify-center gap-1.5 py-1 text-gray-500 hover:text-indigo-700 text-[11px] font-bold hover:underline transition cursor-pointer"
+                            title="إعادة احتساب كافة سجلات وأيام حضور هذا العامل بناءً على السياسة المحفوظة"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            <span>إعادة تطبيق السياسة على كافة سجلات العامل السابقة والجديدة</span>
                           </button>
                         </div>
                       </div>
@@ -2275,7 +2347,7 @@ export const AttendanceView: React.FC = () => {
           status: editModalDraft.status || 'present',
           checkInTime: editModalDraft.checkInTime || '08:00',
           checkOutTime: editModalDraft.checkOutTime || '16:30',
-          breakMinutes: editModalDraft.breakMinutes || 0,
+          breakMinutes: editModalDraft.breakMinutes !== undefined ? editModalDraft.breakMinutes : (editEmp.defaultBreakMinutes ?? 30),
           officialDailyHours: editEmp.officialDailyHours || 8,
           baseHourlyRate: editEmp.customHourlyRate || computeDefaultBaseHourlyRate(editEmp),
           overtimeMethod: editEmp.overtimeMethod || 'multiplier',
@@ -2336,22 +2408,23 @@ export const AttendanceView: React.FC = () => {
                           ...prev,
                           checkInTime: editEmp.officialStartTime || '08:00',
                           checkOutTime: editEmp.officialEndTime || '16:30',
+                          breakMinutes: editEmp.defaultBreakMinutes ?? 30,
                           hasSecondShift: false,
                           shift1CheckInTime: editEmp.officialStartTime || '08:00',
                           shift1CheckOutTime: '10:00',
                           shift2CheckInTime: '12:00',
                           shift2CheckOutTime: editEmp.officialEndTime || '16:30'
                         }));
-                        showFeedback('تم استعادة المواعيد المعتمدة وفق سياسة العامل (08:00 - 16:30)', 'info');
+                        showFeedback('تم استعادة المواعيد والاستراحة المعتمدة وفق سياسة العامل (08:00 - 16:30)', 'info');
                       }}
-                      className="text-[11px] font-bold text-indigo-700 hover:underline flex items-center gap-1"
+                      className="text-[11px] font-bold text-indigo-700 hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <RefreshCw className="w-3 h-3" />
                       استعادة مواعيد السياسة (08:00 - 16:30)
                     </button>
                   </div>
                   <p className="text-[11px] text-gray-600 font-mono">
-                    الدوام الرسمي: {editEmp.officialStartTime || '08:00'} إلى {editEmp.officialEndTime || '16:30'} ({editEmp.officialDailyHours || 8} س) | أوفرتايم: {editEmp.overtimeMethod === 'fixed_rate' ? `${editEmp.customOvertimeRate} ₪/س` : `${editEmp.overtimeMultiplier || 1.5}x`}
+                    الدوام: {editEmp.officialStartTime || '08:00'} إلى {editEmp.officialEndTime || '16:30'} ({editEmp.officialDailyHours || 8} س) | استراحة مخصومة: {editEmp.defaultBreakMinutes ?? 30} د | أوفرتايم: {editEmp.overtimeMethod === 'fixed_rate' ? `${editEmp.customOvertimeRate} ₪/س` : `${editEmp.overtimeMultiplier || 1.5}x`}
                   </p>
                 </div>
               )}
@@ -2467,15 +2540,53 @@ export const AttendanceView: React.FC = () => {
                 </div>
               )}
 
+              {/* Break Minutes Input (وقت الاستراحة يخصم من ساعات الدوام) */}
+              <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-3 text-xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-amber-950 flex items-center gap-1.5">
+                    <Coffee className="w-4 h-4 text-amber-700" />
+                    <span>وقت الاستراحة المخصوم من ساعات الدوام:</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setEditModalDraft(prev => prev ? ({ ...prev, breakMinutes: editEmp?.defaultBreakMinutes ?? 30 }) : null)}
+                    className="text-[11px] font-bold text-amber-800 hover:underline cursor-pointer"
+                  >
+                    استعادة استراحة السياسة ({editEmp?.defaultBreakMinutes ?? 30} د)
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={editModalDraft.breakMinutes ?? 30}
+                    onChange={(e) => setEditModalDraft(prev => prev ? ({ ...prev, breakMinutes: Math.max(0, parseInt(e.target.value, 10) || 0) }) : null)}
+                    className="w-20 bg-white border border-amber-300 rounded-lg px-2.5 py-1 font-mono text-xs font-bold text-amber-950 focus:ring-2 focus:ring-amber-500 shadow-2xs"
+                    min="0"
+                    step="5"
+                  />
+                  <span className="text-gray-700 font-bold">دقيقة استراحة</span>
+                  <span className="text-[11px] text-gray-500 mr-2">
+                    (تخصم مباشرة من إجمالي ساعات الدوام لهذا اليوم)
+                  </span>
+                </div>
+              </div>
+
               {/* Live Preview based on Employee Saved Policy */}
               {liveMetrics && (
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-1.5 text-xs">
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2 text-xs">
                   <div className="flex items-center justify-between text-gray-700 font-bold">
                     <span>حساب الساعات والمستحقات بالسياسة المحفوظة:</span>
                     <span className="font-mono text-indigo-700 font-black">
                       {liveMetrics.totalPay.toLocaleString()} {currencySymbol}
                     </span>
                   </div>
+
+                  <div className="bg-white/90 border border-gray-200 rounded-lg p-2 text-[11px] font-mono text-gray-600 flex items-center justify-between">
+                    <span>خصم الاستراحة: <strong className="text-amber-800">{editModalDraft.breakMinutes ?? 30} د</strong></span>
+                    <span>العمل الفعلي المحتسب: <strong className="text-blue-800">{liveMetrics.workedHours} س</strong></span>
+                    <span>الرسمي المطلوب: <strong className="text-gray-800">{editEmp?.officialDailyHours || 8} س</strong></span>
+                  </div>
+
                   <div className="grid grid-cols-3 gap-2 text-[11px] font-mono text-center pt-1 border-t border-gray-200">
                     <div className="bg-white p-1 rounded border border-gray-200">
                       <span className="block text-gray-500 text-[10px]">العمل الفعلي</span>
