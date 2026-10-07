@@ -169,7 +169,7 @@ export const AttendanceView: React.FC = () => {
     
     let overtimeRate = draft.overtimeRatePerHour;
     if (draft.overtimeMethod === 'multiplier') {
-      overtimeRate = Number((baseRate * (draft.overtimeMultiplier || 1.5)).toFixed(2));
+      overtimeRate = Number((baseRate * (draft.overtimeMultiplier ?? 1.5)).toFixed(2));
     }
 
     if (draft.status === 'absent' || draft.status === 'unpaid_leave') {
@@ -289,8 +289,8 @@ export const AttendanceView: React.FC = () => {
         officialDailyHours: saved.officialDailyHours || emp.officialDailyHours || 8,
         baseHourlyRate: saved.baseHourlyRate || computeDefaultBaseHourlyRate(emp),
         overtimeMethod: saved.overtimeMethod || emp.overtimeMethod || 'multiplier',
-        overtimeMultiplier: saved.overtimeMultiplier || emp.overtimeMultiplier || 1.5,
-        overtimeRatePerHour: saved.overtimeRatePerHour || Number((computeDefaultBaseHourlyRate(emp) * (emp.overtimeMultiplier || 1.5)).toFixed(2)),
+        overtimeMultiplier: saved.overtimeMultiplier ?? emp.overtimeMultiplier ?? 1.5,
+        overtimeRatePerHour: saved.overtimeRatePerHour || Number((computeDefaultBaseHourlyRate(emp) * (emp.overtimeMultiplier ?? 1.5)).toFixed(2)),
         notes: saved.notes || '',
         isDirty: false,
         hasSecondShift: isSecond,
@@ -304,7 +304,7 @@ export const AttendanceView: React.FC = () => {
     // Default for fresh day (المعتمد: الحضور 08:00 والانصراف 16:30 والمشوار مغلق افتراضياً مع خصم الاستراحة 30 دقيقة = 8 ساعات عمل صافية)
     const officialDailyHours = emp.officialDailyHours || 8;
     const baseHourlyRate = computeDefaultBaseHourlyRate(emp, officialDailyHours);
-    const overtimeMultiplier = emp.overtimeMultiplier || 1.5;
+    const overtimeMultiplier = emp.overtimeMultiplier ?? 1.5;
     const overtimeMethod = emp.overtimeMethod || 'multiplier';
     const overtimeRatePerHour = emp.overtimeMethod === 'fixed_rate' && emp.customOvertimeRate
       ? emp.customOvertimeRate
@@ -488,7 +488,7 @@ export const AttendanceView: React.FC = () => {
     activeEmployees.forEach(emp => {
       const officialDailyHours = emp.officialDailyHours || 8;
       const baseHourlyRate = computeDefaultBaseHourlyRate(emp, officialDailyHours);
-      const overtimeMultiplier = emp.overtimeMultiplier || 1.5;
+      const overtimeMultiplier = emp.overtimeMultiplier ?? 1.5;
       const overtimeMethod = emp.overtimeMethod || 'multiplier';
       const overtimeRatePerHour = emp.overtimeMethod === 'fixed_rate' && emp.customOvertimeRate
         ? emp.customOvertimeRate
@@ -689,7 +689,7 @@ export const AttendanceView: React.FC = () => {
       const baseHourlyRate = updates.customHourlyRate && updates.customHourlyRate > 0
         ? updates.customHourlyRate
         : computeDefaultBaseHourlyRate(updatedEmp, updates.officialDailyHours || 8);
-      const overtimeMultiplier = updates.overtimeMultiplier || 1.5;
+      const overtimeMultiplier = updates.overtimeMultiplier ?? 1.5;
       const overtimeMethod = updates.overtimeMethod || 'multiplier';
       const overtimeRatePerHour = overtimeMethod === 'fixed_rate' && updates.customOvertimeRate
         ? updates.customOvertimeRate
@@ -2214,14 +2214,14 @@ export const AttendanceView: React.FC = () => {
                             طريقة وسياسة احتساب ساعات الأوفرتايم (الإضافي):
                           </label>
                           <select
-                            value={draft.overtimeMethod === 'fixed_rate' ? 'fixed_rate' : String(draft.overtimeMultiplier || 1.5)}
+                            value={draft.overtimeMethod === 'fixed_rate' ? 'fixed_rate' : String(draft.overtimeMultiplier ?? 1.5)}
                             onChange={(e) => {
                               const val = e.target.value;
                               if (val === 'fixed_rate') {
                                 handlePolicyDraftChange(emp.id, 'overtimeMethod', 'fixed_rate');
                               } else {
                                 handlePolicyDraftChange(emp.id, 'overtimeMethod', 'multiplier');
-                                handlePolicyDraftChange(emp.id, 'overtimeMultiplier', parseFloat(val) || 1.5);
+                                handlePolicyDraftChange(emp.id, 'overtimeMultiplier', isNaN(parseFloat(val)) ? 1.5 : parseFloat(val));
                               }
                             }}
                             className="w-full bg-gray-50 border border-gray-300 rounded-lg px-2.5 py-1.5 font-bold text-xs text-gray-800 focus:ring-2 focus:ring-indigo-500"
@@ -2476,10 +2476,10 @@ export const AttendanceView: React.FC = () => {
           officialDailyHours: editEmp.officialDailyHours || 8,
           baseHourlyRate: editEmp.customHourlyRate || computeDefaultBaseHourlyRate(editEmp),
           overtimeMethod: editEmp.overtimeMethod || 'multiplier',
-          overtimeMultiplier: editEmp.overtimeMultiplier || 1.5,
+          overtimeMultiplier: editEmp.overtimeMultiplier ?? 1.5,
           overtimeRatePerHour: editEmp.overtimeMethod === 'fixed_rate' && editEmp.customOvertimeRate
             ? editEmp.customOvertimeRate
-            : Number((computeDefaultBaseHourlyRate(editEmp) * (editEmp.overtimeMultiplier || 1.5)).toFixed(2)),
+            : Number((computeDefaultBaseHourlyRate(editEmp) * (editEmp.overtimeMultiplier ?? 1.5)).toFixed(2)),
           hasSecondShift: editModalDraft.hasSecondShift,
           shift1CheckInTime: editModalDraft.shift1CheckInTime,
           shift1CheckOutTime: editModalDraft.shift1CheckOutTime,

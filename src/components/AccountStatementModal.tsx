@@ -290,7 +290,10 @@ export const AccountStatementModal: React.FC = () => {
             </button>
 
             <button
-              onClick={handleClose}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClose();
+              }}
               className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
               title="إغلاق"
             >

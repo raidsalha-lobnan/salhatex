@@ -3825,7 +3825,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     const overtimeMethod: OvertimeMethod = params.overtimeMethodOverride || employee.overtimeMethod || 'multiplier';
-    const overtimeMultiplier = params.overtimeMultiplierOverride ?? (employee.overtimeMultiplier || 1.5);
+    const overtimeMultiplier = params.overtimeMultiplierOverride ?? (employee.overtimeMultiplier ?? 1.5);
     const customOvertimeRate = params.customOvertimeRateOverride ?? employee.customOvertimeRate;
 
     let overtimeRatePerHour = 0;
