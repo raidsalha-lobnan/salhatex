@@ -136,44 +136,7 @@ export const DEFAULT_WAREHOUSES: Warehouse[] = [
   }
 ];
 
-export const DEFAULT_WAREHOUSE_OPERATIONS: WarehouseOperation[] = [
-  {
-    id: 'w-op-1',
-    documentNumber: 'REC-2026-0001',
-    operationType: 'receipt',
-    date: '2026-09-08',
-    time: '10:30:00',
-    branchId: 'br-1',
-    branchName: 'فرع المركز الرئيسي والإدارة',
-    warehouseId: 'wh-1',
-    warehouseName: 'المستودع الرئيسي - الأقمشة وخامات التفصيل',
-    userId: 'user-wh',
-    userName: 'عمر مستودعات',
-    userRole: 'مسؤول المستودعات',
-    items: [
-      {
-        itemId: 'inv-1',
-        itemCode: 'FAB-0001',
-        itemName: 'قماش صوف كشمير إنجليزي فاخر للبدل والأثواب',
-        unit: 'متر',
-        quantity: 50,
-        unitCost: 65,
-        totalCost: 3250,
-        balanceBefore: 70,
-        balanceAfter: 120,
-        notes: 'توريد طاقة صوف جديدة من المورد المعتمد'
-      }
-    ],
-    totalQuantity: 50,
-    totalValue: 3250,
-    referenceType: 'purchase',
-    referenceNumber: 'PO-2026-0042',
-    reason: 'توريد واستلام مشتريات أقمشة تفصيل وخياطة',
-    notes: 'تم فحص جودة خامة القماش واستلام الشحنة بحالة ممتازة',
-    status: 'completed',
-    createdAt: '2026-09-08T10:30:00Z'
-  }
-];
+export const DEFAULT_WAREHOUSE_OPERATIONS: WarehouseOperation[] = [];
 
 export const DEFAULT_BRANCHES: Branch[] = [
   {

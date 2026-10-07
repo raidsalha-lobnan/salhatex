@@ -504,21 +504,63 @@ const isAppAlreadyInitialized = () => {
   }
 };
 
+const LEGACY_MOCK_ID_SET = new Set([
+  'inv-1', 'inv-2', 'inv-3', 'inv-4', 'inv-5', 'inv-6', 'inv-7', 'inv-8',
+  'srv-1', 'srv-2', 'srv-3', 'srv-4',
+  'pt-1', 'pt-2', 'pt-3', 'pt-4', 'pt-5',
+  'job-101', 'job-102', 'job-103', 'job-104', 'job-105', 'job-106', 'job-107',
+  'emp-1', 'emp-2', 'emp-3', 'emp-4', 'emp-5', 'emp-6',
+  'vch-init-1', 'vch-init-2', 'vch-init-3', 'vch-init-4', 'vch-init-5',
+  'pur-1', 'pur-2', 'pur-3', 'pur-init-1', 'pur-init-2',
+  'prn-1', 'prn-2', 'prn-init-1',
+  'srn-1', 'srn-2', 'srn-init-1',
+  'je-1', 'je-2', 'je-3', 'je-init-1', 'je-init-2',
+  'sm-1', 'sm-2', 'sm-3', 'sm-4',
+  'w-op-1', 'w-op-2',
+  'ps-1', 'ps-2', 'ps-2026-08', 'ps-2026-09',
+  'adv-1', 'adv-2', 'ded-1', 'ded-2', 'inc-1', 'inc-2',
+  'tx-rc-1', 'tx-rc-2', 'tx-rc-3', 'tx-pv-1', 'tx-2', 'tx-3', 'tx-4'
+]);
+
+export function isLegacyMockId(id?: string | number): boolean {
+  if (!id) return false;
+  const s = String(id);
+  if (LEGACY_MOCK_ID_SET.has(s)) return true;
+  if (
+    s.startsWith('init-') ||
+    s.startsWith('vch-init-') ||
+    s.startsWith('pur-init-') ||
+    s.startsWith('prn-init-') ||
+    s.startsWith('srn-init-') ||
+    s.startsWith('je-init-') ||
+    s.startsWith('mat-init-')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function filterOutLegacyMockData<T extends { id?: string }>(items: T[]): T[] {
+  if (!Array.isArray(items)) return [];
+  return items.filter(item => {
+    if (!item || !item.id) return false;
+    return !isLegacyMockId(item.id);
+  });
+}
+
 function safeLoadArray<T>(key: string, fallback: T[], isTransactional = false): T[] {
   try {
     const saved = localStorage.getItem(key);
     if (saved !== null) {
       const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed : fallback;
-    }
-    // If not explicitly saved in localStorage, but app was already initialized/zeroed,
-    // transactional data must NOT fall back to dummy mock transactions!
-    if (isTransactional && isAppAlreadyInitialized()) {
-      return [];
+      if (Array.isArray(parsed)) {
+        return filterOutLegacyMockData(parsed) as T[];
+      }
+      return fallback;
     }
     return fallback;
   } catch {
-    return isTransactional && isAppAlreadyInitialized() ? [] : fallback;
+    return fallback;
   }
 }
 
@@ -1089,8 +1131,8 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     if (!docData || !docData.id) continue;
                     const docKey = `${colName}_${docData.id}`;
                     
-                    // If document was registered as deleted offline, purge from cloud
-                    if (deletedDocsSet.has(docKey)) {
+                    // If document is legacy mock data or was registered as deleted offline, purge from cloud
+                    if (isLegacyMockId(docData.id) || deletedDocsSet.has(docKey)) {
                       deleteDoc(d.ref).catch(() => {});
                       continue;
                     }
