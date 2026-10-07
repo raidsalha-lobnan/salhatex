@@ -285,7 +285,7 @@ CREATE TABLE journal_entries (
   return lines.join('\n');
 }
 
-export function downloadSqlFile(sqlContent: string, filename: string = 'database_backup_alnoor.sql'): void {
+export function downloadSqlFile(sqlContent: string, filename: string = 'database_backup_sewing_workshop.sql'): void {
   const blob = new Blob([sqlContent], { type: 'application/sql;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -317,7 +317,7 @@ export async function syncWithWebServer(
       method: 'POST',
       headers,
       body: JSON.stringify({
-        source: 'alnoor_pos_offline_first',
+        source: 'sewing_workshop_pos_offline_first',
         timestamp: new Date().toISOString(),
         data: payload
       })

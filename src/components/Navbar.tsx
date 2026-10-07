@@ -29,6 +29,8 @@ import {
   Layers,
   ArrowRightLeft,
   Check,
+  Scissors,
+  Ruler,
   Receipt,
   History,
   Wifi,
@@ -165,59 +167,53 @@ export const Navbar: React.FC = () => {
         }
       ]
     },
-    // 1. المبيعات : قائمة منسدلة
+    // 1. أوامر وتشغيل الخياطة : قائمة منسدلة
     {
       id: 'sales_menu',
-      title: 'المبيعات',
-      icon: ShoppingCart,
+      title: 'أوامر وتشغيل الخياطة',
+      icon: Scissors,
       items: [
         {
-          id: 'pos',
-          label: '1. الكاشير / نقطة البيع',
-          sublabel: 'نقاط البيع السريعة والتحصيل الفوري والنقدي والآجل',
-          icon: ShoppingCart,
-          badge: 'سريع',
+          id: 'print_orders',
+          label: '1. أوامر التشغيل والإنتاج (Work Orders)',
+          sublabel: 'إدارة مراحل التفصيل (قص ✂️ ➔ خياطة 🧵 ➔ كي وتشطيب 👔 ➔ جاهز للتسليم)',
+          icon: Scissors,
+          badge: (stats?.pendingPrintJobs ?? 0) > 0 ? `${stats.pendingPrintJobs}` : null,
+          badgeColor: 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+        },
+        {
+          id: 'tailor_piecework',
+          label: '2. إنتاجية وأجور الخياطين بالقطعة',
+          sublabel: 'حساب مستحقات الخياطين والعمال حسب القطع المنجزة والعمليات',
+          icon: Sparkles,
+          badge: 'أجور بالقطعة',
           badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
         },
         {
-          id: 'print_orders',
-          label: '2. أوامر الطباعة والورشة',
-          sublabel: 'إدارة أوامر التصنيع وتذاكر العمل ومراحل الإنجاز والتسليم',
-          icon: Printer,
-          badge: (stats?.pendingPrintJobs ?? 0) > 0 ? `${stats.pendingPrintJobs}` : null,
-          badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-        },
-        {
           id: 'parties',
-          label: '3. العملاء',
-          sublabel: 'بيانات العملاء وأرصدة الذمم والمديونيات وكشوف الحساب',
+          label: '3. الزبائن وجداول القياسات',
+          sublabel: 'بيانات الزبائن، كشوف الحساب، والمقاسات المحفوظة للتفصيل',
           icon: Users
         },
         {
           id: 'invoices',
-          label: '4. فواتير المبيعات',
-          sublabel: 'استعراض وطباعة فواتير المبيعات المعتمدة والتحصيل',
+          label: '4. فواتير وطلبيات الخياطة',
+          sublabel: 'استعراض وطباعة فواتير التفصيل المعتمدة ومتابعة العربون والمتبقي',
           icon: FileText
         },
         {
           id: 'sales_returns',
-          label: '5. مرتجع فواتير المبيعات',
-          sublabel: 'إصدار إشعارات دائنة واسترداد المبالغ وإرجاع البضائع للمخزن',
+          label: '5. مرتجع فواتير وطلبيات',
+          sublabel: 'إصدار إشعارات دائنة واسترداد المبالغ وإرجاع الخامات',
           icon: RotateCcw,
           badge: (stats?.salesReturnsCount ?? 0) > 0 ? `${stats.salesReturnsCount}` : null,
           badgeColor: 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
         },
         {
           id: 'receipt_vouchers',
-          label: '6. سند قبض',
-          sublabel: 'تحرير وطباعة سندات القبض وتحصيل الدفعات المالية',
+          label: '6. سند قبض ودفعات الزبائن',
+          sublabel: 'تحرير وطباعة سندات القبض وتحصيل العربون والدفعات',
           icon: Receipt
-        },
-        {
-          id: 'special_invoice',
-          label: '7. فاتورة مبيعات خاصة',
-          sublabel: 'إنشاء وطباعة فاتورة مبيعات خاصة بتصميم مخصص',
-          icon: FileText
         }
       ]
     },
@@ -296,20 +292,28 @@ export const Navbar: React.FC = () => {
           badgeColor: 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
         },
         {
+          id: 'attendance',
+          label: '2. سجل الحضور والدوام والأوفرتايم',
+          sublabel: 'كشف التحضير اليومي، حساب الساعات الرسمية والإضافية، ومضاعف الأجر',
+          icon: Clock,
+          badge: 'كشف يومي',
+          badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+        },
+        {
           id: 'employees_adjustments',
-          label: '2. السلف والاستقطاعات والمكافآت',
+          label: '3. السلف والاستقطاعات والمكافآت',
           sublabel: 'تسجيل سلف الموظفين والخصومات الشهرية والحوافز المالية',
           icon: Wallet
         },
         {
           id: 'employees_payroll',
-          label: '3. مسيرات الرواتب وصرف المستحقات',
+          label: '4. مسيرات الرواتب وصرف المستحقات',
           sublabel: 'إعداد واعتماد مسير الرواتب الشهري والصرف النقدي والبنكي',
           icon: FileText
         },
         {
           id: 'report_employee_statement',
-          label: '4. كشف حساب تفصيلي موظف',
+          label: '5. كشف حساب تفصيلي موظف',
           sublabel: 'تقرير شامل لاستحقاقات وسلف وخصومات الموظف وصافي المستحق',
           icon: UserCheck
         }
@@ -615,6 +619,7 @@ export const Navbar: React.FC = () => {
             onClick={() => {
               if (window.confirm('هل تريد إغلاق جلسة العمل وتسجيل الخروج من البرنامج؟')) {
                 import('../firebase').then(({ auth }) => auth.signOut());
+                localStorage.removeItem('sewing_tailoring_workshop_v1_current_user_id');
                 localStorage.removeItem('alnoor_press_accounting_v1_current_user_id');
                 localStorage.removeItem('active_session_id');
                 window.location.reload();

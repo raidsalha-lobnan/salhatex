@@ -105,6 +105,14 @@ class PosSoundManager {
     this.playSuccessBeep();
   }
 
+  playBeep() {
+    this.playSuccessBeep();
+  }
+
+  playSuccess() {
+    this.playCashBeep();
+  }
+
   click() {
     this.playSuccessBeep();
   }

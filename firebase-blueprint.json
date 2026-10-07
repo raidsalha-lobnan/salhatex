@@ -58,19 +58,19 @@
     }
   },
   "firestore": {
-    "/parties/{partyId}": {
+    "/sewing_parties/{partyId}": {
       "schema": "Party",
-      "description": "Collection of customer and supplier records"
+      "description": "Collection of customer and supplier records for sewing workshop"
     },
-    "/invoices/{invoiceId}": {
+    "/sewing_invoices/{invoiceId}": {
       "schema": "Invoice",
-      "description": "Collection of sales invoices"
+      "description": "Collection of sales invoices for tailoring and custom garments"
     },
-    "/employees/{employeeId}": {
+    "/sewing_employees/{employeeId}": {
       "schema": "Employee",
-      "description": "Collection of employee profiles and payroll history"
+      "description": "Collection of tailors and staff members in the workshop"
     },
-    "/vouchers/{voucherId}": {
+    "/sewing_vouchers/{voucherId}": {
       "schema": "PaymentVoucher",
       "description": "Collection of payment and receipt vouchers"
     }

@@ -16,6 +16,7 @@ import { AccountingView } from './components/AccountingView';
 import { ReportsView } from './components/ReportsView';
 import { PartiesView } from './components/PartiesView';
 import { EmployeesView } from './components/EmployeesView';
+import { AttendanceView } from './components/AttendanceView';
 import { TreasuriesView } from './components/TreasuriesView';
 import { SettingsView } from './components/SettingsView';
 import { BranchesManagementView } from './components/BranchesManagementView';
@@ -27,6 +28,7 @@ import { PaymentVouchersView } from './components/PaymentVouchersView';
 import { ExpensesView } from './components/ExpensesView';
 import { DebtClearingView } from './components/DebtClearingView';
 import { AuditLogView } from './components/AuditLogView';
+import { TailorPieceworkTracker } from './components/workshop/TailorPieceworkTracker';
 import { InvoicePrintModal } from './components/InvoicePrintModal';
 import { JobTicketModal } from './components/JobTicketModal';
 import { PayrollPrintModal } from './components/PayrollPrintModal';
@@ -122,6 +124,8 @@ const MainLayout: React.FC = () => {
         case 'branches':
         case 'parties':
         case 'employees':
+        case 'employees_attendance':
+        case 'attendance':
         case 'employees_adjustments':
         case 'employees_payroll':
           return hasPermission('view_settings');
@@ -206,6 +210,8 @@ const MainLayout: React.FC = () => {
         return <PosView />;
       case 'print_orders':
         return <PrintOrdersView />;
+      case 'tailor_piecework':
+        return <TailorPieceworkTracker />;
       case 'invoices':
         return <InvoicesView />;
       case 'special_invoice':
@@ -259,6 +265,9 @@ const MainLayout: React.FC = () => {
         return <PartiesView />;
       case 'employees':
         return <EmployeesView initialSubTab="employees" />;
+      case 'attendance':
+      case 'employees_attendance':
+        return <AttendanceView />;
       case 'employees_adjustments':
         return <EmployeesView initialSubTab="adjustments" />;
       case 'employees_payroll':
@@ -325,7 +334,7 @@ const MainLayout: React.FC = () => {
 export default function App() {
   const [firebaseUser, setFirebaseUser] = React.useState<User | null>(null);
   const [localUserId, setLocalUserId] = React.useState<string | null>(() => {
-    return localStorage.getItem('alnoor_press_accounting_v1_current_user_id');
+    return localStorage.getItem('sewing_tailoring_workshop_v1_current_user_id') || localStorage.getItem('alnoor_press_accounting_v1_current_user_id');
   });
   const [loading, setLoading] = React.useState(true);
 
@@ -336,13 +345,14 @@ export default function App() {
       setLoading(false);
       
       if (u && u.email) {
-        unsubs = onSnapshot(doc(db, 'userSessions', u.email.toLowerCase()), (docSnap) => {
+        unsubs = onSnapshot(doc(db, 'sewing_userSessions', u.email.toLowerCase()), (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data();
             const currentSession = localStorage.getItem('active_session_id');
             if (data.sessionId && currentSession && data.sessionId !== currentSession) {
               // Forced logout: another device logged in
               auth.signOut();
+              localStorage.removeItem('sewing_tailoring_workshop_v1_current_user_id');
               localStorage.removeItem('alnoor_press_accounting_v1_current_user_id');
               localStorage.removeItem('active_session_id');
               window.location.reload();

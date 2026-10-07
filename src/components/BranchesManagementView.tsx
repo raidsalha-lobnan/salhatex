@@ -644,7 +644,7 @@ export const BranchesManagementView: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[11px]">العملة الأساسية:</span>
-                      <strong className="font-bold text-slate-800">{comp.currency} (شيكل)</strong>
+                      <strong className="font-bold text-slate-800">{comp.currency}</strong>
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[11px]">الهاتف:</span>
@@ -1065,13 +1065,21 @@ export const BranchesManagementView: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">العملة الأساسية</label>
-                  <input
-                    type="text"
+                  <select
                     value={companyForm.currency}
                     onChange={(e) => setCompanyForm({ ...companyForm, currency: e.target.value })}
-                    className="w-full px-3 py-2 text-xs sm:text-sm border border-slate-200 rounded-lg font-mono"
-                    placeholder="ILS"
-                  />
+                    className="w-full px-3 py-2 text-xs sm:text-sm border border-slate-200 rounded-lg bg-white font-bold text-indigo-700"
+                  >
+                    <option value="₪">شيكل فلسطيني (₪ / ILS)</option>
+                    <option value="ر.س">ريال سعودي (ر.س / SAR)</option>
+                    <option value="$">دولار أمريكي ($ / USD)</option>
+                    <option value="د.أ">دينار أردني (د.أ / JOD)</option>
+                    <option value="د.إ">درهم إماراتي (د.إ / AED)</option>
+                    <option value="ج.م">جنيه مصري (ج.م / EGP)</option>
+                    <option value="€">يورو أوروبي (€ / EUR)</option>
+                    <option value="د.ك">دينار كويتي (د.ك / KWD)</option>
+                    <option value="ر.ق">ريال قطري (ر.ق / QAR)</option>
+                  </select>
                 </div>
               </div>
 
@@ -1083,7 +1091,7 @@ export const BranchesManagementView: React.FC = () => {
                   value={companyForm.name}
                   onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
                   className="w-full px-3 py-2 text-xs sm:text-sm border border-slate-200 rounded-lg font-bold"
-                  placeholder="مطبعة ومكتبة القدس الحديثة"
+                  placeholder="مشغل وورشة الخياطة والتفصيل والأزياء الراقية"
                 />
               </div>
 
@@ -1094,7 +1102,7 @@ export const BranchesManagementView: React.FC = () => {
                   value={companyForm.tradeName}
                   onChange={(e) => setCompanyForm({ ...companyForm, tradeName: e.target.value })}
                   className="w-full px-3 py-2 text-xs sm:text-sm border border-slate-200 rounded-lg"
-                  placeholder="دار القدس للطباعة والنشر"
+                  placeholder="دار النخبة للأزياء وتفصيل الملابس"
                 />
               </div>
 

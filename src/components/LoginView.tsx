@@ -19,7 +19,7 @@ export const LoginView: React.FC<{ onLocalLogin?: (id: string) => void }> = ({ o
     const adminUser = DEFAULT_SYSTEM_USERS[0];
     const sessionId = Date.now().toString(36) + Math.random().toString(36).substring(2);
     localStorage.setItem('active_session_id', sessionId);
-    localStorage.setItem('alnoor_press_accounting_v1_current_user_id', adminUser.id);
+    localStorage.setItem('sewing_tailoring_workshop_v1_current_user_id', adminUser.id);
     if (onLocalLogin) {
       onLocalLogin(adminUser.id);
     } else {
@@ -38,7 +38,7 @@ export const LoginView: React.FC<{ onLocalLogin?: (id: string) => void }> = ({ o
         const sessionId = Date.now().toString(36) + Math.random().toString(36).substring(2);
         localStorage.setItem('active_session_id', sessionId);
         try {
-          await setDoc(doc(db, 'userSessions', res.user.email.toLowerCase()), { sessionId, timestamp: Date.now() });
+          await setDoc(doc(db, 'sewing_userSessions', res.user.email.toLowerCase()), { sessionId, timestamp: Date.now() });
         } catch(e) {}
       }
     } catch (err: any) {
@@ -55,7 +55,7 @@ export const LoginView: React.FC<{ onLocalLogin?: (id: string) => void }> = ({ o
     setError('');
     
     // Fetch local users or fallback to default system users
-    const localData = localStorage.getItem('alnoor_press_accounting_v1_users');
+    const localData = localStorage.getItem('sewing_tailoring_workshop_v1_users') || localStorage.getItem('alnoor_press_accounting_v1_users');
     let users = DEFAULT_SYSTEM_USERS;
     try {
       if (localData) {
@@ -70,10 +70,10 @@ export const LoginView: React.FC<{ onLocalLogin?: (id: string) => void }> = ({ o
       const sessionId = Date.now().toString(36) + Math.random().toString(36).substring(2);
       localStorage.setItem('active_session_id', sessionId);
       try {
-        await setDoc(doc(db, 'userSessions', user.id), { sessionId, timestamp: Date.now() });
+        await setDoc(doc(db, 'sewing_userSessions', user.id), { sessionId, timestamp: Date.now() });
       } catch(e) { console.error("Firestore session error:", e); }
       
-      localStorage.setItem('alnoor_press_accounting_v1_current_user_id', user.id);
+      localStorage.setItem('sewing_tailoring_workshop_v1_current_user_id', user.id);
       if (onLocalLogin) {
         onLocalLogin(user.id);
       } else {

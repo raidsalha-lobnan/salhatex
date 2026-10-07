@@ -72,13 +72,13 @@ export const DatabaseZeroingSettings: React.FC = () => {
   const todayStr = new Date().toISOString().split('T')[0];
   const [cutoffDate, setCutoffDate] = useState<string>(todayStr);
   const [fromDate, setFromDate] = useState<string>(todayStr);
-  const [scope, setScope] = useState<'up_to_date' | 'from_date' | 'date_range' | 'all'>('up_to_date');
+  const [scope, setScope] = useState<'up_to_date' | 'from_date' | 'date_range' | 'all'>('all');
 
   // 3. خيارات التصفير
   const [options, setOptions] = useState<DatabaseZeroingOptions>({
     cutoffDate: todayStr,
     fromDate: todayStr,
-    scope: 'up_to_date',
+    scope: 'all',
     // 1. الموظفون والرواتب بالكامل
     resetEmployees: true,
     resetPayroll: true,
@@ -373,9 +373,7 @@ export const DatabaseZeroingSettings: React.FC = () => {
 
     setIsExecuting(true);
     try {
-      const res = performDatabaseZeroing(options);
-      await new Promise(resolve => setTimeout(resolve, 800)); // wait for react state to settle
-      await forceSyncNow(); // ensure the deletions are committed to firebase before showing success
+      const res = await performDatabaseZeroing(options);
       setExecutionResult(res);
       setShowResultModal(true);
       setConfirmInput('');
@@ -856,7 +854,7 @@ export const DatabaseZeroingSettings: React.FC = () => {
                 <div>
                   <div className="font-bold text-slate-800">سندات القبض والصرف والقيود اليومية</div>
                   <div className="text-slate-500 text-[10px]">
-                    حذف {counts.vchCount} سند قبض/صرف و {counts.jeCount} قيد محاسبي و {counts.poCount} أمر تشغيل مطبعة.
+                    حذف {counts.vchCount} سند قبض/صرف و {counts.jeCount} قيد محاسبي و {counts.poCount} أمر تشغيل وتفصيل خياطة.
                   </div>
                 </div>
               </label>

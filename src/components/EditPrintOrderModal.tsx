@@ -13,6 +13,19 @@ interface EditPrintOrderModalProps {
 }
 
 const serviceTypeLabels: Record<PrintServiceType, string> = {
+  mens_thobe: 'تفصيل ثوب ودشداشة رجالي',
+  womens_dress: 'تفصيل فستان ودريس نسائي',
+  abaya: 'تفصيل عباية وشيلة خليجي',
+  formal_suit: 'تفصيل بدلة رسمية وجاكيت',
+  shirt_pants: 'تفصيل قميص وبنطلون',
+  uniform: 'زي موحد ويونيفورم',
+  school_uniform: 'زي مدرسي ومريول',
+  workwear_uniform: 'يونيفورم وملابس مهنية وطبية',
+  curtains_furnishings: 'ستائر ومفروشات منزلية',
+  alterations_repair: 'تعديل وتصليح وتقصير مقاسات',
+  embroidery: 'تطريز وشك يدوي وآلي',
+  custom_tailoring: 'تفصيل وموديل خاص',
+  custom_sewing: 'تفصيل وخياطة خاصة حسب الطلب',
   business_cards: 'كروت شخصية وبيزنس كارد',
   flyer_brochure: 'بروشور وفلاير ومطبوعات ورقية',
   books_booklets: 'كتب وملازم دراسية ومجلات',

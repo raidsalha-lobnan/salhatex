@@ -1,795 +1,588 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAccounting } from '../context/AccountingContext';
-import { Invoice, InvoiceItem, LineAttachment, PosInvoiceWorkflowStatus } from '../types';
+import { PrintJobOrder, PrintOrderStatus, TailoringMeasurements, Invoice } from '../types';
 import {
-  Printer,
-  Clock,
-  CheckCircle,
-  Play,
-  CheckSquare,
-  FileText,
-  Eye,
-  Download,
-  Upload,
-  MessageSquare,
-  Lock,
-  Search,
-  Filter,
+  Scissors,
   Layers,
-  Columns,
-  List,
+  Ruler,
   Calendar,
   User,
-  Shield,
-  ShieldAlert,
-  AlertCircle,
-  Copy,
+  Phone,
+  DollarSign,
+  Plus,
+  Printer,
+  FileText,
+  Search,
+  Filter,
+  CheckCircle2,
+  Clock,
   Check,
-  Plus
+  ChevronRight,
+  ChevronLeft,
+  Sparkles,
+  ArrowRight,
+  Edit,
+  Eye,
+  Trash2,
+  Image as ImageIcon,
+  Maximize2
 } from 'lucide-react';
 import { posSound } from '../utils/audio';
-import { InvoiceStatusHistoryModal } from './pos/InvoiceStatusHistoryModal';
-import { WorkshopAttachmentModal } from './workshop/WorkshopAttachmentModal';
-import { WorkshopTechnicalNoteModal } from './workshop/WorkshopTechnicalNoteModal';
+import { SewingWorkOrderModal } from './workshop/SewingWorkOrderModal';
+import { CustomerMeasurementsModal } from './workshop/CustomerMeasurementsModal';
+import { ImagePreviewModal } from './workshop/ImagePreviewModal';
 
-export const WORKSHOP_STATUSES: Array<{
-  id: 'design' | 'pending_approval' | 'print_external' | 'print_internal' | 'ready';
+export const SEWING_WORKFLOW_STAGES: Array<{
+  id: PrintOrderStatus;
   label: string;
+  icon: string;
   color: string;
-  border: string;
-  bg: string;
   badgeBg: string;
   badgeText: string;
+  borderColor: string;
+  bgLight: string;
   description: string;
 }> = [
   {
-    id: 'design',
-    label: 'تصميم',
-    color: 'text-purple-700',
-    border: 'border-purple-300',
-    bg: 'bg-purple-50/50',
-    badgeBg: 'bg-purple-100',
-    badgeText: 'text-purple-900',
-    description: 'مرحلة إعداد وتجهيز البروفات والتصاميم'
-  },
-  {
-    id: 'pending_approval',
-    label: 'بانتظار الاعتماد',
+    id: 'cutting',
+    label: '1. مرحلة القص والفصال',
+    icon: '✂️',
     color: 'text-amber-700',
-    border: 'border-amber-300',
-    bg: 'bg-amber-50/50',
     badgeBg: 'bg-amber-100',
     badgeText: 'text-amber-900',
-    description: 'تنتظر موافقة واعتماد العميل للبدء'
+    borderColor: 'border-amber-300',
+    bgLight: 'bg-amber-50/40',
+    description: 'فصال القماش وقص الباترون حسب جدول القياسات والكميات والألوان'
   },
   {
-    id: 'print_external',
-    label: 'طباعة خارجي',
-    color: 'text-sky-700',
-    border: 'border-sky-300',
-    bg: 'bg-sky-50/50',
-    badgeBg: 'bg-sky-100',
-    badgeText: 'text-sky-900',
-    description: 'قيد التنفيذ لدى ورش ومطابع خارجية'
+    id: 'sewing',
+    label: '2. مرحلة الخياطة والتجميع',
+    icon: '🧵',
+    color: 'text-indigo-700',
+    badgeBg: 'bg-indigo-100',
+    badgeText: 'text-indigo-900',
+    borderColor: 'border-indigo-300',
+    bgLight: 'bg-indigo-50/40',
+    description: 'خياطة الأجزاء وتجميع الثوب / الفستان لدى الخياط'
   },
   {
-    id: 'print_internal',
-    label: 'طباعة داخلي',
-    color: 'text-blue-700',
-    border: 'border-blue-300',
-    bg: 'bg-blue-50/50',
-    badgeBg: 'bg-blue-100',
-    badgeText: 'text-blue-900',
-    description: 'قيد السحب والتشغيل داخل ماكينات المطبعة'
+    id: 'ironing_finishing',
+    label: '3. الكي والتشطيب والأزرار',
+    icon: '👔',
+    color: 'text-purple-700',
+    badgeBg: 'bg-purple-100',
+    badgeText: 'text-purple-900',
+    borderColor: 'border-purple-300',
+    bgLight: 'bg-purple-50/40',
+    description: 'تركيب الأزرار، السحابات، الكي بالبخار، والفحص'
   },
   {
     id: 'ready',
-    label: 'جاهز للتسليم',
+    label: '4. جاهز للتسليم والبروفة',
+    icon: '✨',
     color: 'text-emerald-700',
-    border: 'border-emerald-300',
-    bg: 'bg-emerald-50/50',
     badgeBg: 'bg-emerald-100',
     badgeText: 'text-emerald-900',
-    description: 'اكتملت الطباعة والتشطيب وجاهزة للتسليم'
+    borderColor: 'border-emerald-300',
+    bgLight: 'bg-emerald-50/40',
+    description: 'القطعة جاهزة في قسم التسليم بانتظار الزبون'
+  },
+  {
+    id: 'delivered',
+    label: '5. تم التسليم للزبون',
+    icon: '📦',
+    color: 'text-slate-700',
+    badgeBg: 'bg-slate-100',
+    badgeText: 'text-slate-900',
+    borderColor: 'border-slate-300',
+    bgLight: 'bg-slate-50/40',
+    description: 'تم تسليم القطعة وتحصيل الحساب بالكامل'
   }
 ];
 
 export const PrintOrdersView: React.FC = () => {
   const {
-    invoices,
-    updateInvoice,
-    addInvoiceTechnicalNote,
-    addInvoiceItemAttachment,
-    removeInvoiceItemAttachment,
-    startInvoicePrinting,
-    finishInvoicePrinting,
-    setSelectedInvoiceForPrint,
-    setSelectedJobForPrint,
     printOrders,
+    updatePrintOrder,
+    deletePrintOrder,
+    parties,
+    updateParty,
+    settings,
+    setSelectedJobForTicket,
     currentUser,
     hasPermission
   } = useAccounting();
 
-  const ALL_STATUSES = [...WORKSHOP_STATUSES, ...(hasPermission('edit_invoices') ? [{ id: 'delivered' as any, label: 'تم التسليم', color: 'text-emerald-700', border: 'border-emerald-300', bg: 'bg-emerald-50/50', badgeBg: 'bg-emerald-100', badgeText: 'text-emerald-900', description: 'تم تسليمها للعميل نهائياً' }] : [])];
-
-  // Navigation and Filter States
+  // View state
   const [activeViewMode, setActiveViewMode] = useState<'kanban' | 'list'>('kanban');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [copiedInvoiceId, setCopiedInvoiceId] = useState<string | null>(null);
-  const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
-
-  const toggleExpand = (id: string) => {
-    const newSet = new Set(expandedInvoices);
-    if(newSet.has(id)) newSet.delete(id);
-    else newSet.add(id);
-    setExpandedInvoices(newSet);
-  };
 
   // Modals state
-  const [activeAttachmentTarget, setActiveAttachmentTarget] = useState<{
-    invoice: Invoice;
-    item: InvoiceItem;
-    itemIndex: number;
+  const [isWorkOrderModalOpen, setIsWorkOrderModalOpen] = useState(false);
+  const [orderToEdit, setOrderToEdit] = useState<PrintJobOrder | null>(null);
+
+  const [measurementsModalCustomer, setMeasurementsModalCustomer] = useState<{
+    orderId: string;
+    customerId: string;
+    customerName: string;
+    measurements?: TailoringMeasurements;
   } | null>(null);
 
-  const [activeTechnicalNoteInvoice, setActiveTechnicalNoteInvoice] = useState<Invoice | null>(null);
-  const [activeStatusHistoryInvoice, setActiveStatusHistoryInvoice] = useState<Invoice | null>(null);
-  const [initialStatusForHistory, setInitialStatusForHistory] = useState<PosInvoiceWorkflowStatus | undefined>();
+  // Fullscreen Model Image Preview Modal State
+  const [previewImage, setPreviewImage] = useState<{
+    isOpen: boolean;
+    url: string;
+    title: string;
+    subtitle?: string;
+  } | null>(null);
 
-  // Permission Check: Changing invoice status requires approval or edit permission, or supervisor roles
-  const canChangeStatus =
-    hasPermission('approve') ||
-    hasPermission('edit') ||
-    currentUser?.roleId === 'role-super-admin' ||
-    currentUser?.roleId === 'role-manager' ||
-    currentUser?.roleId === 'role-production-mgr';
+  // Filtered Orders
+  const filteredOrders = useMemo(() => {
+    return printOrders.filter((order) => {
+      // Status filter
+      let matchStatus = true;
+      if (selectedStatusFilter !== 'all') {
+        if (selectedStatusFilter === 'finishing') {
+          matchStatus = order.status === 'finishing' || order.status === 'ironing_finishing';
+        } else if (selectedStatusFilter === 'design' || selectedStatusFilter === 'printing') {
+          matchStatus = order.status === 'cutting' || order.status === 'sewing';
+        } else {
+          matchStatus = order.status === selectedStatusFilter;
+        }
+      }
 
-  // Normalize any workflow status into the 5 explicit workshop stages
-  const normalizeWorkflowStatus = (
-    status?: string
-  ): 'design' | 'pending_approval' | 'print_external' | 'print_internal' | 'ready' | null => {
-    if (!status) return null;
-    if (status === 'delivered' || (status as any) === 'completed') return null;
-    if (status === 'design' || status === 'designing') return 'design';
-    if (status === 'pending_approval') return 'pending_approval';
-    if (status === 'print_external' || status === 'in_progress_external') return 'print_external';
-    if (
-      status === 'print_internal' ||
-      status === 'in_progress_internal' ||
-      status === 'in_progress' ||
-      status === 'printing' ||
-      status === 'finishing'
-    ) {
-      return 'print_internal';
-    }
-    if (status === 'ready') return 'ready';
-    return null;
-  };
-
-  // Filter invoices to ONLY include the 5 workshop work statuses:
-  // أي فاتورة يتم تغير حالتها لتم التسليم لا تظهر في شاشة أوامر الطباعة والورشة ويتم اعتماد حالة الفاتورة أنه تم التسليم
-  const workshopInvoices = invoices.filter((inv) => {
-    if (!hasPermission('edit_invoices') && (inv.workflowStatus === 'delivered' || inv.status === 'delivered' || inv.workflowStatus === 'completed')) {
-      return false;
-    }
-    const normalized = normalizeWorkflowStatus(inv.workflowStatus);
-    // Strict requirement: Only show active work statuses (design, pending_approval, print_external, print_internal, ready)
-    if (!normalized) return false;
-
-    // Filter by single status if selected
-    if (selectedStatusFilter !== 'all' && normalized !== selectedStatusFilter) {
-      return false;
-    }
-
-    // Search query
-    if (searchQuery.trim()) {
+      // Search filter
       const q = searchQuery.toLowerCase();
-      const numMatch = inv.invoiceNumber?.toLowerCase().includes(q);
-      const custMatch = inv.customerName?.toLowerCase().includes(q);
-      const subMatch = inv.subCustomerName?.toLowerCase().includes(q);
-      const notesMatch = inv.notes?.toLowerCase().includes(q);
-      const itemsMatch = inv.items?.some(
-        (it) =>
-          it.itemName?.toLowerCase().includes(q) ||
-          it.notes?.toLowerCase().includes(q) ||
-          it.description?.toLowerCase().includes(q)
-      );
-      return numMatch || custMatch || subMatch || notesMatch || itemsMatch;
-    }
+      const matchSearch =
+        !q ||
+        order.orderNumber.toLowerCase().includes(q) ||
+        order.customerName.toLowerCase().includes(q) ||
+        order.customerPhone.toLowerCase().includes(q) ||
+        order.title.toLowerCase().includes(q) ||
+        (order.fabricType && order.fabricType.toLowerCase().includes(q)) ||
+        (order.assignedTailorName && order.assignedTailorName.toLowerCase().includes(q));
 
-    return true;
-  });
+      return matchStatus && matchSearch;
+    });
+  }, [printOrders, selectedStatusFilter, searchQuery]);
 
-  // Calculate stats count per stage (excluding delivered)
-  const countsByStatus = ALL_STATUSES.reduce((acc, col) => {
-    acc[col.id] = invoices.filter((inv) => 
-      /* inv.workflowStatus !== 'delivered' &&
-      inv.status !== 'delivered' && */
-      normalizeWorkflowStatus(inv.workflowStatus) === col.id
-    ).length;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const handleCopyNumber = (num: string, invId: string) => {
-    navigator.clipboard.writeText(num);
-    posSound.click();
-    setCopiedInvoiceId(invId);
-    setTimeout(() => setCopiedInvoiceId(null), 2000);
-  };
-
-  const handleStartPrinting = (inv: Invoice) => {
-    posSound.beep();
-    startInvoicePrinting(inv.id);
-  };
-
-  const handleFinishPrinting = (inv: Invoice) => {
-    posSound.success();
-    finishInvoicePrinting(inv.id);
-  };
-  
-  const handleDirectStatusChange = (invoice: Invoice, newStatus: PosInvoiceWorkflowStatus) => {
-    if (!canChangeStatus) {
-      posSound.error();
+  // Advance to next stage helper
+  const handleAdvanceStage = (order: PrintJobOrder) => {
+    let nextStatus: PrintOrderStatus = 'sewing';
+    if (order.status === 'cutting' || order.status === 'design') {
+      nextStatus = 'sewing';
+    } else if (order.status === 'sewing' || order.status === 'printing') {
+      nextStatus = 'ironing_finishing';
+    } else if (order.status === 'ironing_finishing' || order.status === 'finishing') {
+      nextStatus = 'ready';
+    } else if (order.status === 'ready') {
+      nextStatus = 'delivered';
+    } else {
       return;
     }
-    posSound.click();
-    const isDelivered = newStatus === 'delivered';
-    updateInvoice(
-      invoice.id,
-      { 
-        workflowStatus: newStatus,
-        ...(isDelivered ? { status: 'delivered', deliveredAt: new Date().toISOString() } : {})
-      },
-      {
-        notes: isDelivered
-          ? 'اعتماد الفاتورة (تم التسليم) وأرشفتها من شاشة أوامر الطباعة والورشة'
-          : `تغيير الحالة في شاشة الورشة إلى "${ALL_STATUSES.find((s) => s.id === newStatus)?.label || newStatus}"`,
-        userName: currentUser?.fullName || currentUser?.username || 'فني الورشة',
-        userId: currentUser?.id
+
+    updatePrintOrder(order.id, { status: nextStatus });
+    posSound.playBeep();
+  };
+
+  // Open Ticket
+  const handleOpenTicket = (order: PrintJobOrder) => {
+    setSelectedJobForTicket({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      title: order.title,
+      quantity: order.quantity,
+      status: order.status,
+      deadline: order.deliveryDate,
+      totalCost: order.totalPrice,
+      paidDeposit: order.depositPaid,
+      remainingCost: order.remainingBalance,
+      createdAt: order.createdAt,
+      garmentType: order.garmentType,
+      modelCode: order.modelCode,
+      fabricType: order.fabricType,
+      fabricColor: order.fabricColor,
+      fabricSource: order.fabricSource,
+      assignedTailorName: order.assignedTailorName,
+      finishingOptions: order.finishingOptions,
+      measurements: order.measurements,
+      suppliedMaterials: order.suppliedMaterials,
+      notes: order.notes,
+      specs: {
+        paperType: order.fabricType || 'قماش مختار',
+        dimensions: order.dimensions || 'مقاس تفصيل',
+        colors: order.fabricColor || 'حسب العينة',
+        lamination: 'كي وتشطيب بخار',
+        finishing: (order.finishingOptions || []).join('، '),
+        notes: order.notes
       }
-    );
+    } as any);
   };
 
-  // Helper to open status history modal
-  const openStatusHistory = (inv: Invoice, target?: PosInvoiceWorkflowStatus) => {
-    setActiveStatusHistoryInvoice(inv);
-    setInitialStatusForHistory(target);
+  // Open Edit
+  const handleEditOrder = (order: PrintJobOrder) => {
+    setOrderToEdit(order);
+    setIsWorkOrderModalOpen(true);
   };
 
-  // Render an individual invoice card containing ONLY requested fields:
-  // - رقم الفاتورة
-  // - اسم العميل (الزبون)
-  // - الاسم الفرعي
-  // - تاريخ التسليم
-  // - ملاحظات الفاتورة
-  // - جدول الفاتورة (مع فتح/تنزيل الملفات والتعديل وإعادة إرفاق)
-  // Actions: بدء الطباعة، إنهاء الطباعة، إضافة ملاحظة فنية، تغيير الحالة حسب الصلاحية
-  const renderInvoiceCard = (invoice: Invoice, isListView = false) => {
-    const normalizedStatus = normalizeWorkflowStatus(invoice.workflowStatus) || 'design';
-    const statusMeta = ALL_STATUSES.find((s) => s.id === normalizedStatus)!;
-    const isPrintingNow = normalizedStatus === 'print_internal';
-    const isReadyForDelivery = normalizedStatus === 'ready';
-
-    return (
-      <div
-        key={invoice.id}
-        className={`bg-white rounded-xl border transition-all duration-200 shadow-xs hover:shadow-md flex flex-col justify-between ${
-          isListView ? 'p-4 md:p-5' : 'p-3.5 sm:p-4'
-        } ${
-          isPrintingNow
-            ? 'border-blue-300 ring-1 ring-blue-200'
-            : isReadyForDelivery
-            ? 'border-emerald-300'
-            : 'border-slate-200'
-        }`}
-      >
-        <div className="space-y-3">
-          {/* Top Row: Compact Header with Invoice, Status, Customer, and Notes */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2">
-            <div className="flex items-center gap-2 flex-wrap flex-1">
-              <button
-                type="button"
-                onClick={() => handleCopyNumber(invoice.invoiceNumber, invoice.id)}
-                className="flex items-center gap-1 font-mono font-bold text-[11px] sm:text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200 transition-colors shrink-0"
-                title="نسخ رقم الفاتورة"
-              >
-                <span>{invoice.invoiceNumber}</span>
-                {copiedInvoiceId === invoice.id ? (
-                  <Check className="w-3 h-3 text-emerald-600" />
-                ) : (
-                  <Copy className="w-3 h-3 opacity-60" />
-                )}
-              </button>
-
-              {/* Status Badge */}
-              <span
-                className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusMeta.badgeBg} ${statusMeta.badgeText} ${statusMeta.border}`}
-              >
-                {statusMeta.label}
-              </span>
-
-              {/* Customer Name & Sub-Name */}
-              <div className="flex items-center gap-1.5 mr-1 shrink-0">
-                <strong className="text-slate-900 text-[11px] sm:text-xs font-bold truncate max-w-[150px] sm:max-w-[200px]" title={invoice.customerName}>
-                  {invoice.customerName}
-                </strong>
-                {invoice.subCustomerName && (
-                  <span className="text-indigo-800 font-bold bg-indigo-50 px-1.5 py-0.5 rounded text-[10px] border border-indigo-100 truncate max-w-[100px]" title={invoice.subCustomerName}>
-                    {invoice.subCustomerName}
-                  </span>
-                )}
-              </div>
-
-              {/* Invoice Notes */}
-              {invoice.notes && (
-                 <div className="text-amber-800 bg-amber-50/50 border border-amber-100 rounded px-1.5 py-0.5 text-[10px] sm:text-xs truncate max-w-[200px] sm:max-w-[300px] flex items-center gap-1" title={invoice.notes}>
-                   <FileText className="w-3 h-3 opacity-70" />
-                   <span className="truncate">{invoice.notes}</span>
-                 </div>
-              )}
-            </div>
-
-            {/* Delivery Date */}
-            <div
-              className="flex items-center gap-1 text-[10px] font-mono text-slate-700 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200 shrink-0"
-              title="تاريخ التسليم المتفق عليه"
-            >
-              <Calendar className="w-3 h-3 text-amber-600" />
-              <span className="font-semibold text-slate-500">تسليم:</span>
-              <strong className="text-slate-800">
-                {invoice.deliveryDate || invoice.date || 'غير محدد'}
-              </strong>
-            </div>
-          </div>
-
-          {/* Invoice Table: جدول الفاتورة */}
-          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-            <div className="bg-slate-100/90 px-3 py-1.5 text-[11px] font-bold text-slate-700 flex items-center justify-between border-b border-slate-200">
-              <div className="flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-blue-600" />
-                <span>جدول بنود الفاتورة ({invoice.items.length})</span>
-              </div>
-              <span className="text-[9px] text-slate-400 font-light font-normal">
-                المقاسات، المواصفات، والملفات المرفقة
-              </span>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-right text-xs">
-                <thead className="bg-slate-50 text-slate-500 text-[10px] font-semibold border-b border-slate-200">
-                  <tr>
-                    <th className="p-2">الصنف والمواصفات</th>
-                    <th className="p-2 text-center">الكمية</th>
-                    <th className="p-2">ملاحظات البند</th>
-                    <th className="p-2 text-center">الملف المرفق والمراجعة</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {invoice.items.map((it, idx) => {
-                    const attachmentsCount = (it.attachments || []).length;
-                    const originalCount = (it.attachments || []).filter((a) => a.isOriginal !== false).length;
-                    const revisedCount = (it.attachments || []).filter((a) => a.isOriginal === false).length;
-
-                    return (
-                      <tr key={it.itemId || idx} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="p-2 align-top">
-                          <div className="font-bold text-slate-900 text-xs leading-tight">
-                            {it.itemName}
-                          </div>
-                          {it.dimensions && (
-                            <div className="text-[9px] text-slate-400 font-light font-mono mt-0.5">
-                              المقاس: <strong className="text-slate-700">{it.dimensions}</strong>
-                            </div>
-                          )}
-                          {it.length && it.width && (
-                            <div className="text-[9px] text-slate-400 font-light font-mono mt-0.5">
-                              الأبعاد: {it.length} × {it.width} سم
-                            </div>
-                          )}
-                        </td>
-
-                        <td className="p-2 text-center align-top whitespace-nowrap">
-                          <span className="font-mono font-bold text-slate-800 text-xs">
-                            {it.quantity}
-                          </span>
-                          <span className="text-[9px] text-slate-400 font-light mr-1">{it.unit || 'قطعة'}</span>
-                        </td>
-
-                        <td className="p-2 align-top max-w-[160px]">
-                          <span className="text-[11px] text-slate-600 block leading-tight">
-                            {it.notes || it.description || <span className="text-slate-400">-</span>}
-                          </span>
-                        </td>
-
-                        <td className="p-2 text-center align-top whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setActiveAttachmentTarget({
-                                invoice,
-                                item: it,
-                                itemIndex: idx
-                              })
-                            }
-                            className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 mx-auto transition-colors border shadow-2xs cursor-pointer ${
-                              attachmentsCount > 0
-                                ? 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'
-                                : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
-                            }`}
-                            title="فتح ومعاينة أو تنزيل الملفات، وإعادة إرفاق نسخ معدلة"
-                          >
-                            <FileText className="w-3 h-3" />
-                            <span>
-                              {attachmentsCount > 0
-                                ? `المرفقات (${attachmentsCount})`
-                                : 'إرفاق ملف'}
-                            </span>
-                            {originalCount > 0 && (
-                              <Lock className="w-2.5 h-2.5 text-amber-600" title="مرفقات أصلية محمية" />
-                            )}
-                          </button>
-                          {revisedCount > 0 && (
-                            <span className="text-[9px] text-sky-600 font-semibold block mt-0.5">
-                              (+{revisedCount} نسخة معدلة)
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Toggle Expand Button */}
-        <div className="flex justify-center -mt-1 relative z-10">
-          <button 
-            type="button"
-            onClick={() => toggleExpand(invoice.id)}
-            className="bg-white text-[10px] font-bold text-slate-500 hover:text-blue-600 hover:bg-slate-50 border border-slate-200 px-3 py-1 rounded-full shadow-xs transition-colors flex items-center gap-1"
-          >
-            {expandedInvoices.has(invoice.id) ? 'إخفاء التفاصيل ▲' : 'تفاصيل أكثر ▼'}
-          </button>
-        </div>
-
-        {/* Expanded Area */}
-
-        {expandedInvoices.has(invoice.id) && (
-          <div className="pt-2 space-y-3">
-            {/* Technical Notes Snippet */}
-
-          {(invoice.technicalNotes || []).length > 0 && (
-            <div className="bg-indigo-50/50 border border-indigo-200/80 rounded-lg p-2.5 space-y-1.5">
-              <div className="flex items-center justify-between text-[11px] text-indigo-950 font-bold">
-                <div className="flex items-center gap-1">
-                  <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>آخر الملاحظات الفنية ({invoice.technicalNotes?.length}):</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveTechnicalNoteInvoice(invoice)}
-                  className="text-[10px] text-indigo-600 hover:underline font-semibold cursor-pointer"
-                >
-                  عرض السجل كامل
-                </button>
-              </div>
-
-              {invoice.technicalNotes?.slice(-2).map((tn) => (
-                <div key={tn.id} className="bg-white p-2 rounded border border-indigo-100 text-[11px] text-slate-800">
-                  <div className="flex justify-between text-[9px] text-slate-400 font-light mb-0.5">
-                    <span className="font-bold text-indigo-900">{tn.userName}</span>
-                    <span className="font-mono">{tn.createdAt}</span>
-                  </div>
-                  <p className="leading-snug">{tn.text}</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Printing Active Tracker info */}
-          {invoice.printStartedAt && (
-            <div className="bg-blue-50/60 border border-blue-200 rounded-lg p-2 flex items-center justify-between text-[10px] text-blue-900 font-medium">
-              <span className="flex items-center gap-1">
-                <Play className="w-3 h-3 text-blue-600 fill-blue-600" />
-                <span>بدأت الطباعة بواسطة: <strong>{invoice.printStartedBy || 'فني الطباعة'}</strong></span>
-              </span>
-              <span className="font-mono text-blue-700">{invoice.printStartedAt.split('T')[0]}</span>
-            </div>
-          )}
-
-          {invoice.printFinishedAt && (
-            <div className="bg-emerald-50/60 border border-emerald-200 rounded-lg p-2 flex items-center justify-between text-[10px] text-emerald-900 font-medium">
-              <span className="flex items-center gap-1">
-                <CheckCircle className="w-3 h-3 text-emerald-600" />
-                <span>اكتملت الطباعة بواسطة: <strong>{invoice.printFinishedBy || 'فني الطباعة'}</strong></span>
-              </span>
-              <span className="font-mono text-emerald-700">{invoice.printFinishedAt.split('T')[0]}</span>
-            </div>
-          )}
-        
-        </div>
-        )}
-      </div>
-      
-      {/* Action Controls Toolbar:
-            - إضافة ملاحظة فنية
-            - بدء الطباعة
-            - إنهاء الطباعة
-            - تغيير الحالة حسب الصلاحية
-        */}
-        <div className="mt-4 pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
-          {/* Status Change Selector (Governed by Permission) */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-slate-400 font-light font-semibold">الحالة:</span>
-            {canChangeStatus ? (
-              <select
-                value={normalizedStatus}
-                onChange={(e) =>
-                  handleDirectStatusChange(invoice, e.target.value as PosInvoiceWorkflowStatus)
-                }
-                className="text-xs bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-800 cursor-pointer focus:ring-1 focus:ring-blue-500"
-              >
-                {WORKSHOP_STATUSES.map((st) => (
-                  <option key={st.id} value={st.id}>
-                    {st.label}
-                  </option>
-                ))}
-                <option value="delivered" className="font-bold text-emerald-700">
-                  ✓ تم التسليم (خروج من الورشة)
-                </option>
-              </select>
-            ) : (
-              <span
-                className="text-xs bg-slate-100 text-slate-600 border border-slate-300 rounded-lg px-2 py-1 font-bold flex items-center gap-1"
-                title="تغيير الحالة يتطلب صلاحية الاعتماد أو التعديل"
-              >
-                <Lock className="w-3 h-3 text-slate-400" />
-                <span>{statusMeta.label}</span>
-              </span>
-            )}
-
-            {/* Audit log button */}
-            <button
-              type="button"
-              onClick={() => openStatusHistory(invoice)}
-              className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline font-semibold cursor-pointer px-1"
-              title="عرض سجل توثيق وتاريخ تغييرات الحالة"
-            >
-              توثيق وسجل الحالة
-            </button>
-          </div>
-
-          {/* Action Buttons: Add Note, Start Printing, Finish Printing, Deliver */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {/* Add Technical Note */}
-            <button
-              type="button"
-              onClick={() => setActiveTechnicalNoteInvoice(invoice)}
-              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
-              title="إضافة ملاحظة فنية هندسية للورشة"
-            >
-              <MessageSquare className="w-3 h-3" />
-              <span>ملاحظة فنية</span>
-            </button>
-
-            {/* Start Printing (بدء الطباعة) */}
-            <button
-              type="button"
-              disabled={isPrintingNow || isReadyForDelivery}
-              onClick={() => handleStartPrinting(invoice)}
-              className={`text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer ${
-                isPrintingNow
-                  ? 'bg-blue-100 text-blue-800 border border-blue-300 opacity-90 cursor-default'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
-              }`}
-              title="بدء أعمال سحب وتشغيل الطباعة في الورشة"
-            >
-              <Play className="w-3 h-3 fill-current" />
-              <span>{isPrintingNow ? 'قيد الطباعة' : 'بدء الطباعة'}</span>
-            </button>
-
-            {/* Finish Printing (إنهاء الطباعة) */}
-            <button
-              type="button"
-              disabled={isReadyForDelivery}
-              onClick={() => handleFinishPrinting(invoice)}
-              className={`text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer ${
-                isReadyForDelivery
-                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 opacity-90 cursor-default'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
-              }`}
-              title="إنهاء الطباعة وتحويل الفاتورة إلى جاهز للتسليم"
-            >
-              <CheckSquare className="w-3 h-3" />
-              <span>{isReadyForDelivery ? 'مكتمل وجاهز' : 'مكتمل وجاهز'}</span>
-            </button>
-
-            {/* Mark as Delivered (تسليم للعميل واعتماد حالة الفاتورة تم التسليم) */}
-            {isReadyForDelivery && hasPermission('edit_invoices') && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm(`هل أنت متأكد من تسليم الفاتورة رقم ${invoice.invoiceNumber} للعميل واعتماد حالتها (تم التسليم)؟ لن تظهر بعدها في شاشة الورشة.`)) {
-                    posSound.success();
-                    handleDirectStatusChange(invoice, 'delivered');
-                  }
-                }}
-                className="text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs"
-                title="تسليم الفاتورة للعميل واعتماد حالة الفاتورة كـ تم التسليم وخروجها من الورشة"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>تسليم للعميل (تم التسليم)</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
+  // Delete Order
+  const handleDeleteOrder = (orderId: string) => {
+    if (window.confirm('هل أنت متأكد من حذف أمر التشغيل هذا؟')) {
+      deletePrintOrder(orderId);
+      posSound.playBeep();
+    }
   };
+
+  // Stats calculation
+  const stageCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      all: printOrders.length,
+      cutting: 0,
+      sewing: 0,
+      ironing_finishing: 0,
+      ready: 0,
+      delivered: 0
+    };
+    printOrders.forEach(o => {
+      const st = o.status === 'design' ? 'cutting' : o.status === 'printing' ? 'sewing' : o.status === 'finishing' ? 'ironing_finishing' : o.status;
+      if (counts[st] !== undefined) {
+        counts[st]++;
+      }
+    });
+    return counts;
+  }, [printOrders]);
 
   return (
-    <div className="space-y-4">
-      {/* Top Header & Workshop Summary */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
-                <Printer className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">شاشة أوامر الطباعة والورشة</h2>
-                <p className="text-[10px] text-slate-400 font-light">
-                  تصنيف فواتير العمل التشغيلية (تصميم - بانتظار الاعتماد - طباعة خارجي - طباعة داخلي - جاهز للتسليم) وإدارة المرفقات
-                </p>
-              </div>
-            </div>
+    <div className="space-y-6">
+      {/* Top Header Banner */}
+      <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-purple-700 rounded-2xl p-6 text-white shadow-lg flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+            <Scissors className="w-6 h-6 text-white" />
           </div>
-
-          {/* Search, Filter & View Mode Switcher */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Search Input */}
-            <div className="relative min-w-[200px] sm:min-w-[240px]">
-              <Search className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="بحث برقم الفاتورة، العميل، الصنف..."
-                className="w-full bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-500 rounded-lg pr-8 pl-3 py-1.5 text-xs text-slate-800 outline-none transition-all"
-              />
-            </div>
-
-            {/* View Mode Switcher */}
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
-              <button
-                type="button"
-                onClick={() => setActiveViewMode('kanban')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold transition-all cursor-pointer ${
-                  activeViewMode === 'kanban'
-                    ? 'bg-white text-blue-700 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="عرض لوحة المراحل (Kanban)"
-              >
-                <Columns className="w-3.5 h-3.5" />
-                <span>لوحة المراحل</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveViewMode('list')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold transition-all cursor-pointer ${
-                  activeViewMode === 'list'
-                    ? 'bg-white text-blue-700 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="عرض القائمة التفصيلية"
-              >
-                <List className="w-3.5 h-3.5" />
-                <span>قائمة تفصيلية</span>
-              </button>
-            </div>
+          <div>
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <span>أوامر التشغيل والإنتاج لورشة الخياطة والتفصيل</span>
+              <span className="text-xs bg-white/20 px-2.5 py-0.5 rounded-full font-normal">
+                Work Orders & Production
+              </span>
+            </h2>
+            <p className="text-xs text-indigo-100 mt-0.5">
+              متابعة مراحل التفصيل (قص ✂️ ➔ خياطة 🧵 ➔ كي وتشطيب 👔 ➔ جاهز للتسليم ✨) وتعيين الخياطين
+            </p>
           </div>
         </div>
 
-        {/* 5 Operational Stage Tabs / Filters */}
-        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2 overflow-x-auto pb-1">
-          <button
-            type="button"
-            onClick={() => setSelectedStatusFilter('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer border ${
-              selectedStatusFilter === 'all'
-                ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-            }`}
-          >
-            <span>كافة أوامر الورشة</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                selectedStatusFilter === 'all' ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'
+        <button
+          onClick={() => {
+            setOrderToEdit(null);
+            setIsWorkOrderModalOpen(true);
+          }}
+          className="flex items-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50 px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          <span>+ أمر تشغيل وتفصيل جديد</span>
+        </button>
+      </div>
+
+      {/* Stage Flow Indicator Pills */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+        {SEWING_WORKFLOW_STAGES.map((stage) => {
+          const count = stageCounts[stage.id] || 0;
+          const isSelected = selectedStatusFilter === stage.id;
+          return (
+            <button
+              key={stage.id}
+              onClick={() => setSelectedStatusFilter(isSelected ? 'all' : stage.id)}
+              className={`p-3 rounded-xl border text-right transition-all flex flex-col justify-between ${
+                isSelected
+                  ? 'bg-indigo-900 text-white border-indigo-900 shadow-md ring-2 ring-indigo-400/50'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-900 shadow-xs'
               }`}
             >
-              {workshopInvoices.length}
-            </span>
-          </button>
-
-          {ALL_STATUSES.map((st) => {
-            const count = countsByStatus[st.id] || 0;
-            const isSelected = selectedStatusFilter === st.id;
-
-            return (
-              <button
-                key={st.id}
-                type="button"
-                onClick={() => setSelectedStatusFilter(st.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer border ${
-                  isSelected
-                    ? `${st.badgeBg} ${st.badgeText} ${st.border} ring-1 ring-current shadow-xs`
-                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-                }`}
-              >
-                <span>{st.label}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                    isSelected ? 'bg-white/80' : 'bg-slate-100 text-slate-600'
-                  }`}
-                >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-base">{stage.icon}</span>
+                <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full ${
+                  isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+                }`}>
                   {count}
                 </span>
-              </button>
-            );
-          })}
+              </div>
+              <div>
+                <div className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                  {stage.label}
+                </div>
+                <div className={`text-[11px] line-clamp-1 ${isSelected ? 'text-indigo-200' : 'text-slate-500'}`}>
+                  {stage.description}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Search & View Controls */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="بحث برقم الأمر، اسم الزبون، الجوال، الموديل، الخياط..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg pr-9 pl-3 py-2 text-xs text-slate-900 focus:bg-white focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-slate-400" />
+            <select
+              value={selectedStatusFilter}
+              onChange={(e) => setSelectedStatusFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 focus:bg-white focus:outline-none"
+            >
+              <option value="all">كافة المراحل ({printOrders.length})</option>
+              <option value="cutting">✂️ 1. مرحلة القص ({stageCounts.cutting || 0})</option>
+              <option value="sewing">🧵 2. مرحلة الخياطة ({stageCounts.sewing || 0})</option>
+              <option value="ironing_finishing">👔 3. الكي والتشطيب ({stageCounts.ironing_finishing || 0})</option>
+              <option value="ready">✨ 4. جاهز للتسليم ({stageCounts.ready || 0})</option>
+              <option value="delivered">📦 5. تم التسليم ({stageCounts.delivered || 0})</option>
+            </select>
+          </div>
+        </div>
+
+        {/* View Mode Selector */}
+        <div className="flex items-center gap-1 border border-slate-200 rounded-lg p-1 bg-slate-50">
+          <button
+            onClick={() => setActiveViewMode('kanban')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
+              activeViewMode === 'kanban'
+                ? 'bg-white text-indigo-700 shadow-xs'
+                : 'text-slate-600 hover:text-indigo-700'
+            }`}
+          >
+            لوحة المراحل (Kanban)
+          </button>
+          <button
+            onClick={() => setActiveViewMode('list')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
+              activeViewMode === 'list'
+                ? 'bg-white text-indigo-700 shadow-xs'
+                : 'text-slate-600 hover:text-indigo-700'
+            }`}
+          >
+            جدول تفصيلي (List)
+          </button>
         </div>
       </div>
 
-      {/* Main View Area */}
-      {workshopInvoices.length === 0 ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400">
-          <Printer className="w-12 h-12 mx-auto mb-3 opacity-30 text-blue-600" />
-          <h3 className="text-base font-bold text-slate-700">لا توجد أوامر تشغيل مطابقة في الورشة</h3>
-          <p className="text-[10px] text-slate-400 font-light max-w-md mx-auto mt-1">
-            يتم إظهار الفواتير التشغيلية المندرجة تحت إحدى حالات العمل الخمسة: (تصميم - بانتظار الاعتماد - طباعة خارجي - طباعة داخلي - جاهز للتسليم).
-          </p>
-        </div>
-      ) : activeViewMode === 'kanban' ? (
-        /* KANBAN BOARD: 5 STRICT WORK STATUS COLUMNS */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-start">
-          {ALL_STATUSES.filter(
-            (col) => selectedStatusFilter === 'all' || selectedStatusFilter === col.id
-          ).map((col) => {
-            const colInvoices = workshopInvoices.filter(
-              (inv) => normalizeWorkflowStatus(inv.workflowStatus) === col.id
-            );
+      {/* Main Content Area */}
+      {activeViewMode === 'kanban' ? (
+        /* KANBAN BOARD */
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-start">
+          {SEWING_WORKFLOW_STAGES.map((stage) => {
+            const stageOrders = filteredOrders.filter(o => {
+              if (stage.id === 'cutting') return o.status === 'cutting' || o.status === 'design';
+              if (stage.id === 'sewing') return o.status === 'sewing' || o.status === 'printing';
+              if (stage.id === 'ironing_finishing') return o.status === 'ironing_finishing' || o.status === 'finishing';
+              return o.status === stage.id;
+            });
 
             return (
               <div
-                key={col.id}
-                className={`rounded-xl border flex flex-col max-h-[85vh] ${col.bg} ${col.border}`}
+                key={stage.id}
+                className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3 flex flex-col min-h-[500px]"
               >
-                {/* Column Header */}
-                <div className="p-3 border-b border-slate-200/80 bg-white/70 backdrop-blur-xs rounded-t-xl flex items-center justify-between sticky top-0 z-10">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${col.badgeBg} border ${col.border}`} />
-                    <h4 className={`text-xs font-bold ${col.color}`}>{col.label}</h4>
+                {/* Stage Header */}
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800">
+                    <span>{stage.icon}</span>
+                    <span>{stage.label}</span>
                   </div>
-                  <span
-                    className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${col.badgeBg} ${col.badgeText} border ${col.border}`}
-                  >
-                    {colInvoices.length}
+                  <span className="text-xs font-mono font-bold bg-white text-slate-700 border border-slate-200 px-2 py-0.5 rounded-full">
+                    {stageOrders.length}
                   </span>
                 </div>
 
-                {/* Column Invoices List */}
-                <div className="p-2.5 space-y-3 overflow-y-auto flex-1">
-                  {colInvoices.length === 0 ? (
-                    <div className="border border-dashed border-slate-300 rounded-lg p-6 text-center text-slate-400 bg-white/40">
-                      <p className="text-[11px]">لا توجد طلبيات في هذه المرحلة</p>
+                {/* Orders Stack */}
+                <div className="space-y-3 flex-1 overflow-y-auto max-h-[70vh] pr-0.5">
+                  {stageOrders.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl">
+                      لا توجد طلبيات في هذه المرحلة
                     </div>
                   ) : (
-                    colInvoices.map((inv) => renderInvoiceCard(inv, false))
+                    stageOrders.map((order) => {
+                      const m = order.measurements || {};
+                      const hasM = Boolean(m.length || m.shoulder || m.chest);
+
+                      return (
+                        <div
+                          key={order.id}
+                          className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-xs hover:shadow-md transition-shadow space-y-2.5 relative group"
+                        >
+                          {/* Top Row: Order# & Delivery Date */}
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">
+                              {order.orderNumber}
+                            </span>
+                            <span className="text-[11px] text-rose-600 font-semibold flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              <span>{order.deliveryDate}</span>
+                            </span>
+                          </div>
+
+                          {/* Garment Title & Model Photo */}
+                          <div>
+                            <div className="flex items-center justify-between gap-1">
+                              <h4 className="font-bold text-xs text-slate-900 line-clamp-1">{order.title}</h4>
+                              {order.modelCode && (
+                                <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono font-bold shrink-0">
+                                  #{order.modelCode}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                              {order.garmentType && (
+                                <span className="text-[10px] bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded border border-indigo-100 font-medium">
+                                  {order.garmentType}
+                                </span>
+                              )}
+                              <span className="text-[11px] text-slate-500 line-clamp-1">
+                                {order.fabricType || 'قماش مخصص'} {order.fabricColor ? `(${order.fabricColor})` : ''}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Model Image Preview Banner */}
+                          {(() => {
+                            const modelImg = order.modelImageUrl || order.measurements?.modelImageUrl || (order.attachments && order.attachments.length > 0 ? order.attachments[0].data : undefined);
+                            if (!modelImg) return null;
+                            return (
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPreviewImage({
+                                    isOpen: true,
+                                    url: modelImg,
+                                    title: order.title,
+                                    subtitle: `أمر رقم: ${order.orderNumber} • الموديل: ${order.modelCode ? `#${order.modelCode}` : ''} • الزبون: ${order.customerName}`
+                                  });
+                                  posSound.playBeep();
+                                }}
+                                className="relative group/img w-full h-28 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 cursor-pointer flex items-center justify-center hover:border-indigo-400 transition-colors shadow-2xs"
+                                title="انقر لتكبير صورة الموديل"
+                              >
+                                <img
+                                  src={modelImg}
+                                  alt={order.title}
+                                  className="w-full h-full object-contain group-hover/img:scale-105 transition-transform duration-300"
+                                />
+                                <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                  <span className="bg-white/95 text-slate-900 text-[10px] font-bold px-2 py-1 rounded shadow flex items-center gap-1">
+                                    <Maximize2 className="w-3 h-3 text-indigo-600" />
+                                    <span>تكبير صورة الموديل</span>
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Customer & Tailor */}
+                          <div className="bg-slate-50 rounded-lg p-2 text-[11px] space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500">الزبون:</span>
+                              <strong className="text-slate-900">{order.customerName}</strong>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500">الخياط:</span>
+                              <span className="font-semibold text-indigo-700">
+                                {order.assignedTailorName || 'لم يُعين'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Mini Measurements Summary */}
+                          {hasM && (
+                            <div className="flex items-center gap-1 text-[10px] text-slate-600 bg-purple-50/50 p-1.5 rounded border border-purple-100">
+                              <Ruler className="w-3 h-3 text-purple-600 shrink-0" />
+                              <span className="truncate">
+                                ط: {m.length || '-'} | ك: {m.shoulder || '-'} | ص: {m.chest || '-'} | ك: {m.sleeveLength || '-'}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Supplied Materials Mini Badge */}
+                          {order.suppliedMaterials && order.suppliedMaterials.length > 0 && (
+                            <div className="flex items-center justify-between text-[10px] bg-slate-50 p-1.5 rounded border border-slate-200">
+                              <span className="text-slate-500 font-semibold flex items-center gap-1">
+                                📦 الخامات ({order.suppliedMaterials.length}):
+                              </span>
+                              {order.suppliedMaterials.some(sm => (sm.missingQuantity || 0) > 0) ? (
+                                <span className="text-rose-700 font-bold font-mono">
+                                  نقص: {order.suppliedMaterials.reduce((s, x) => s + (x.missingQuantity || 0), 0)}
+                                </span>
+                              ) : (
+                                <span className="text-emerald-700 font-bold">مكتملة ✔️</span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Financials & Balance */}
+                          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100 font-mono">
+                            <div>
+                              <span className="text-slate-400 text-[10px] block font-sans">الإجمالي</span>
+                              <strong className="text-slate-900">{order.totalPrice} {settings.currency}</strong>
+                            </div>
+                            <div className="text-left">
+                              <span className="text-slate-400 text-[10px] block font-sans">المتبقي</span>
+                              <strong className={order.remainingBalance > 0 ? 'text-rose-600' : 'text-emerald-600'}>
+                                {order.remainingBalance} {settings.currency}
+                              </strong>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="grid grid-cols-3 gap-1 pt-1.5">
+                            <button
+                              onClick={() => handleOpenTicket(order)}
+                              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold rounded flex items-center justify-center gap-1"
+                              title="طباعة أمر الشغل"
+                            >
+                              <Printer className="w-3 h-3" />
+                              <span>كارت</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleEditOrder(order)}
+                              className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold rounded flex items-center justify-center gap-1"
+                              title="تعديل أمر الشغل"
+                            >
+                              <Edit className="w-3 h-3" />
+                              <span>تعديل</span>
+                            </button>
+
+                            {order.status !== 'delivered' ? (
+                              <button
+                                onClick={() => handleAdvanceStage(order)}
+                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded flex items-center justify-center gap-1"
+                                title="تقديم إلى المرحلة التالية"
+                              >
+                                <span>تقديم</span>
+                                <ChevronLeft className="w-3 h-3" />
+                              </button>
+                            ) : (
+                              <span className="text-center text-[10px] text-emerald-600 font-bold self-center">
+                                ✓ مكتمل
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -797,51 +590,199 @@ export const PrintOrdersView: React.FC = () => {
           })}
         </div>
       ) : (
-        /* DETAILED LIST / CARD VIEW */
-        <div className="space-y-3">
-          {workshopInvoices.map((inv) => renderInvoiceCard(inv, true))}
+        /* TABLE LIST VIEW */
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-xs text-slate-900">
+              <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                <tr>
+                  <th className="p-3.5">رقم الأمر</th>
+                  <th className="p-3.5">الزبون والتواصل</th>
+                  <th className="p-3.5">الموديل والقطعة</th>
+                  <th className="p-3.5">القماش والخامة</th>
+                  <th className="p-3.5">الخياط المسؤول</th>
+                  <th className="p-3.5">المرحلة الحالية</th>
+                  <th className="p-3.5">موعد التسليم</th>
+                  <th className="p-3.5 text-center">الإجمالي</th>
+                  <th className="p-3.5 text-center">المتبقي</th>
+                  <th className="p-3.5 text-center">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="p-8 text-center text-slate-400">
+                      لا توجد أوامر تشغيل مطابقة للبحث
+                    </td>
+                  </tr>
+                ) : (
+                  filteredOrders.map((order) => {
+                    const stage = SEWING_WORKFLOW_STAGES.find(s => s.id === order.status) || SEWING_WORKFLOW_STAGES[0];
+                    return (
+                      <tr key={order.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3.5 font-mono font-bold text-indigo-700">
+                          {order.orderNumber}
+                        </td>
+                        <td className="p-3.5">
+                          <strong className="block text-slate-900">{order.customerName}</strong>
+                          <span className="text-[11px] font-mono text-slate-500">{order.customerPhone}</span>
+                        </td>
+                        <td className="p-3.5 font-semibold text-slate-800">
+                          {(() => {
+                            const modelImg = order.modelImageUrl || order.measurements?.modelImageUrl || (order.attachments && order.attachments.length > 0 ? order.attachments[0].data : undefined);
+                            return (
+                              <div className="flex items-start gap-2.5">
+                                {modelImg ? (
+                                  <div
+                                    onClick={() => {
+                                      setPreviewImage({
+                                        isOpen: true,
+                                        url: modelImg,
+                                        title: order.title,
+                                        subtitle: `أمر رقم: ${order.orderNumber} • الزبون: ${order.customerName}`
+                                      });
+                                      posSound.playBeep();
+                                    }}
+                                    className="relative group/thumb w-10 h-10 rounded-lg overflow-hidden border border-slate-300 shrink-0 cursor-pointer bg-slate-100 hover:border-indigo-500 shadow-2xs"
+                                    title="انقر لتكبير صورة الموديل"
+                                  >
+                                    <img
+                                      src={modelImg}
+                                      alt={order.title}
+                                      className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform"
+                                    />
+                                    <div className="absolute inset-0 bg-slate-900/50 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center">
+                                      <Maximize2 className="w-3 h-3 text-white" />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="w-10 h-10 rounded-lg border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">
+                                    <ImageIcon className="w-4 h-4" />
+                                  </div>
+                                )}
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-bold text-slate-900">{order.title}</span>
+                                    {order.modelCode && (
+                                      <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono font-bold">
+                                        #{order.modelCode}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                    {order.garmentType && (
+                                      <span className="text-[10px] text-indigo-700 font-medium bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-100">
+                                        {order.garmentType}
+                                      </span>
+                                    )}
+                                    <span className="text-[11px] text-slate-500">الكمية: {order.quantity} قطعة</span>
+                                    {order.suppliedMaterials && order.suppliedMaterials.length > 0 && (
+                                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
+                                        order.suppliedMaterials.some(m => (m.missingQuantity || 0) > 0)
+                                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      }`}>
+                                        📦 {order.suppliedMaterials.length} خامات
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </td>
+                        <td className="p-3.5">
+                          <span className="block text-slate-700">{order.fabricType || 'قماش مخصص'}</span>
+                          <span className="text-[11px] text-slate-500">{order.fabricColor || '-'}</span>
+                        </td>
+                        <td className="p-3.5 font-semibold text-indigo-700">
+                          {order.assignedTailorName || 'لم يُعين بعد'}
+                        </td>
+                        <td className="p-3.5">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${stage.badgeBg} ${stage.badgeText} ${stage.borderColor}`}>
+                            <span>{stage.icon}</span>
+                            <span>{stage.label}</span>
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-mono font-semibold text-rose-600">
+                          {order.deliveryDate}
+                        </td>
+                        <td className="p-3.5 text-center font-mono font-bold">
+                          {order.totalPrice} {settings.currency}
+                        </td>
+                        <td className="p-3.5 text-center font-mono font-bold">
+                          <span className={order.remainingBalance > 0 ? 'text-rose-600' : 'text-emerald-600'}>
+                            {order.remainingBalance} {settings.currency}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => handleOpenTicket(order)}
+                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
+                              title="طباعة بطاقة وتذكرة الشغل"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEditOrder(order)}
+                              className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg transition-colors"
+                              title="تعديل أمر التشغيل"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            {order.status !== 'delivered' && (
+                              <button
+                                onClick={() => handleAdvanceStage(order)}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
+                                title="تقديم للمرحلة التالية"
+                              >
+                                <span>تقديم</span>
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteOrder(order.id)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                              title="حذف أمر التشغيل"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* Attachment Preview, Download & Revised Upload Modal */}
-      {activeAttachmentTarget && (
-        <WorkshopAttachmentModal
-          isOpen={!!activeAttachmentTarget}
-          onClose={() => setActiveAttachmentTarget(null)}
-          invoiceNumber={activeAttachmentTarget.invoice.invoiceNumber}
-          item={activeAttachmentTarget.item}
-          itemIndex={activeAttachmentTarget.itemIndex}
-          currentUserName={currentUser?.fullName || currentUser?.username || 'فني الورشة'}
-          onAddAttachment={(itemIdx, attachment) =>
-            addInvoiceItemAttachment(activeAttachmentTarget.invoice.id, itemIdx, attachment)
-          }
-          onRemoveAttachment={(itemIdx, attachmentId) =>
-            removeInvoiceItemAttachment(activeAttachmentTarget.invoice.id, itemIdx, attachmentId)
-          }
-        />
-      )}
-
-      {/* Technical Notes Modal */}
-      {activeTechnicalNoteInvoice && (
-        <WorkshopTechnicalNoteModal
-          isOpen={!!activeTechnicalNoteInvoice}
-          onClose={() => setActiveTechnicalNoteInvoice(null)}
-          invoice={activeTechnicalNoteInvoice}
-          onAddNote={(invId, text) => addInvoiceTechnicalNote(invId, text)}
-          currentUserName={currentUser?.fullName || currentUser?.username || 'فني الورشة'}
-        />
-      )}
-
-      {/* Status History & Formal Update Modal */}
-      {activeStatusHistoryInvoice && (
-        <InvoiceStatusHistoryModal
-          isOpen={!!activeStatusHistoryInvoice}
+      {/* Work Order Create / Edit Modal */}
+      {isWorkOrderModalOpen && (
+        <SewingWorkOrderModal
+          orderToEdit={orderToEdit}
           onClose={() => {
-            setActiveStatusHistoryInvoice(null);
-            setInitialStatusForHistory(undefined);
+            setIsWorkOrderModalOpen(false);
+            setOrderToEdit(null);
           }}
-          invoice={activeStatusHistoryInvoice}
-          initialTargetStatus={initialStatusForHistory}
+          onSave={() => {
+            setIsWorkOrderModalOpen(false);
+            setOrderToEdit(null);
+          }}
+        />
+      )}
+
+      {/* Fullscreen Model Image Lightbox Modal */}
+      {previewImage && (
+        <ImagePreviewModal
+          isOpen={previewImage.isOpen}
+          onClose={() => setPreviewImage(null)}
+          imageUrl={previewImage.url}
+          title={previewImage.title}
+          subtitle={previewImage.subtitle}
         />
       )}
     </div>

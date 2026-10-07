@@ -28,9 +28,11 @@ import {
   Hash,
   Copy,
   Check,
+  Ruler,
   Link as LinkIcon
 } from 'lucide-react';
 import { generateSequentialPartyCode } from '../utils/partyUtils';
+import { CustomerMeasurementsModal } from './workshop/CustomerMeasurementsModal';
 
 export const PartiesView: React.FC = () => {
   const {
@@ -72,6 +74,7 @@ export const PartiesView: React.FC = () => {
 
   // Voucher Modal State
   const [voucherModalParty, setVoucherModalParty] = useState<Party | null>(null);
+  const [selectedPartyForMeasurements, setSelectedPartyForMeasurements] = useState<Party | null>(null);
   const [voucherType, setVoucherType] = useState<'receipt' | 'payment'>('receipt');
   const [voucherAmount, setVoucherAmount] = useState<number>(0);
   const [voucherMethod, setVoucherMethod] = useState<'cash' | 'bank_transfer'>('cash');
@@ -565,7 +568,7 @@ export const PartiesView: React.FC = () => {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-1 pt-1">
+                    <div className="grid grid-cols-5 gap-1 pt-1">
                       {/* Detailed Account Statement Button */}
                       <button
                         onClick={() => setSelectedPartyForStatement(party)}
@@ -576,6 +579,18 @@ export const PartiesView: React.FC = () => {
                         <span>كشف حساب</span>
                       </button>
 
+                      {/* Quick Measurements Button */}
+                      {isCustomer && (
+                        <button
+                          onClick={() => setSelectedPartyForMeasurements(party)}
+                          className="flex items-center justify-center gap-0.5 px-1.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold rounded-md text-[11px] transition-colors cursor-pointer"
+                          title="عرض وتعديل مقاسات الزبون"
+                        >
+                          <Ruler className="w-3 h-3 text-purple-600" />
+                          <span>مقاسات</span>
+                        </button>
+                      )}
+
                       {/* Quick Voucher Button */}
                       <button
                         onClick={() => {
@@ -583,7 +598,9 @@ export const PartiesView: React.FC = () => {
                           setVoucherType(isCustomer && !isSupplier ? 'receipt' : 'payment');
                           setVoucherAmount(Math.abs(party.balance));
                         }}
-                        className="flex items-center justify-center gap-0.5 px-1.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-md text-[11px] transition-colors cursor-pointer"
+                        className={`flex items-center justify-center gap-0.5 px-1.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-md text-[11px] transition-colors cursor-pointer ${
+                          !isCustomer ? 'col-span-2' : ''
+                        }`}
                         title="إصدار سند قبض أو صرف سريع"
                       >
                         <Receipt className="w-3 h-3 text-slate-500" />
@@ -699,6 +716,16 @@ export const PartiesView: React.FC = () => {
                           <FileText className="w-3 h-3" />
                           <span>كشف حساب</span>
                         </button>
+                        {party.type === 'customer' && (
+                          <button
+                            onClick={() => setSelectedPartyForMeasurements(party)}
+                            className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded text-[11px] flex items-center gap-1 cursor-pointer"
+                            title="مقاسات الزبون"
+                          >
+                            <Ruler className="w-3 h-3" />
+                            <span>مقاسات</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             setVoucherModalParty(party);
@@ -1109,6 +1136,20 @@ export const PartiesView: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Customer Measurements Modal */}
+      {selectedPartyForMeasurements && (
+        <CustomerMeasurementsModal
+          customerId={selectedPartyForMeasurements.id}
+          customerName={selectedPartyForMeasurements.name}
+          initialMeasurements={selectedPartyForMeasurements.measurements}
+          onClose={() => setSelectedPartyForMeasurements(null)}
+          onSave={(updated) => {
+            updateParty(selectedPartyForMeasurements.id, { measurements: updated });
+            setSelectedPartyForMeasurements(null);
+          }}
+        />
       )}
     </div>
   );

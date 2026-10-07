@@ -5,6 +5,7 @@ import { Employee, SalaryType, EmployeeDepartment, PaymentMethod, PayrollSheet }
 import { posSound } from '../utils/audio';
 import { EmployeeAdjustmentsView } from './EmployeeAdjustmentsView';
 import { PayrollSheetsView } from './PayrollSheetsView';
+import { AttendanceView } from './AttendanceView';
 import { EmployeeAdjustmentsModal } from './EmployeeAdjustmentsModal';
 import { PayrollSheetModal } from './PayrollSheetModal';
 import {
@@ -42,11 +43,16 @@ import {
 } from 'lucide-react';
 
 const DEPARTMENT_LABELS: Record<EmployeeDepartment, { name: string; color: string }> = {
-  printing: { name: 'ورشة ومكائن الطباعة', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  design: { name: 'التصميم والجرافيك والفرز', color: 'bg-purple-100 text-purple-800 border-purple-200' },
-  sales_pos: { name: 'المبيعات ونقاط البيع', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
-  finishing: { name: 'التجليد والتشطيب والقص', color: 'bg-amber-100 text-amber-800 border-amber-200' },
-  management: { name: 'الإدارة والإشراف العام', color: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
+  tailoring_sewing: { name: 'قسم الخياطة والتفصيل', color: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
+  cutting: { name: 'قسم الفصال وقص الباترون', color: 'bg-amber-100 text-amber-800 border-amber-200' },
+  ironing_finishing: { name: 'قسم الكي والتشطيب والفحص', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+  design_patterns: { name: 'قسم التصميم والباترونات', color: 'bg-pink-100 text-pink-800 border-pink-200' },
+  sales_reception: { name: 'قسم الاستقبال والزبائن', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+  printing: { name: 'قسم الخياطة والتفصيل', color: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
+  design: { name: 'قسم التصميم وأخذ المقاسات', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+  sales_pos: { name: 'قسم الاستقبال والزبائن', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+  finishing: { name: 'قسم الكي والتشطيب والفحص', color: 'bg-amber-100 text-amber-800 border-amber-200' },
+  management: { name: 'الإدارة والإشراف العام', color: 'bg-blue-100 text-blue-800 border-blue-200' },
   accounting: { name: 'المحاسبة والمالية', color: 'bg-teal-100 text-teal-800 border-teal-200' },
   delivery: { name: 'التوصيل والخدمات اللوجستية', color: 'bg-orange-100 text-orange-800 border-orange-200' },
   other: { name: 'أقسام أخرى', color: 'bg-slate-100 text-slate-800 border-slate-200' },
@@ -55,11 +61,12 @@ const DEPARTMENT_LABELS: Record<EmployeeDepartment, { name: string; color: strin
 const SALARY_TYPE_INFO: Record<SalaryType, { label: string; badge: string; desc: string }> = {
   monthly: { label: 'راتب شهري', badge: 'bg-blue-50 text-blue-700 border-blue-200', desc: 'يُصرف نهاية كل شهر ميلادي' },
   weekly: { label: 'راتب أسبوعي', badge: 'bg-amber-50 text-amber-700 border-amber-200', desc: 'يُصرف نهاية كل أسبوع (الخميس)' },
-  daily: { label: 'راتب يومي (يومية)', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', desc: 'يُحسب ويُصرف حسب أيام العمل الفعلية' }
+  daily: { label: 'راتب يومي (يومية)', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', desc: 'يُحسب ويُصرف حسب أيام العمل الفعلية' },
+  piece_rate: { label: 'أجر بالقطعة (إنتاجية)', badge: 'bg-purple-50 text-purple-700 border-purple-200', desc: 'يُحسب بناءً على عدد القطع المنجزة من أوامر التفصيل' }
 };
 
 interface EmployeesViewProps {
-  initialSubTab?: 'employees' | 'adjustments' | 'payroll_sheets';
+  initialSubTab?: 'employees' | 'adjustments' | 'payroll_sheets' | 'attendance';
 }
 
 export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'employees' }) => {
@@ -78,7 +85,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
   } = useAccounting();
 
   // Primary Sub-navigation tab
-  const [activeSubTab, setActiveSubTab] = useState<'employees' | 'adjustments' | 'payroll_sheets'>(initialSubTab);
+  const [activeSubTab, setActiveSubTab] = useState<'employees' | 'adjustments' | 'payroll_sheets' | 'attendance'>(initialSubTab);
 
   React.useEffect(() => {
     if (initialSubTab) {
@@ -488,6 +495,22 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
 
         <button
           type="button"
+          onClick={() => setActiveSubTab('attendance')}
+          className={`flex-1 py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeSubTab === 'attendance'
+              ? 'bg-white text-indigo-900 shadow-xs border border-slate-200'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+          }`}
+        >
+          <Clock className="w-4 h-4 text-indigo-600" />
+          <span>الحضور والدوام والأوفرتايم</span>
+          <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
+            كشف يومي
+          </span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveSubTab('payroll_sheets')}
           className={`flex-1 py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
             activeSubTab === 'payroll_sheets'
@@ -502,6 +525,11 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
           </span>
         </button>
       </div>
+
+      {/* Tab Content: Attendance & Overtime */}
+      {activeSubTab === 'attendance' && (
+        <AttendanceView />
+      )}
 
       {/* Tab Content: Adjustments Ledger */}
       {activeSubTab === 'adjustments' && (

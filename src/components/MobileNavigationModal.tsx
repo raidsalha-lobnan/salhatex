@@ -258,8 +258,17 @@ export const MobileNavigationModal: React.FC<MobileNavigationModalProps> = ({
           perm: 'view_settings'
         },
         {
+          id: 'attendance',
+          label: '2. سجل الحضور والدوام والأوفرتايم',
+          sublabel: 'تسجيل كشف الحضور اليومي، حساب الساعات الإضافية ومضاعف الأجر',
+          icon: Clock,
+          badge: 'كشف يومي',
+          badgeColor: 'bg-emerald-500/20 text-emerald-300',
+          perm: 'view_settings'
+        },
+        {
           id: 'employees_adjustments',
-          label: '2. السلف والمكافآت والخصومات',
+          label: '3. السلف والمكافآت والخصومات',
           sublabel: 'تسجيل السلف المالية، ساعات العمل الإضافي، والاستقطاعات',
           icon: Wallet,
           perm: 'view_settings'
@@ -471,6 +480,7 @@ export const MobileNavigationModal: React.FC<MobileNavigationModalProps> = ({
   const handleSignOut = () => {
     if (window.confirm('هل تريد تسجيل الخروج من النظام؟')) {
       import('../firebase').then(({ auth }) => auth.signOut());
+      localStorage.removeItem('sewing_tailoring_workshop_v1_current_user_id');
       localStorage.removeItem('alnoor_press_accounting_v1_current_user_id');
       localStorage.removeItem('active_session_id');
       window.location.reload();

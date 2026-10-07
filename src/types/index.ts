@@ -194,26 +194,113 @@ export interface StockAdjustmentEntry {
 }
 
 export type PrintServiceType = 
-  | 'business_cards'     // كروت شخصية
-  | 'flyer_brochure'     // بروشورات وفلايرات
-  | 'books_booklets'     // كتب وملازم دراسية
-  | 'banner_flex'        // بانرات وفليكس ويفط
-  | 'stickers_labels'    // ستيكرات ولافتات
-  | 'stamps'             // أختام كريستال وخشب
-  | 'binding_finishing'  // تجليد حراري وسلك وسلوفان
-  | 'custom_print';      // مطبوعات خاصة
+  | 'mens_thobe'          // ثوب رجالي / دشداشة
+  | 'womens_dress'        // فستان سهرة / زفاف
+  | 'abaya'               // عباية وجلابية
+  | 'formal_suit'         // بدلة رسمية / جاكيت
+  | 'shirt_pants'         // قميص وبنطلون
+  | 'uniform'             // زي موحد / مريول مدرسي
+  | 'school_uniform'      // زي مدرسي
+  | 'workwear_uniform'    // يونيفورم مهني
+  | 'curtains_furnishings'// ستائر ومفروشات
+  | 'alterations_repair'  // تعديل وتقصير وتصليح
+  | 'embroidery'          // تطريز وشك يدوي وآلي
+  | 'custom_tailoring'    // تفصيل وموديل خاص
+  | 'custom_sewing'       // خياطة حسب الطلب
+  // توافق عكسي مع طلبات سابقة
+  | 'business_cards'
+  | 'flyer_brochure'
+  | 'books_booklets'
+  | 'banner_flex'
+  | 'stickers_labels'
+  | 'stamps'
+  | 'binding_finishing'
+  | 'custom_print';
 
 export type PrintOrderStatus = 
-  | 'new'                   // بيع جديد / أمر جديد
-  | 'design'                // قيد التصميم
-  | 'pending_approval'      // بإنتظار الاعتماد
-  | 'in_progress_external'  // قيد التنفيذ خارج
-  | 'in_progress_internal'  // قيد التنفيذ داخل
-  | 'printing'              // قيد الطباعة (تنفيذ داخل)
-  | 'finishing'             // تشطيب وتجليد وقص
-  | 'ready'                 // جاهز للتسليم
-  | 'delivered'             // تم التسليم
-  | 'cancelled';            // ملغي
+  | 'new'                   // طلب جديد
+  | 'cutting'               // مرحلة القص ✂️
+  | 'sewing'                // مرحلة الخياطة والتجميع 🧵
+  | 'ironing_finishing'     // مرحلة الكي والتشطيب والتطريز 👔
+  | 'ready'                 // جاهز للتسليم والبروفة ✨
+  | 'delivered'             // تم التسليم للزبون 📦
+  | 'cancelled'             // ملغي ❌
+  // توافق عكسي:
+  | 'design'
+  | 'pending_approval'
+  | 'in_progress_external'
+  | 'in_progress_internal'
+  | 'printing'
+  | 'finishing';
+
+export interface ColorSizeQuantityRow {
+  id: string;
+  color: string;                 // اسم اللون (كحلي، أبيض، أسود، بيج، رصاصي، زيتي...)
+  colorHex?: string;             // كود اللون اللوني (اختياري)
+  quantities: Record<string, number>; // كمية كل مقاس: { 'XS': 2, 'S': 5, 'M': 10, 'L': 15, 'XL': 8, 'XXL': 3 }
+  totalQuantity: number;         // إجمالي كميات المقاسات لهذا اللون
+  notes?: string;                // ملاحظة خاصة بهذا اللون بالأخير
+}
+
+export interface TailoringMeasurements {
+  customerId?: string;
+  standardSize?: 'S' | 'M' | 'L' | 'XL' | 'XXL' | 'XXXL' | 'custom' | string;
+  colorSizeMatrix?: ColorSizeQuantityRow[]; // جدول القياسات والكميات والألوان (اللون، المقاسات، الكميات، وملاحظة بالأخير)
+  availableSizes?: string[];     // قائمة أعمدة المقاسات المتاحة بالجدول
+  length?: number;         // الطول الكامل (سم / إنش)
+  shoulder?: number;       // عرض الكتف
+  chest?: number;          // محيط الصدر
+  waist?: number;          // محيط الخصر
+  hips?: number;           // محيط الأرداف / الحوض
+  sleeveLength?: number;   // طول الكم
+  sleeveWidth?: number;    // وسع الكم
+  wristCuff?: number;      // وسع المعصم / الكبك
+  neckCollar?: number;     // فتحة الرقبة / الياقة
+  collarType?: string;     // نوع الياقة
+  pocketType?: string;     // نوع الجيب
+  bottomSweep?: number;    // وسع أسفل الثوب / الفستان
+  pantsLength?: number;    // طول البنطلون
+  pantsWaist?: number;     // خصر البنطلون
+  inseam?: number;         // طول الحجر / البنطلون الداخلي
+  thighWidth?: number;     // وسع الفخذ
+  armhole?: number;        // حردة الإبط
+  unit?: 'cm' | 'inch';    // وحدة القياس (سم أو بوصة)
+  modelImageUrl?: string;  // صورة الموديل
+  modelImages?: string[];  // ألبوم صور الموديل
+  notes?: string;          // ملاحظات خاصة بالقصة والتفصيل
+}
+
+export interface TailorPieceworkLog {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  time?: string;
+  workOrderId?: string;
+  workOrderNumber?: string;
+  customerName?: string;
+  modelName: string;
+  operationType: 'cutting' | 'sewing' | 'finishing' | 'full_garment' | 'embroidery' | 'alteration';
+  operationName: string;   // اسم العملية بالعربي: فصال وقص، خياطة وتجميع، كي وتشطيب، تطريز...
+  quantity: number;        // عدد القطع المنجزة
+  ratePerPiece: number;    // أجر القطعة الواحدة
+  totalEarned: number;     // إجمالي المستحق = الكمية × سعر القطعة
+  notes?: string;
+  isPaid?: boolean;
+  payrollSheetId?: string;
+  createdAt: string;
+}
+
+export interface SuppliedMaterialItem {
+  id: string;
+  itemName: string;            // اسم الصنف / الخامة / الإكسسوار المورد
+  inventoryItemId?: string;    // معرف الصنف من المستودع (اختياري)
+  unit?: string;               // الوحدة (قطعة، متر، حبة، طقم، بكرة، درزن...)
+  requiredQuantity: number;    // العدد أو الكمية المطلوبة للتشغيل
+  receivedQuantity: number;    // الكمية المستلمة فعلياً من الزبون / المورد
+  missingQuantity: number;     // الكمية الناقصة (المطلوبة - المستلمة)
+  notes?: string;              // ملاحظات البند والمواصفات
+}
 
 export interface PrintJobOrder {
   id: string;
@@ -221,27 +308,50 @@ export interface PrintJobOrder {
   customerId: string;
   customerName: string;
   customerPhone: string;
-  title: string;
+  title: string;             // اسم الموديل / الطلبية (مثلاً: ثوب سعودي مطرز كبك، فستان سهرة حرير...)
   serviceType: PrintServiceType;
-  paperType: string;         // كوشيه 300g، كوشيه 150g، ورق عادي 80g، إلخ
-  dimensions: string;        // A4, A3, 9x5.5cm, 100x200cm
-  quantity: number;
-  colorType: string;         // ألوان كاملة 4/4، لون واحد، إلخ
-  finishingOptions: string[]; // سلوفان مط، بصمة ذهبية، تكسير، خياطة...
-  unitCost: number;
-  totalPrice: number;
-  depositPaid: number;
-  remainingBalance: number;
-  status: PrintOrderStatus;
+  garmentType?: string;      // نوع اللباس (ثوب، فستان، بدلة، عباية...)
+  modelCode?: string;        // رمز أو كود الموديل
+  fabricSource?: 'customer' | 'workshop'; // مصدر القماش (من الزبون / من الورشة)
+  fabricType: string;        // نوع القماش (قطن مصري، كتان إيطالي، صوف كشميري، حرير طبيعي، جينز...)
+  fabricColor?: string;      // لون القماش ونقشته
+  fabricLengthMeters?: number; // عدد الأمتار المستهلكة من القماش
+  fabricMetersUsed?: number;   // عدد الأمتار المستهلكة من القماش (اسم بديل)
+  fabricItemId?: string;     // معرف صنف القماش لخصم المخزون
+  dimensions: string;        // المقاس (جاهز S/M/L/XL أو تفصيل مخصص)
+  measurements?: TailoringMeasurements; // جدول القياسات والكميات والألوان التفصيلية
+  colorSizeMatrix?: ColorSizeQuantityRow[]; // جدول القياسات والكميات والألوان التفصيلي
+  suppliedMaterials?: SuppliedMaterialItem[]; // جدول الخامات والإكسسوارات الموردة للتشغيل
+  quantity: number;          // عدد القطع
+  colorType?: string;        // لون الموديل أو التطريز
+  finishingOptions: string[];// خيارات التشطيب (سحاب مخفي، أزرار صدف، تطريز كمبيوتر، كتافيات، بطانة كاملة...)
+  unitCost: number;          // سعر تفصيل القطعة
+  totalPrice: number;        // إجمالي الفاتورة
+  depositPaid: number;       // العربون المدفوع
+  remainingBalance: number;  // المتبقي عند الاستلام
+  status: PrintOrderStatus;  // المرحلة الحالية (قص، خياطة، كي وتشطيب، جاهز، تم التسليم)
+  assignedTailorId?: string; // الخياط المسؤول
+  assignedTailorName?: string;
+  cutterId?: string;         // مسؤول القص
+  cutterName?: string;
+  sewerId?: string;          // مسؤول الخياطة
+  sewerName?: string;
+  finisherId?: string;       // مسؤول الكي والتشطيب
+  finisherName?: string;
+  pieceRateWage?: number;    // أجر الخياط بالقطعة
+  fittingDate?: string;      // موعد القياس والبروفة
+  deliveryDate: string;      // تاريخ التسليم النهائي
   notes?: string;
   createdAt: string;
   createdAtTime?: string;
-  deliveryDate: string;
   associatedInvoiceId?: string;
   items?: InvoiceItem[];
   subCustomerName?: string;
+  modelImageUrl?: string;    // رابط أو صورة الموديل والتصميم الأساسية (تظهر بوضوح بالمعاينة وبطاقة الشغل)
+  modelImages?: string[];    // صور إضافية لتفاصيل الموديل والتطريز والباترون
   attachments?: LineAttachment[];
   isExternalPrint?: boolean;
+  paperType?: string;        // للتوافق
 }
 
 export type PaymentMethod = 'cash' | 'card' | 'bank_transfer' | 'credit';
@@ -483,6 +593,7 @@ export interface Party {
   parentPartyId?: string;       // معرف العميل الرئيسي إذا كان هذا زبون فرعي
   isSubCustomer?: boolean;      // هل هذا الحساب لزبون فرعي / دين مؤقت تابع لعميل رئيسي
   specialPrices?: Record<string, number>; // تسعير خاص للعميل: itemId -> specialPrice
+  savedMeasurements?: TailoringMeasurements; // جدول القياسات والكميات والألوان الدائمة للزبون المحفوظة للرجوع إليها
 }
 
 export interface PaymentVoucher {
@@ -617,15 +728,20 @@ export interface Treasury {
   transactions?: TreasuryTransaction[];
 }
 
-export type SalaryType = 'daily' | 'weekly' | 'monthly';
+export type SalaryType = 'daily' | 'weekly' | 'monthly' | 'piece_rate';
 
 export type EmployeeDepartment =
-  | 'management'
+  | 'tailoring_sewing'   // خياطة وتجميع
+  | 'cutting'            // فصال وقص
+  | 'ironing_finishing'  // كي وتشطيب وتطريز
+  | 'design_patterns'    // تصميم وباترون
+  | 'sales_reception'    // استقبال وزبائن ومقاسات
+  | 'management'         // إدارة وإشراف
+  | 'accounting'         // محاسبة ومالية
+  | 'delivery'           // توصيل وخدمات
   | 'printing'
   | 'design'
   | 'sales_pos'
-  | 'accounting'
-  | 'delivery'
   | 'finishing'
   | 'other';
 
@@ -633,7 +749,7 @@ export interface SalaryPaymentRecord {
   id: string;
   date: string;
   amount: number;
-  type: 'salary' | 'advance' | 'bonus' | 'deduction';
+  type: 'salary' | 'advance' | 'bonus' | 'deduction' | 'piece_rate';
   period: string;
   paymentMethod: PaymentMethod;
   notes?: string;
@@ -651,6 +767,8 @@ export interface Employee {
   email?: string;
   salaryType: SalaryType;
   salaryAmount: number;
+  pieceRatePerGarment?: number; // أجر الخياط بالقطعة (عند اختيار نظام الحساب بالقطعة)
+  tailorSpecialty?: string;     // تخصص الخياط (رجالي، نسائي، فساتين، بدلات، قص...)
   allowances?: number;
   hireDate: string;
   status: 'active' | 'on_leave' | 'terminated';
@@ -662,6 +780,90 @@ export interface Employee {
   emergencyRelation?: string;
   notes?: string;
   paymentHistory?: SalaryPaymentRecord[];
+  
+  // إعدادات ساعات العمل والدوام والأوفرتايم
+  officialDailyHours?: number;    // ساعات العمل الرسمية باليوم (افتراضياً 8 ساعات)
+  officialStartTime?: string;     // موعد الحضور الرسمي (مثلاً "08:00")
+  officialEndTime?: string;       // موعد الانصراف الرسمي (مثلاً "16:00")
+  defaultBreakMinutes?: number;   // وقت الاستراحة الافتراضي بالدقائق (مثلاً 60 دقيقة)
+  hourlyRateCalculation?: 'auto_from_salary' | 'fixed_custom'; // طريقة حساب أجر الساعة العادية
+  customHourlyRate?: number;      // أجر الساعة المخصص (إذا تم اختياره يدوياً)
+  overtimeMethod?: 'multiplier' | 'fixed_rate'; // طريقة حساب الأوفرتايم: مضاعف من الساعة أو مبلغ ثابت
+  overtimeMultiplier?: number;    // مضاعف الأوفرتايم: 1.0 (ساعة بساعة), 1.25, 1.5 (ساعة ونصف), 2.0 (ساعتين)
+  customOvertimeRate?: number;    // أجر الساعة الإضافية المقطوع (مثلاً 25 شيكل لكل ساعة أوفرتايم)
+  
+  // إعدادات الدوام على مرحلتين / فترتين (الدوام المقسم أو خروج لمشوار والعودة)
+  defaultSplitShift?: boolean;       // تفعيل نظام الفترتين افتراضياً للعامل
+  defaultShift1StartTime?: string;   // حضور المرحلة الأولى (مثلاً 08:00)
+  defaultShift1EndTime?: string;     // خروج المرحلة الأولى لمشوار (مثلاً 10:00)
+  defaultShift2StartTime?: string;   // رجوع وحضور المرحلة الثانية (مثلاً 12:00)
+  defaultShift2EndTime?: string;     // انصراف نهاية الدوام بالمرحلة الثانية (مثلاً 16:00)
+}
+
+// أنواع وحالات الحضور والغياب
+export type AttendanceStatus = 
+  | 'present'         // حاضر
+  | 'absent'          // غائب بدون إذن
+  | 'late'            // متأخر
+  | 'excused_leave'   // إجازة مدفوعة / بإذن
+  | 'unpaid_leave'    // إجازة غير مدفوعة
+  | 'half_day';       // نصف يوم
+
+export type OvertimeMethod = 'multiplier' | 'fixed_rate';
+
+export interface AttendanceRecord {
+  id: string;
+  date: string;               // YYYY-MM-DD
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  department: EmployeeDepartment;
+  status: AttendanceStatus;
+  
+  // مواعيد الدوام والاستراحة
+  checkInTime?: string;       // ساعة الحضور (الفترة الأولى أو الدوام المستمر، مثلاً "08:00")
+  checkOutTime?: string;      // ساعة الانصراف (الانصراف النهائي أو الفترة الأولى، مثلاً "16:00")
+  breakMinutes: number;       // وقت الاستراحة بالدقائق (مثلاً 60)
+
+  // دعم الدوام على مرحلتين / فترتين (مثلاً حضور 8 وخروج 10 لمشوار، ثم رجوع 12 وانصراف 4)
+  hasSecondShift?: boolean;   // هل الدوام مقسم لمرحلتين / فترتين اليوم
+  shift1CheckInTime?: string; // حضور المرحلة الأولى (مثلاً "08:00")
+  shift1CheckOutTime?: string;// خروج المرحلة الأولى لمشوار (مثلاً "10:00")
+  shift2CheckInTime?: string; // عودة وحضور المرحلة الثانية (مثلاً "12:00")
+  shift2CheckOutTime?: string;// انصراف نهائي للمرحلة الثانية (مثلاً "16:00")
+  breakBetweenShiftsMinutes?: number; // وقت المشوار أو الفاصل بين المرحلتين بالدقائق (محسوب آلياً)
+  shift1WorkedHours?: number; // ساعات العمل الفعلية للمرحلة الأولى
+  shift2WorkedHours?: number; // ساعات العمل الفعلية للمرحلة الثانية
+  
+  // الساعات المحسوبة
+  officialDailyHours: number; // الساعات الرسمية المطلوبة لهذا اليوم (مثلاً 8 ساعات)
+  actualWorkedMinutes: number;// إجمالي الدقائق الفعلية = (المرحلة 1 + المرحلة 2 إن وجدت) - الاستراحة
+  actualWorkedHours: number;  // الساعات الفعلية (بالكسور، مثلاً 6.0)
+  regularHours: number;       // الساعات النظامية (حد أقصى الساعات الرسمية)
+  overtimeHours: number;      // ساعات الأوفر تايم الإضافية
+  lateMinutes: number;        // دقائق التأخير عن الموعد الرسمي
+  earlyDepartureMinutes: number; // دقائق الانصراف المبكر
+  
+  // قواعد وتكلفة الساعة
+  hourlyRateType: 'from_salary' | 'custom_rate';
+  baseHourlyRate: number;     // أجر الساعة العادية (مشتق من اليومية/الراتب أو محدد يدوياً)
+  overtimeMethod: OvertimeMethod; // 'multiplier' مضاعف أو 'fixed_rate' مبلغ ثابت
+  overtimeMultiplier: number; // 1.5 (ساعة ونصف), 2.0 (ساعتين), 1.0 (ساعة بساعة), etc.
+  overtimeRatePerHour: number;// الأجر الفعلي لساعة الأوفرتايم (مثلاً 1.5 × أجر الساعة العادية)
+  
+  // المستحقات المالية اليومية
+  regularPayEarned: number;   // مستحق الساعات العادية لليوم
+  overtimePayEarned: number;  // مستحق ساعات الأوفرتايم لليوم
+  lateDeductionAmount: number;// خصم التأخير أو النقص (إن وجد)
+  totalDailyEarnings: number; // صافي مستحق اليوم = (العادي + الإضافي - الخصم)
+  
+  // الربط بمسير الرواتب
+  isTransferredToPayroll?: boolean; // هل تم ترحيل الإضافي للحوافز/مسير الرواتب
+  transferredPayrollSheetId?: string;
+  
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface EmployeeAdvance {

@@ -6,6 +6,8 @@ import {
   ShoppingCart,
   FileText,
   Printer,
+  Scissors,
+  Ruler,
   Boxes,
   Truck,
   Users,
@@ -21,6 +23,7 @@ import {
   SlidersHorizontal,
   LayoutDashboard,
   UserCheck,
+  Clock,
   ChevronLeft,
   RotateCcw,
   X
@@ -72,53 +75,53 @@ export const HomeScreenView: React.FC = () => {
 
   const allShortcuts: ShortcutDefinition[] = [
     {
-      id: 'pos',
-      title: 'كاشير المبيعات',
-      code: 'POS',
+      id: 'new_print_order',
+      title: 'أوامر التشغيل والإنتاج',
+      code: 'WORK',
       category: 'operations',
-      icon: ShoppingCart,
-      gradient: 'from-emerald-500 to-teal-700',
-      bgLight: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      textColor: 'text-emerald-700',
-      onClick: (h) => h.setActiveTab('pos')
+      icon: Scissors,
+      gradient: 'from-indigo-600 to-purple-700',
+      bgLight: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      textColor: 'text-indigo-700',
+      badge: stats.pendingPrintJobs > 0 ? `${stats.pendingPrintJobs}` : undefined,
+      onClick: (h) => h.setActiveTab('print_orders')
+    },
+    {
+      id: 'tailor_piecework',
+      title: 'أجور وإنتاجية الخياطين',
+      code: 'PIECE',
+      category: 'operations',
+      icon: Sparkles,
+      gradient: 'from-purple-600 to-pink-700',
+      bgLight: 'bg-purple-50 text-purple-700 border-purple-200',
+      textColor: 'text-purple-700',
+      onClick: (h) => h.setActiveTab('tailor_piecework')
     },
     {
       id: 'new_invoice',
-      title: 'فواتير المبيعات',
+      title: 'فواتير وطلبيات التفصيل',
       code: 'INV',
       category: 'operations',
       icon: FileText,
-      gradient: 'from-teal-500 to-emerald-700',
+      gradient: 'from-teal-600 to-emerald-700',
       bgLight: 'bg-teal-50 text-teal-700 border-teal-200',
       textColor: 'text-teal-700',
       onClick: (h) => h.setActiveTab('invoices')
     },
     {
-      id: 'new_print_order',
-      title: 'أمر تشغيل ورشة طباعة',
-      code: 'PRINT',
-      category: 'operations',
-      icon: Printer,
-      gradient: 'from-sky-500 to-blue-700',
-      bgLight: 'bg-sky-50 text-sky-700 border-sky-200',
-      textColor: 'text-sky-700',
-      badge: stats.pendingPrintJobs > 0 ? `${stats.pendingPrintJobs}` : undefined,
-      onClick: (h) => h.setActiveTab('print_orders')
-    },
-    {
       id: 'customer_statement',
-      title: 'كشف حساب عميل',
+      title: 'الزبائن وجداول القياسات',
       code: 'CUST',
       category: 'finance',
       icon: Users,
-      gradient: 'from-blue-500 to-indigo-700',
+      gradient: 'from-blue-600 to-indigo-700',
       bgLight: 'bg-blue-50 text-blue-700 border-blue-200',
       textColor: 'text-blue-700',
       onClick: (h) => h.openCustomerStatement()
     },
     {
       id: 'supplier_statement',
-      title: 'كشف حساب مورد',
+      title: 'كشف حساب مورد أقمشة',
       code: 'SUPP',
       category: 'finance',
       icon: Truck,
@@ -129,7 +132,7 @@ export const HomeScreenView: React.FC = () => {
     },
     {
       id: 'purchases',
-      title: 'فاتورة مشتريات خامات',
+      title: 'فاتورة شراء أقمشة وخامات',
       code: 'BUY',
       category: 'inventory',
       icon: Truck,
@@ -215,6 +218,18 @@ export const HomeScreenView: React.FC = () => {
       bgLight: 'bg-blue-50 text-blue-700 border-blue-200',
       textColor: 'text-blue-700',
       onClick: (h) => h.setActiveTab('employees')
+    },
+    {
+      id: 'attendance',
+      title: 'الحضور والدوام والأوفرتايم',
+      code: 'ATTN',
+      category: 'finance',
+      icon: Clock,
+      gradient: 'from-indigo-600 to-emerald-700',
+      bgLight: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      textColor: 'text-indigo-700',
+      badge: 'يومي',
+      onClick: (h) => h.setActiveTab('attendance')
     },
     {
       id: 'reports',

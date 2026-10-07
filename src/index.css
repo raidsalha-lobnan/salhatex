@@ -84,6 +84,240 @@ caption {
 }
 
 /* ==========================================================
+   🏢 Official Desktop ERP Styling (Visual Basic & Oracle Forms)
+   طابع الأنظمة المحاسبية الرسمية وشاشات أوراكل وفيجوال بيسك
+   ========================================================== */
+
+/* 1. Official ERP Buttons (الأزرار المحاسبية المجسمة ذات الاستجابة اللمسية 3D) */
+button:not([class*="rounded-full"]):not(.no-erp-style),
+.btn-erp {
+  border-radius: 4px !important;
+  font-weight: 700 !important;
+  transition: all 0.1s ease-in-out !important;
+  letter-spacing: 0.01em;
+}
+
+/* Base Tactile Bevel on Standard/Neutral Buttons */
+button:not([class*="bg-"]):not([class*="text-white"]):not(.no-erp-style),
+button.bg-slate-50,
+button.bg-slate-100,
+button.bg-slate-200,
+button.bg-white,
+.btn-erp-neutral {
+  background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 60%, #e2e8f0 100%) !important;
+  border: 1px solid #94a3b8 !important;
+  border-top-color: #cbd5e1 !important;
+  border-bottom-color: #64748b !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+button.bg-slate-50:hover,
+button.bg-slate-100:hover,
+button.bg-slate-200:hover,
+button.bg-white:hover,
+.btn-erp-neutral:hover {
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 60%, #cbd5e1 100%) !important;
+  border-color: #475569 !important;
+}
+
+button.bg-slate-50:active,
+button.bg-slate-100:active,
+button.bg-slate-200:active,
+button.bg-white:active,
+.btn-erp-neutral:active {
+  background: linear-gradient(180deg, #cbd5e1 0%, #e2e8f0 100%) !important;
+  border-top-color: #475569 !important;
+  border-bottom-color: #cbd5e1 !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+  transform: translateY(1px) !important;
+}
+
+/* Primary Corporate Blue/Indigo Buttons (أزرار أوراكل الزرقاء الأساسية) */
+button.bg-indigo-600,
+button.bg-indigo-700,
+button.bg-blue-600,
+button.bg-blue-700,
+.btn-erp-primary {
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%) !important;
+  border: 1px solid #1e3a8a !important;
+  border-top-color: #60a5fa !important;
+  border-bottom-color: #172554 !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+button.bg-indigo-600:hover,
+button.bg-indigo-700:hover,
+button.bg-blue-600:hover,
+button.bg-blue-700:hover,
+.btn-erp-primary:hover {
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%) !important;
+  border-color: #1e3a8a !important;
+}
+
+button.bg-indigo-600:active,
+button.bg-indigo-700:active,
+button.bg-blue-600:active,
+button.bg-blue-700:active,
+.btn-erp-primary:active {
+  background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%) !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+  transform: translateY(1px) !important;
+}
+
+/* Success / Save Buttons (أزرار الحفظ والتأكيد الخضراء) */
+button.bg-emerald-600,
+button.bg-emerald-700,
+button.bg-green-600,
+button.bg-green-700,
+.btn-erp-success {
+  background: linear-gradient(180deg, #10b981 0%, #059669 50%, #047857 100%) !important;
+  border: 1px solid #065f46 !important;
+  border-top-color: #6ee7b7 !important;
+  border-bottom-color: #022c22 !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+button.bg-emerald-600:hover,
+button.bg-emerald-700:hover,
+.btn-erp-success:hover {
+  background: linear-gradient(180deg, #34d399 0%, #10b981 50%, #059669 100%) !important;
+}
+
+button.bg-emerald-600:active,
+button.bg-emerald-700:active,
+.btn-erp-success:active {
+  background: linear-gradient(180deg, #047857 0%, #065f46 100%) !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+  transform: translateY(1px) !important;
+}
+
+/* Danger / Delete Buttons (أزرار الحذف والإلغاء الحمراء) */
+button.bg-rose-600,
+button.bg-rose-700,
+button.bg-red-600,
+button.bg-red-700,
+.btn-erp-danger {
+  background: linear-gradient(180deg, #f43f5e 0%, #e11d48 50%, #be123c 100%) !important;
+  border: 1px solid #881337 !important;
+  border-top-color: #fda4af !important;
+  border-bottom-color: #4c0519 !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+button.bg-rose-600:hover,
+button.bg-rose-700:hover,
+.btn-erp-danger:hover {
+  background: linear-gradient(180deg, #fb7185 0%, #f43f5e 50%, #e11d48 100%) !important;
+}
+
+button.bg-rose-600:active,
+button.bg-rose-700:active,
+.btn-erp-danger:active {
+  background: linear-gradient(180deg, #9f1239 0%, #881337 100%) !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+  transform: translateY(1px) !important;
+}
+
+/* 2. Official ERP Form Inputs & Controls (حقول إدخال شاشات أوراكل وفيجوال بيسك) */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+select,
+textarea {
+  border: 1px solid #94a3b8 !important;
+  border-top-color: #64748b !important;
+  border-radius: 3px !important;
+  background-color: #ffffff !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+  transition: all 0.12s ease-in-out !important;
+}
+
+/* Classic Active Field Yellow Highlight (تعليم الخانة بلون مميز عند التركيز كما في أوراكل) */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+select:focus,
+textarea:focus {
+  background-color: #fffbeb !important; /* لون أصفر خفيف معتمد في أوراكل Forms */
+  border-color: #2563eb !important;
+  outline: none !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1), 0 0 0 2px rgba(37, 99, 235, 0.25) !important;
+  color: #0f172a !important;
+}
+
+/* Readonly & Disabled Inputs (الخانات المقفلة للقراءة فقط) */
+input:read-only,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #475569 !important;
+  cursor: not-allowed !important;
+}
+
+/* 3. Official Desktop ERP Window Header (أشرطة عناوين النوافذ الرسمية) */
+.erp-window-header {
+  background: linear-gradient(90deg, #0a2540 0%, #1e3a8a 50%, #0f172a 100%) !important;
+  border-bottom: 2px solid #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 4. Official ERP Desktop Table Gridlines (شبكة جداول البيانات المحاسبية) */
+table.erp-grid,
+.erp-grid table {
+  border-collapse: collapse !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+table.erp-grid th,
+.erp-grid table th {
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%) !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  padding: 6px 8px !important;
+}
+
+table.erp-grid td,
+.erp-grid table td {
+  border: 1px solid #e2e8f0 !important;
+  padding: 5px 8px !important;
+}
+
+table.erp-grid tr:nth-child(even),
+.erp-grid table tr:nth-child(even) {
+  background-color: #f8fafc !important;
+}
+
+table.erp-grid tr:hover,
+.erp-grid table tr:hover {
+  background-color: #eff6ff !important;
+}
+
+/* 5. Function Key Badges (أزرار الاختصارات الوظيفية F2, F3, F4, Esc) */
+.f-key-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 5px;
+  background: #e2e8f0;
+  border: 1px solid #94a3b8;
+  border-bottom-color: #64748b;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  color: #334155;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.1);
+  margin-right: 4px;
+}
+
+/* ==========================================================
    Full Field Highlighting when Cursor/Focus is Placed
    تعليم الخانة بالكامل أينما يوضع المؤشر
    ========================================================== */

@@ -92,6 +92,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'genera
   const [newPhoneInput, setNewPhoneInput] = useState('');
 
   const [currency, setCurrency] = useState(settings.currency || '₪');
+  const [baseCurrencyCode, setBaseCurrencyCode] = useState(settings.baseCurrencyCode || 'ILS');
   const [vatRate, setVatRate] = useState(settings.vatRate || 0);
   const [invoiceFooter, setInvoiceFooter] = useState(settings.invoiceFooter || settings.invoiceFooterNote || '');
   const [isSaved, setIsSaved] = useState(false);
@@ -162,6 +163,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'genera
     e.preventDefault();
     const primaryAddress = addresses.length > 0 ? addresses.join(' / ') : '';
     const primaryPhone = phones.length > 0 ? phones.join(' / ') : '';
+    const targetCode = (baseCurrencyCode || 'ILS').trim().toUpperCase();
+    const targetSymbol = (currency || targetCode).trim();
+
+    const updatedCurrencies = (settings.currencies || []).map(c => {
+      if (c.code.toUpperCase() === targetCode || c.symbol === targetSymbol) {
+        return { ...c, isBase: true, rateAgainstBase: 1.0, symbol: targetSymbol };
+      }
+      return { ...c, isBase: false };
+    });
 
     updateSettings({
       ...settings,
@@ -180,7 +190,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'genera
       phones: phones.length > 0 ? phones : [primaryPhone],
       phone: primaryPhone,
       address: primaryAddress,
-      currency,
+      currency: targetSymbol,
+      baseCurrencyCode: targetCode,
+      currencies: updatedCurrencies.length > 0 ? updatedCurrencies : settings.currencies,
       vatRate: Number(vatRate),
       invoiceFooter,
       invoiceFooterNote: invoiceFooter
@@ -364,7 +376,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'genera
             <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
               <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                 <Building className="w-4 h-4 text-blue-600" />
-                <span>البيانات الرسمية والضريبية للمنشأة (المطبعة والمكتبة)</span>
+                <span>البيانات الرسمية والضريبية للمنشأة (مشغل وورشة الخياطة والتفصيل والأزياء)</span>
               </h3>
               <button
                 type="button"
@@ -379,13 +391,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'genera
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1 text-[11px]">اسم المطبعة والمكتبة التجاري (عربي):</label>
+                <label className="block text-slate-700 font-semibold mb-1 text-[11px]">اسم المشغل والورشة التجاري (عربي):</label>
                 <input
                   type="text"
                   required
                   value={businessName}
                   onChange={e => setBusinessName(e.target.value)}
-                  placeholder="مكتبة ومطبعة النور الحديثة"
+                  placeholder="مشغل وورشة الخياطة والتفصيل والأزياء الراقية"
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs focus:bg-white focus:ring-1 focus:ring-blue-500 font-bold"
                 />
               </div>
@@ -396,7 +408,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'genera
                   type="text"
                   value={businessNameEn}
                   onChange={e => setBusinessNameEn(e.target.value)}
-                  placeholder="Al-Noor Modern Press & Bookstore"
+                  placeholder="Elite Tailoring & Haute Couture Workshop"
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono text-xs focus:bg-white focus:ring-1 focus:ring-blue-500"
                 />
               </div>
@@ -407,7 +419,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'genera
                   type="text"
                   value={activityType}
                   onChange={e => setActivityType(e.target.value)}
-                  placeholder="طباعة أوفست وديجيتال - خامات ومطبوعات وقرطاسية"
+                  placeholder="تصميم وتفصيل وخياطة الأزياء والملابس وتجارة الأقمشة ومستلزمات الخياطة"
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs focus:bg-white focus:ring-1 focus:ring-blue-500"
                 />
               </div>
@@ -843,14 +855,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'genera
             </div>
           </div>
 
-          {/* Section 5: Billing & Tax Rates */}
+          {/* Section 5: Billing, Base Currency & Tax Rates */}
           <div className="pt-4 border-t border-slate-200">
-            <h3 className="text-xs font-bold text-slate-900 mb-2.5 flex items-center gap-1.5">
-              <Printer className="w-4 h-4 text-blue-600" />
-              <span>إعدادات الفوترة والضريبة وتذييل السندات</span>
-            </h3>
+            <div className="flex items-center justify-between mb-2.5">
+              <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <Coins className="w-4 h-4 text-blue-600" />
+                <span>العملة الرئيسية للمنشأة وإعدادات الفوترة والضريبة</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setActiveTab('currency')}
+                className="text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 transition cursor-pointer flex items-center gap-1"
+              >
+                <span>فتح جدول العملات وأسعار الصرف ←</span>
+              </button>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1 text-[11px]">رمز العملة الرئيسي المعروض:</label>
+                <input
+                  type="text"
+                  required
+                  value={currency}
+                  onChange={e => setCurrency(e.target.value)}
+                  placeholder="₪ أو ر.س أو $"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold focus:bg-white focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1 text-[11px]">كود العملة الدولي (ISO):</label>
+                <input
+                  type="text"
+                  required
+                  maxLength={5}
+                  value={baseCurrencyCode}
+                  onChange={e => setBaseCurrencyCode(e.target.value.toUpperCase())}
+                  placeholder="ILS أو SAR أو USD"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono text-xs uppercase font-bold focus:bg-white focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
               <div>
                 <label className="block text-slate-700 font-semibold mb-1 text-[11px]">نسبة ضريبة القيمة المضافة (%):</label>
                 <input
@@ -861,17 +907,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'genera
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1 text-[11px]">رمز العملة المعروض:</label>
-                <input
-                  type="text"
-                  value={currency}
-                  onChange={e => setCurrency(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold focus:bg-white focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="md:col-span-2">
+              <div className="sm:col-span-3">
                 <label className="block text-slate-700 font-semibold mb-1 text-[11px]">نص تذييل الفاتورة وسندات التسليم:</label>
                 <textarea
                   rows={2}

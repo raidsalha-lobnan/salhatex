@@ -6,59 +6,78 @@ import { ItemCategory, CategoryDefinition, BarcodeFormat, InventoryItem, Additio
  * دليل تعريف المجموعات والتصنيفات المخزنية مع بادئة الكود التسلسلي
  */
 export const CATEGORY_DEFINITIONS: Record<ItemCategory, CategoryDefinition> = {
+  fabrics: {
+    id: 'fabrics',
+    name: 'أقمشة وخامات تفصيل',
+    nameEn: 'Fabrics & Textiles',
+    prefix: 'FAB',
+    description: 'أقمشة قطنية، كتان، حرير، صوف، جوخ، جينز، دانتيل، بطانات، وشيفون',
+    defaultUnit: 'متر',
+    color: 'indigo'
+  },
+  threads_yarn: {
+    id: 'threads_yarn',
+    name: 'خيوط وغزول وتطريز',
+    nameEn: 'Threads & Yarn',
+    prefix: 'THRD',
+    description: 'بكرات خيوط قطن وبوليستر، خيوط سرفلة، خيوط حريرية، وخيوط تطريز',
+    defaultUnit: 'بكرة',
+    color: 'sky'
+  },
+  buttons_zippers: {
+    id: 'buttons_zippers',
+    name: 'أزرار وسحابات ومثبتات',
+    nameEn: 'Buttons & Zippers',
+    prefix: 'BTN',
+    description: 'أزرار صدف وعاج وبلاستيك، سحابات عادية ومخفية، كباسات، ومثبتات',
+    defaultUnit: 'دستة (12 حبة)',
+    color: 'amber'
+  },
+  tailoring_supplies: {
+    id: 'tailoring_supplies',
+    name: 'مستلزمات وإكسسوارات خياطة',
+    nameEn: 'Tailoring Accessories',
+    prefix: 'SUPP',
+    description: 'فازلين حشو، كتافيات، شرائط ساتان، مطاط، كلف، دانتيلات، خرز، ومقصات',
+    defaultUnit: 'لفة / متر',
+    color: 'rose'
+  },
+  tailored_garments: {
+    id: 'tailored_garments',
+    name: 'أزياء وتفصيل وموديلات جاهزة',
+    nameEn: 'Garments & Ready Wear',
+    prefix: 'GRM',
+    description: 'ثياب رجالية، فساتين، بدل، عباءات، قمصان، بناطيل، وزي موحد',
+    defaultUnit: 'قطعة',
+    color: 'emerald'
+  },
+  tailoring_services: {
+    id: 'tailoring_services',
+    name: 'خدمات تفصيل وتعديل وتطريز',
+    nameEn: 'Tailoring Services',
+    prefix: 'SRV',
+    description: 'تفصيل خاص، تضييق وتقصير، تصليح ملابس، وتطريز بالكمبيوتر',
+    defaultUnit: 'خدمة',
+    color: 'purple'
+  },
+  // توافق عكسي مع الأصناف السابقة
   print_raw: {
     id: 'print_raw',
-    name: 'خامات ومواد مطبعة',
-    nameEn: 'Printing Raw Materials',
+    name: 'خامات ومواد أولية',
+    nameEn: 'Raw Materials',
     prefix: 'RAW',
-    description: 'رولات ورق، كوشيه، أوراق فواتير، أحبار، زنكات، وسلوفان',
-    defaultUnit: 'باندة (500 فرخ)',
+    description: 'أقمشة وخامات وتجهيزات عامة',
+    defaultUnit: 'متر',
     color: 'indigo'
   },
   stationery: {
     id: 'stationery',
-    name: 'قرطاسية ومكتبية ومدرسية',
-    nameEn: 'Stationery & Office',
+    name: 'مستلزمات عامة',
+    nameEn: 'Supplies',
     prefix: 'STAT',
-    description: 'أقلام، دفاتر، ملفات، أدوات هندسية، وحاسبات',
+    description: 'أدوات مساعدة ولوازم عامة',
     defaultUnit: 'حبة',
     color: 'sky'
-  },
-  books: {
-    id: 'books',
-    name: 'كتب وروايات ومناهج',
-    nameEn: 'Books & Curricula',
-    prefix: 'BOOK',
-    description: 'كتب أدبية، روايات، مراجع جامعية ومدرسية، وقواميس',
-    defaultUnit: 'كتاب',
-    color: 'emerald'
-  },
-  print_service: {
-    id: 'print_service',
-    name: 'خدمات طباعة وتصميم',
-    nameEn: 'Printing Services',
-    prefix: 'SRV',
-    description: 'كروت، بروشورات، لوحات بانر، أختام، وتصميم جرافيك',
-    defaultUnit: 'خدمة',
-    color: 'amber'
-  },
-  copy_scan: {
-    id: 'copy_scan',
-    name: 'تصوير مستندات وتجليد',
-    nameEn: 'Copy & Scanning',
-    prefix: 'CPY',
-    description: 'تصوير A4/A3، سكانر ملون، تغليف حراري، وتجليد سلك',
-    defaultUnit: 'صفحة',
-    color: 'purple'
-  },
-  shields_gifts: {
-    id: 'shields_gifts',
-    name: 'دروع وهدايا دعائية',
-    nameEn: 'Trophies & Promotional',
-    prefix: 'GFT',
-    description: 'دروع كريستال، هدايا تذكارية، أوشحة، وميداليات',
-    defaultUnit: 'قطعة',
-    color: 'rose'
   }
 };
 
