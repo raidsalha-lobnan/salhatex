@@ -1591,12 +1591,17 @@ export const AccountStatementModal: React.FC = () => {
                       {/* Prominent Net Payable Row */}
                       <tr className="bg-emerald-50/90 font-black border-t border-emerald-300 text-emerald-950 text-xs">
                         <td colSpan={10} className="text-right font-sans p-2.5">
-                          <span className="text-sm font-black text-emerald-900">
-                            صافي المطلوب والمستحق للفترة المحددة (مجموع الرواتب اليومية - إجمالي السلف):
-                          </span>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-sm font-black text-emerald-900">
+                              صافي المطلوب والمستحق للفترة المحددة (مجموع الرواتب اليومية - إجمالي السلف والخصومات):
+                            </span>
+                            <span className="text-xs font-bold text-slate-600 font-mono">
+                              [رواتب يومية: {employeeStatement.totalDailySalaries.toFixed(2)} - سلف: {employeeStatement.totalAdvances.toFixed(2)}{employeeStatement.totalDeductions > 0 ? ` - خصومات: ${employeeStatement.totalDeductions.toFixed(2)}` : ''}]
+                            </span>
+                          </div>
                         </td>
                         <td className="text-left font-mono text-emerald-950 font-black bg-emerald-100/90 p-2.5 whitespace-nowrap text-sm border-r border-emerald-300">
-                          {employeeStatement.closingBalance.toFixed(2)} {settings.currency}
+                          {employeeStatement.netPeriodPayable.toFixed(2)} {settings.currency}
                         </td>
                       </tr>
                     </tfoot>

@@ -33,7 +33,11 @@ import {
   Zap,
   Info,
   Sliders,
-  FileText
+  FileText,
+  CalendarRange,
+  ShieldCheck,
+  History,
+  X
 } from 'lucide-react';
 import { useAccounting } from '../context/AccountingContext';
 import { AttendanceRecord, AttendanceStatus, Employee, OvertimeMethod, EmployeeDepartment } from '../types';
@@ -155,8 +159,9 @@ export const AttendanceView: React.FC = () => {
           notes: existing.notes || ''
         };
       } else {
+        const isFri = new Date(dateStr).getDay() === 5;
         drafts[dateStr] = {
-          status: 'off',
+          status: isFri ? 'off' : 'present',
           checkInTime: selectedMonthlyEmployee.officialStartTime || '08:00',
           checkOutTime: selectedMonthlyEmployee.officialEndTime || '16:30',
           breakMinutes: 0,
@@ -306,6 +311,20 @@ export const AttendanceView: React.FC = () => {
   // Tab 2: Editing existing attendance record state
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
   const [editModalDraft, setEditModalDraft] = useState<Partial<AttendanceRecord> | null>(null);
+
+  // Reapply Period Modal States (إعادة تطبيق الإعدادات على فترة واستثناء ما قبلها)
+  const [reapplyModalEmp, setReapplyModalEmp] = useState<Employee | null>(null);
+  const [reapplyScope, setReapplyScope] = useState<'from_date' | 'custom_range' | 'all'>('from_date');
+  const [reapplyFromDate, setReapplyFromDate] = useState<string>('');
+  const [reapplyToDate, setReapplyToDate] = useState<string>('');
+
+  // All Employees Reapply Modal State (تطبيق السياسات على فترة لكافة العمال)
+  const [allReapplyModalOpen, setAllReapplyModalOpen] = useState<boolean>(false);
+  const [allReapplyScope, setAllReapplyScope] = useState<'individual_effective' | 'custom_from_date' | 'all'>('individual_effective');
+  const [allReapplyFromDate, setAllReapplyFromDate] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  });
 
   // Notification / Toast state
   const [feedbackMessage, setFeedbackMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
@@ -833,6 +852,8 @@ export const AttendanceView: React.FC = () => {
       defaultShift2StartTime: draft?.defaultShift2StartTime ?? emp.defaultShift2StartTime ?? '12:00',
       defaultShift2EndTime: draft?.defaultShift2EndTime ?? emp.defaultShift2EndTime ?? '16:30',
       deductLateMinutes: draft?.deductLateMinutes ?? emp.deductLateMinutes ?? false,
+      policyEffectiveDate: draft?.policyEffectiveDate ?? emp.policyEffectiveDate ?? '',
+      policyEffectiveScope: (draft?.policyEffectiveScope ?? emp.policyEffectiveScope ?? (emp.policyEffectiveDate ? 'from_date' : 'from_date')) as 'from_date' | 'all',
       isDirty: Boolean(draft?.isDirty)
     };
   };
@@ -849,6 +870,112 @@ export const AttendanceView: React.FC = () => {
         }
       };
     });
+  };
+
+  const handleOpenReapplyModal = (emp: Employee) => {
+    const draft = getEmployeePolicyDraft(emp);
+    const defaultFrom = draft.policyEffectiveDate || emp.policyEffectiveDate || new Date().toISOString().split('T')[0];
+    setReapplyModalEmp(emp);
+    setReapplyScope(draft.policyEffectiveScope === 'all' ? 'all' : 'from_date');
+    setReapplyFromDate(defaultFrom);
+    setReapplyToDate('');
+  };
+
+  const handleExecuteReapply = () => {
+    if (!reapplyModalEmp) return;
+    const empId = reapplyModalEmp.id;
+
+    let options: { fromDate?: string; toDate?: string; includeAll?: boolean } = {};
+    if (reapplyScope === 'all') {
+      options = { includeAll: true };
+    } else if (reapplyScope === 'from_date') {
+      options = { fromDate: reapplyFromDate || undefined };
+    } else {
+      options = { fromDate: reapplyFromDate || undefined, toDate: reapplyToDate || undefined };
+    }
+
+    if (reapplyScope === 'from_date' && reapplyFromDate) {
+      updateEmployee(empId, {
+        policyEffectiveDate: reapplyFromDate,
+        policyEffectiveScope: 'from_date'
+      });
+      handlePolicyDraftChange(empId, 'policyEffectiveDate', reapplyFromDate);
+      handlePolicyDraftChange(empId, 'policyEffectiveScope', 'from_date');
+    } else if (reapplyScope === 'all') {
+      updateEmployee(empId, {
+        policyEffectiveDate: undefined,
+        policyEffectiveScope: 'all'
+      });
+      handlePolicyDraftChange(empId, 'policyEffectiveDate', '');
+      handlePolicyDraftChange(empId, 'policyEffectiveScope', 'all');
+    }
+
+    const res = recalculateEmployeeAttendanceRecords(empId, options);
+
+    if (reapplyScope === 'all') {
+      showFeedback(
+        `تمت إعادة تطبيق الإعدادات لكافة سجلات العامل "${reapplyModalEmp.name}" بنجاح (${res.updated} سجل).`,
+        'success'
+      );
+    } else if (res.excluded > 0) {
+      showFeedback(
+        `تم تطبيق الإعدادات بدءاً من تاريخ ${reapplyFromDate} لـ "${reapplyModalEmp.name}" على ${res.updated} سجل، وتم استثناء وحماية ${res.excluded} سجل سابق دون أي تغيير!`,
+        'success'
+      );
+    } else {
+      showFeedback(
+        `تمت إعادة تطبيق الإعدادات لـ "${reapplyModalEmp.name}" على ${res.updated} سجل حضور بنجاح.`,
+        'success'
+      );
+    }
+
+    setReapplyModalEmp(null);
+  };
+
+  const reapplyStats = useMemo(() => {
+    if (!reapplyModalEmp) return { total: 0, willUpdate: 0, excluded: 0 };
+    const empRecords = attendanceRecords.filter(r => r.employeeId === reapplyModalEmp.id);
+    const total = empRecords.length;
+
+    if (reapplyScope === 'all') {
+      return { total, willUpdate: total, excluded: 0 };
+    }
+
+    let willUpdate = 0;
+    let excluded = 0;
+    empRecords.forEach(r => {
+      if (reapplyScope === 'from_date') {
+        if (reapplyFromDate && r.date < reapplyFromDate) {
+          excluded++;
+        } else {
+          willUpdate++;
+        }
+      } else if (reapplyScope === 'custom_range') {
+        if ((reapplyFromDate && r.date < reapplyFromDate) || (reapplyToDate && r.date > reapplyToDate)) {
+          excluded++;
+        } else {
+          willUpdate++;
+        }
+      }
+    });
+
+    return { total, willUpdate, excluded };
+  }, [reapplyModalEmp, attendanceRecords, reapplyScope, reapplyFromDate, reapplyToDate]);
+
+  const handleExecuteAllReapply = () => {
+    let options: { fromDate?: string; toDate?: string; includeAll?: boolean } = {};
+    if (allReapplyScope === 'all') {
+      options = { includeAll: true };
+    } else if (allReapplyScope === 'custom_from_date') {
+      options = { fromDate: allReapplyFromDate || undefined };
+    }
+
+    const res = recalculateAllAttendanceRecords(options);
+    showFeedback(
+      `تمت إعادة تطبيق الإعدادات على ${res.updated} سجل حضور لكافة العمال، وتم استثناء وحماية ${res.excluded} سجل سابق!`,
+      'success'
+    );
+    setAllReapplyModalOpen(false);
   };
 
   const handleSaveEmployeePolicy = (empId: string) => {
@@ -871,7 +998,9 @@ export const AttendanceView: React.FC = () => {
       defaultShift1EndTime: draft.defaultShift1EndTime,
       defaultShift2StartTime: draft.defaultShift2StartTime,
       defaultShift2EndTime: draft.defaultShift2EndTime,
-      deductLateMinutes: draft.deductLateMinutes
+      deductLateMinutes: draft.deductLateMinutes,
+      policyEffectiveDate: draft.policyEffectiveScope === 'from_date' ? (draft.policyEffectiveDate || undefined) : undefined,
+      policyEffectiveScope: draft.policyEffectiveScope
     };
 
     // 1. Update in context
@@ -914,23 +1043,29 @@ export const AttendanceView: React.FC = () => {
       };
     });
 
-    // 4. Automatically recalculate all records for this employee
-    const res = recalculateEmployeeAttendanceRecords(empId);
+    // 4. Automatically recalculate records for this employee respecting effective date
+    const res = recalculateEmployeeAttendanceRecords(empId, {
+      fromDate: draft.policyEffectiveScope === 'from_date' ? (draft.policyEffectiveDate || undefined) : undefined,
+      includeAll: draft.policyEffectiveScope === 'all'
+    });
 
-    showFeedback(
-      `تم حفظ وتثبيت إعدادات وسياسات الدوام والأوفرتايم لـ "${emp.name}" بنجاح! وتم تطبيقها فوراً على كافة سجلات الحضور (${res.updated} سجل).`,
-      'success'
-    );
+    if (draft.policyEffectiveScope === 'from_date' && draft.policyEffectiveDate && res.excluded > 0) {
+      showFeedback(
+        `تم حفظ وتثبيت إعدادات "${emp.name}" وتطبيقها بدءاً من ${draft.policyEffectiveDate}! (تم تحديث ${res.updated} سجل، واستثناء وحماية ${res.excluded} سجل سابق من التغيير).`,
+        'success'
+      );
+    } else {
+      showFeedback(
+        `تم حفظ وتثبيت إعدادات وسياسات الدوام والأوفرتايم لـ "${emp.name}" بنجاح! وتم تطبيقها فوراً (${res.updated} سجل).`,
+        'success'
+      );
+    }
   };
 
   const handleApplyPolicyToRecords = (empId: string) => {
     const emp = employees.find(e => e.id === empId);
     if (!emp) return;
-    const res = recalculateEmployeeAttendanceRecords(empId);
-    showFeedback(
-      `تمت إعادة احتساب وتطبيق السياسة المحفوظة فوراً لـ "${emp.name}" على كافة سجلات الحضور (${res.updated} سجل).`,
-      'success'
-    );
+    handleOpenReapplyModal(emp);
   };
 
   const handleSaveAllEmployeePolicies = () => {
@@ -2021,16 +2156,18 @@ export const AttendanceView: React.FC = () => {
                               draft.status === 'present' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
                               draft.status === 'absent' ? 'bg-rose-50 text-rose-800 border-rose-200 font-black' :
                               draft.status === 'half_day' ? 'bg-blue-50 text-blue-800 border-blue-200' :
-                              draft.status === 'sick' ? 'bg-purple-50 text-purple-800 border-purple-200' :
+                              draft.status === 'late' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                              draft.status === 'excused_leave' ? 'bg-purple-50 text-purple-800 border-purple-200' :
                               'bg-gray-100 text-gray-600 border-gray-300'
                             }`}
                           >
                             <option value="present">حاضر (يوم كامل)</option>
                             <option value="half_day">نصف دوام</option>
+                            <option value="late">متأخر</option>
                             <option value="absent">غائب</option>
-                            <option value="off">عطلة رسمية / إجازة</option>
-                            <option value="sick">إجازة مرضية</option>
-                            <option value="excused_absence">غائب بعذر</option>
+                            <option value="off">عطلة رسمية / راحة</option>
+                            <option value="excused_leave">إجازة بعذر / مدفوعة</option>
+                            <option value="unpaid_leave">إجازة بدون راتب</option>
                           </select>
                         </td>
 
@@ -2510,15 +2647,12 @@ export const AttendanceView: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    const res = recalculateAllAttendanceRecords();
-                    showFeedback(`تمت إعادة احتساب وتطبيق السياسات المحفوظة لكافة العمال بنجاح على ${res.updated} سجل حضور.`, 'success');
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs transition shadow-2xs"
-                  title="إعادة احتساب وتطبيق السياسات المحفوظة على كافة سجلات الحضور السابقة والجديدة لجميع العمال"
+                  onClick={() => setAllReapplyModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs transition shadow-2xs cursor-pointer"
+                  title="إعادة تطبيق وتحديث السياسات المحفوظة لكافة العمال مع خيار تحديد فترة واستثناء السجلات السابقة"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  <span>تطبيق السياسات على كافة سجلات الحضور</span>
+                  <span>تطبيق القرارات والسياسات على فترة زمنية لكافة العمال</span>
                 </button>
 
                 <button
@@ -2962,8 +3096,73 @@ export const AttendanceView: React.FC = () => {
                           </label>
                         </div>
 
+                        {/* 8. Policy Effective Start Date (سريان القرارات وتاريخ بدء التطبيق) */}
+                        <div className="bg-indigo-50/70 p-3 rounded-xl border border-indigo-100 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <CalendarRange className="w-4 h-4 text-indigo-700" />
+                              <span className="text-xs font-bold text-indigo-950">سريان القرارات وتاريخ بدء التطبيق:</span>
+                            </div>
+                            <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-mono font-bold">
+                              {draft.policyEffectiveDate ? `بدءاً من ${draft.policyEffectiveDate}` : 'كافة السجلات'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-600 leading-snug">
+                            تطبيق القرارات الجديدة من تاريخ معين واستثناء الفترة السابقة وحمايتها دون تغيير.
+                          </p>
+
+                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <input
+                              type="date"
+                              value={draft.policyEffectiveDate || ''}
+                              onChange={(e) => {
+                                handlePolicyDraftChange(emp.id, 'policyEffectiveDate', e.target.value);
+                                handlePolicyDraftChange(emp.id, 'policyEffectiveScope', e.target.value ? 'from_date' : 'all');
+                              }}
+                              className="bg-white border border-indigo-200 rounded-lg px-2.5 py-1 text-xs font-mono font-bold text-gray-800 focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                            />
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const today = new Date().toISOString().split('T')[0];
+                                  handlePolicyDraftChange(emp.id, 'policyEffectiveDate', today);
+                                  handlePolicyDraftChange(emp.id, 'policyEffectiveScope', 'from_date');
+                                }}
+                                className="px-2 py-1 bg-white hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-md text-[10px] font-bold transition cursor-pointer"
+                              >
+                                اليوم
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const now = new Date();
+                                  const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+                                  handlePolicyDraftChange(emp.id, 'policyEffectiveDate', firstOfMonth);
+                                  handlePolicyDraftChange(emp.id, 'policyEffectiveScope', 'from_date');
+                                }}
+                                className="px-2 py-1 bg-white hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-md text-[10px] font-bold transition cursor-pointer"
+                              >
+                                أول الشهر
+                              </button>
+                              {draft.policyEffectiveDate && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handlePolicyDraftChange(emp.id, 'policyEffectiveDate', '');
+                                    handlePolicyDraftChange(emp.id, 'policyEffectiveScope', 'all');
+                                  }}
+                                  className="px-2 py-1 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded-md text-[10px] font-bold transition cursor-pointer"
+                                >
+                                  إلغاء التقييد
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Card Bottom Action Buttons */}
-                        <div className="pt-2 space-y-1.5">
+                        <div className="pt-2 space-y-2">
                           <button
                             type="button"
                             onClick={() => handleSaveEmployeePolicy(emp.id)}
@@ -2975,18 +3174,18 @@ export const AttendanceView: React.FC = () => {
                           >
                             <Save className="w-4 h-4" />
                             <span>
-                              {draft.isDirty ? '💾 حفظ وتثبيت السياسة وتطبيقها فوراً' : '✓ السياسة محفوظة ومطبقة تلقائياً'}
+                              {draft.isDirty ? '💾 حفظ وتثبيت السياسة وتطبيقها' : '✓ السياسة محفوظة ومطبقة تلقائياً'}
                             </span>
                           </button>
 
                           <button
                             type="button"
-                            onClick={() => handleApplyPolicyToRecords(emp.id)}
-                            className="w-full flex items-center justify-center gap-1.5 py-1 text-gray-500 hover:text-indigo-700 text-[11px] font-bold hover:underline transition cursor-pointer"
-                            title="إعادة احتساب كافة سجلات وأيام حضور هذا العامل بناءً على السياسة المحفوظة"
+                            onClick={() => handleOpenReapplyModal(emp)}
+                            className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-200/80 transition cursor-pointer shadow-2xs"
+                            title="إعادة تطبيق وتحديث القرارات على فترة محددة مع استثناء وحماية السجلات السابقة"
                           >
-                            <RefreshCw className="w-3 h-3" />
-                            <span>إعادة تطبيق السياسة على كافة سجلات العامل السابقة والجديدة</span>
+                            <CalendarRange className="w-4 h-4 text-indigo-600" />
+                            <span>📅 إعادة تطبيق القرارات على فترة محددة (بدءاً من تاريخ ...)</span>
                           </button>
                         </div>
                       </div>
@@ -3289,6 +3488,345 @@ export const AttendanceView: React.FC = () => {
           </div>
         );
       })()}
+      {/* ========================================================================= */}
+      {/* REAPPLY POLICY PERIOD MODAL (تحديد فترة تطبيق القرارات وحماية السجلات السابقة) */}
+      {/* ========================================================================= */}
+      {reapplyModalEmp && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-gray-100 overflow-hidden space-y-0">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-blue-700 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-md">
+                  <CalendarRange className="w-6 h-6 text-indigo-100" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-white">
+                    تحديد فترة تطبيق القرارات وتحديث السجلات
+                  </h3>
+                  <p className="text-xs text-indigo-100 mt-0.5">
+                    للعامل: <strong className="text-white font-black">{reapplyModalEmp.name}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReapplyModalEmp(null)}
+                className="p-1.5 text-indigo-200 hover:text-white hover:bg-white/10 rounded-lg transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4 text-xs text-gray-700">
+              <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-3 flex items-start gap-2.5">
+                <Info className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold text-amber-950">حماية السجلات السابقة من التغيير:</p>
+                  <p className="text-[11px] text-amber-900 leading-snug">
+                    يمكنك تطبيق قرارات وإعدادات الدوام الجديدة بدءاً من تاريخ معين وتجاهل السجلات وأيام العمل السابقة حتى لا يتأثر أي راتب أو مستحق قديم تم صرفه للعامل.
+                  </p>
+                </div>
+              </div>
+
+              {/* Scope Options */}
+              <div className="space-y-2.5">
+                <label className="block font-bold text-gray-900 text-xs">اختر نطاق تطبيق القرارات:</label>
+
+                {/* Option 1: From Date */}
+                <label className={`flex items-start gap-3 p-3 rounded-xl border transition cursor-pointer ${
+                  reapplyScope === 'from_date'
+                    ? 'bg-indigo-50/80 border-indigo-300 ring-2 ring-indigo-200'
+                    : 'bg-white border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <input
+                    type="radio"
+                    name="reapplyScope"
+                    value="from_date"
+                    checked={reapplyScope === 'from_date'}
+                    onChange={() => setReapplyScope('from_date')}
+                    className="mt-1 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                  />
+                  <div className="space-y-2 flex-1">
+                    <div>
+                      <span className="font-bold text-gray-900 block">بدء تطبيق القرارات اعتباراً من تاريخ معين (موصى به)</span>
+                      <span className="text-[11px] text-gray-500">
+                        تطبيق الإعدادات الجديدة من هذا التاريخ وصاعداً واستثناء وحماية السجلات القديمة.
+                      </span>
+                    </div>
+
+                    {reapplyScope === 'from_date' && (
+                      <div className="pt-1 flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-gray-700">تاريخ بدء التطبيق:</span>
+                        <input
+                          type="date"
+                          value={reapplyFromDate}
+                          onChange={(e) => setReapplyFromDate(e.target.value)}
+                          className="bg-white border border-indigo-300 rounded-lg px-2.5 py-1 font-mono font-bold text-gray-900 focus:ring-2 focus:ring-indigo-500 shadow-2xs cursor-pointer"
+                        />
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setReapplyFromDate(new Date().toISOString().split('T')[0])}
+                            className="px-2 py-1 bg-white hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-md text-[10px] font-bold cursor-pointer"
+                          >
+                            اليوم
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const now = new Date();
+                              setReapplyFromDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`);
+                            }}
+                            className="px-2 py-1 bg-white hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-md text-[10px] font-bold cursor-pointer"
+                          >
+                            أول الشهر
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </label>
+
+                {/* Option 2: Custom Date Range */}
+                <label className={`flex items-start gap-3 p-3 rounded-xl border transition cursor-pointer ${
+                  reapplyScope === 'custom_range'
+                    ? 'bg-indigo-50/80 border-indigo-300 ring-2 ring-indigo-200'
+                    : 'bg-white border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <input
+                    type="radio"
+                    name="reapplyScope"
+                    value="custom_range"
+                    checked={reapplyScope === 'custom_range'}
+                    onChange={() => setReapplyScope('custom_range')}
+                    className="mt-1 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                  />
+                  <div className="space-y-2 flex-1">
+                    <div>
+                      <span className="font-bold text-gray-900 block">تطبيق على فترة زمنية محددة فقط (من ... إلى ...)</span>
+                      <span className="text-[11px] text-gray-500">
+                        إعادة احتساب الأيام المحصورة بين تاريخين محددين فقط.
+                      </span>
+                    </div>
+
+                    {reapplyScope === 'custom_range' && (
+                      <div className="pt-1 flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-600 font-bold">من:</span>
+                          <input
+                            type="date"
+                            value={reapplyFromDate}
+                            onChange={(e) => setReapplyFromDate(e.target.value)}
+                            className="bg-white border border-indigo-300 rounded-lg px-2 py-1 font-mono font-bold text-gray-900 cursor-pointer"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-600 font-bold">إلى:</span>
+                          <input
+                            type="date"
+                            value={reapplyToDate}
+                            onChange={(e) => setReapplyToDate(e.target.value)}
+                            className="bg-white border border-indigo-300 rounded-lg px-2 py-1 font-mono font-bold text-gray-900 cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </label>
+
+                {/* Option 3: All Records */}
+                <label className={`flex items-start gap-3 p-3 rounded-xl border transition cursor-pointer ${
+                  reapplyScope === 'all'
+                    ? 'bg-indigo-50/80 border-indigo-300 ring-2 ring-indigo-200'
+                    : 'bg-white border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <input
+                    type="radio"
+                    name="reapplyScope"
+                    value="all"
+                    checked={reapplyScope === 'all'}
+                    onChange={() => setReapplyScope('all')}
+                    className="mt-1 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-gray-900 block">تطبيق على كافة السجلات السابقة والجديدة (تطبيق شامل)</span>
+                    <span className="text-[11px] text-gray-500">
+                      إعادة احتساب وتحديث جميع أيّام حضور هذا العامل بدون استثناء.
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Real-time Record Count Banner */}
+              <div className="bg-slate-900 text-white p-3 rounded-xl flex items-center justify-between font-mono text-xs shadow-inner">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <span>إحصائيات السجلات:</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-emerald-300 font-bold">سيتحدث: {reapplyStats.willUpdate} سجل</span>
+                  <span className="text-amber-300 font-bold">مستثنى ومحمي: {reapplyStats.excluded} سجل</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="bg-gray-50 p-4 border-t border-gray-200 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setReapplyModalEmp(null)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl font-bold transition cursor-pointer"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteReapply}
+                className="flex items-center gap-1.5 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition shadow-sm cursor-pointer"
+              >
+                <Check className="w-4 h-4" />
+                <span>تنفيذ وتطبيق القرارات</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ALL EMPLOYEES REAPPLY MODAL */}
+      {/* ========================================================================= */}
+      {allReapplyModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-gray-100 overflow-hidden space-y-0">
+            <div className="bg-gradient-to-r from-indigo-800 via-indigo-700 to-blue-800 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-md">
+                  <RefreshCw className="w-6 h-6 text-indigo-100" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-white">
+                    تطبيق السياسات وإعادة الاحتساب لكافة العمال
+                  </h3>
+                  <p className="text-xs text-indigo-200 mt-0.5">
+                    إعادة تطبيق السياسات المحفوظة مع حماية السجلات القديمة
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAllReapplyModalOpen(false)}
+                className="p-1.5 text-indigo-200 hover:text-white hover:bg-white/10 rounded-lg transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs text-gray-700">
+              <p className="text-gray-600 leading-snug">
+                اختر كيفية تطبيق القرارات والسياسات على سجلات الحضور السابقة لجميع الموظفين:
+              </p>
+
+              <div className="space-y-2.5">
+                <label className={`flex items-start gap-3 p-3 rounded-xl border transition cursor-pointer ${
+                  allReapplyScope === 'respect_individual'
+                    ? 'bg-indigo-50/80 border-indigo-300 ring-2 ring-indigo-200'
+                    : 'bg-white border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <input
+                    type="radio"
+                    name="allReapplyScope"
+                    value="respect_individual"
+                    checked={allReapplyScope === 'respect_individual'}
+                    onChange={() => setAllReapplyScope('respect_individual')}
+                    className="mt-1 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-gray-900 block">احترام تاريخ سريان القرارات الخاص بـ كل عامل على حدة (موصى به)</span>
+                    <span className="text-[11px] text-gray-500">
+                      يتم الاعتماد على تاريخ بدء السياسة المحدد لكل موظف، واستثناء السجلات السابقة التي تسبق تاريخ كل موظف.
+                    </span>
+                  </div>
+                </label>
+
+                <label className={`flex items-start gap-3 p-3 rounded-xl border transition cursor-pointer ${
+                  allReapplyScope === 'custom_from_date'
+                    ? 'bg-indigo-50/80 border-indigo-300 ring-2 ring-indigo-200'
+                    : 'bg-white border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <input
+                    type="radio"
+                    name="allReapplyScope"
+                    value="custom_from_date"
+                    checked={allReapplyScope === 'custom_from_date'}
+                    onChange={() => setAllReapplyScope('custom_from_date')}
+                    className="mt-1 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                  />
+                  <div className="space-y-2 flex-1">
+                    <div>
+                      <span className="font-bold text-gray-900 block">تحديد تاريخ بدء موحد لجميع الموظفين</span>
+                      <span className="text-[11px] text-gray-500">
+                        تطبيق السياسات الجديدة بدءاً من تاريخ موحد على الجميع وحماية الفترة قبل هذا التاريخ.
+                      </span>
+                    </div>
+                    {allReapplyScope === 'custom_from_date' && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <span className="font-bold text-gray-700">تاريخ البدء الموحد:</span>
+                        <input
+                          type="date"
+                          value={allReapplyFromDate}
+                          onChange={(e) => setAllReapplyFromDate(e.target.value)}
+                          className="bg-white border border-indigo-300 rounded-lg px-2.5 py-1 font-mono font-bold text-gray-900 cursor-pointer"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </label>
+
+                <label className={`flex items-start gap-3 p-3 rounded-xl border transition cursor-pointer ${
+                  allReapplyScope === 'all'
+                    ? 'bg-indigo-50/80 border-indigo-300 ring-2 ring-indigo-200'
+                    : 'bg-white border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <input
+                    type="radio"
+                    name="allReapplyScope"
+                    value="all"
+                    checked={allReapplyScope === 'all'}
+                    onChange={() => setAllReapplyScope('all')}
+                    className="mt-1 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-gray-900 block">تطبيق شامل على كافة السجلات لجميع الموظفين</span>
+                    <span className="text-[11px] text-gray-500">
+                      إعادة احتساب سجلات الحضور السابقة والجديدة بالكامل لكافة الموظفين دون استثناء.
+                    </span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 p-4 border-t border-gray-200 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setAllReapplyModalOpen(false)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl font-bold transition cursor-pointer"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteAllReapply}
+                className="flex items-center gap-1.5 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition shadow-sm cursor-pointer"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>تطبيق القرارات وتحديث السجلات</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

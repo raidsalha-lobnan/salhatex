@@ -803,6 +803,10 @@ export interface Employee {
   defaultShift1EndTime?: string;     // خروج المرحلة الأولى لمشوار (مثلاً 10:00)
   defaultShift2StartTime?: string;   // رجوع وحضور المرحلة الثانية (مثلاً 12:00)
   defaultShift2EndTime?: string;     // انصراف نهاية الدوام بالمرحلة الثانية (مثلاً 16:30)
+
+  // تاريخ وفترة سريان الإعدادات والقرارات الجديدة (استثناء الفترة السابقة)
+  policyEffectiveDate?: string;      // تاريخ بدء تطبيق الإعدادات (YYYY-MM-DD). أي سجلات قبل هذا التاريخ تستثنى من الإعدادات الجديدة
+  policyEffectiveScope?: 'from_date' | 'all'; // نطاق التطبيق: من تاريخ معين أو كافة السجلات
 }
 
 // أنواع وحالات الحضور والغياب
@@ -812,7 +816,8 @@ export type AttendanceStatus =
   | 'late'            // متأخر
   | 'excused_leave'   // إجازة مدفوعة / بإذن
   | 'unpaid_leave'    // إجازة غير مدفوعة
-  | 'half_day';       // نصف يوم
+  | 'half_day'        // نصف يوم
+  | 'off';            // عطلة رسمية أو راحة أسبوعية
 
 export type OvertimeMethod = 'multiplier' | 'fixed_rate';
 

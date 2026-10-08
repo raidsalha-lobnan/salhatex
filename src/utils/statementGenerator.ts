@@ -806,6 +806,10 @@ export function generateEmployeeStatement(params: {
     dailyRate = baseSalaryAmount / 6;
     const rawRate = dailyRate / officialDailyHours;
     hourlyRate = employee.roundHourlyRateUp ? Math.ceil(rawRate * 10) / 10 : Number(rawRate.toFixed(2));
+  } else if (employee.salaryType === 'piece_rate') {
+    dailyRate = baseSalaryAmount || (employee.pieceRatePerGarment ? employee.pieceRatePerGarment * 5 : 100);
+    const rawRate = dailyRate / officialDailyHours;
+    hourlyRate = employee.roundHourlyRateUp ? Math.ceil(rawRate * 10) / 10 : Number(rawRate.toFixed(2));
   } else {
     // monthly
     const workDays = employee.monthlyWorkDays || 26;
@@ -898,8 +902,46 @@ export function generateEmployeeStatement(params: {
   // 2. إعداد الحركات وسجل الدوام اليومي التفصيلي للموظف للفترة المحددة
   const todayStr = new Date().toISOString().split('T')[0];
   const nowYearMonth = todayStr.substring(0, 7);
-  const effectiveFrom = fromDate || `${nowYearMonth}-01`;
-  const effectiveTo = toDate || todayStr;
+
+  // البحث عن كافة تواريخ الحركات المسجلة للموظف لضمان ظهور كامل ما تم تسجيله
+  const empAllDates = [
+    ...attendanceRecords.filter(r => r.employeeId === employee.id).map(r => r.date),
+    ...advances.filter(a => a.employeeId === employee.id).map(a => a.date),
+    ...deductions.filter(d => d.employeeId === employee.id).map(d => d.date),
+    ...incentives.filter(i => i.employeeId === employee.id).map(i => i.date),
+    ...vouchers.filter(v => (v.partyId === employee.id || (v.description && v.description.includes(employee.name)))).map(v => v.date)
+  ].filter(Boolean).sort();
+
+  const minEmpDate = empAllDates.length > 0 ? empAllDates[0] : null;
+  const maxEmpDate = empAllDates.length > 0 ? empAllDates[empAllDates.length - 1] : null;
+
+  // نهاية الشهر الحالي
+  const [currY, currM] = todayStr.split('-').map(Number);
+  const lastDayOfCurrMonth = new Date(currY, currM, 0).getDate();
+  const currMonthEndStr = `${nowYearMonth}-${String(lastDayOfCurrMonth).padStart(2, '0')}`;
+
+  let effectiveFrom: string;
+  let effectiveTo: string;
+
+  if (fromDate) {
+    effectiveFrom = fromDate;
+  } else if (minEmpDate) {
+    // نبدأ من بداية شهر أول حركة مسجلة للموظف
+    effectiveFrom = `${minEmpDate.substring(0, 7)}-01`;
+  } else {
+    effectiveFrom = `${nowYearMonth}-01`;
+  }
+
+  if (toDate) {
+    effectiveTo = toDate;
+  } else if (maxEmpDate) {
+    const [maxY, maxM] = maxEmpDate.split('-').map(Number);
+    const lastDayOfMaxMonth = new Date(maxY, maxM, 0).getDate();
+    const maxMonthEndStr = `${maxEmpDate.substring(0, 7)}-${String(lastDayOfMaxMonth).padStart(2, '0')}`;
+    effectiveTo = maxMonthEndStr > currMonthEndStr ? maxMonthEndStr : currMonthEndStr;
+  } else {
+    effectiveTo = currMonthEndStr;
+  }
 
   // احتساب الرصيد الافتتاحي السابق (ما قبل تاريخ effectiveFrom)
   let periodOpeningBalance = 0;
@@ -944,10 +986,18 @@ export function generateEmployeeStatement(params: {
   attendanceRecords.forEach(r => {
     if (r.employeeId === employee.id && r.date < effectiveFrom) {
       let daySalary = 0;
-      if (r.status === 'present') {
-        daySalary = dailyRate + (r.overtimePayEarned || 0) - (r.lateDeductionAmount || 0);
+      if (r.status === 'present' || r.status === 'late') {
+        if (r.totalDailyEarnings !== undefined && r.totalDailyEarnings !== null && r.totalDailyEarnings > 0) {
+          daySalary = r.totalDailyEarnings;
+        } else {
+          daySalary = dailyRate + (r.overtimePayEarned || 0) - (r.lateDeductionAmount || 0);
+        }
       } else if (r.status === 'half_day') {
-        daySalary = Number((dailyRate / 2).toFixed(2)) + (r.overtimePayEarned || 0) - (r.lateDeductionAmount || 0);
+        if (r.totalDailyEarnings !== undefined && r.totalDailyEarnings !== null && r.totalDailyEarnings > 0) {
+          daySalary = r.totalDailyEarnings;
+        } else {
+          daySalary = Number((dailyRate / 2).toFixed(2)) + (r.overtimePayEarned || 0) - (r.lateDeductionAmount || 0);
+        }
       } else if (r.status === 'excused_leave') {
         daySalary = dailyRate;
       }
@@ -964,13 +1014,22 @@ export function generateEmployeeStatement(params: {
     const att = attendanceRecords.find(r => r.employeeId === employee.id && r.date === dateStr);
     if (att) {
       let daySalary = 0;
-      if (att.status === 'present') {
-        daySalary = dailyRate + (att.overtimePayEarned || 0) - (att.lateDeductionAmount || 0);
+      if (att.status === 'present' || att.status === 'late') {
+        if (att.totalDailyEarnings !== undefined && att.totalDailyEarnings !== null && att.totalDailyEarnings > 0) {
+          daySalary = att.totalDailyEarnings;
+        } else {
+          daySalary = dailyRate + (att.overtimePayEarned || 0) - (att.lateDeductionAmount || 0);
+        }
       } else if (att.status === 'half_day') {
-        daySalary = Number((dailyRate / 2).toFixed(2)) + (att.overtimePayEarned || 0) - (att.lateDeductionAmount || 0);
+        if (att.totalDailyEarnings !== undefined && att.totalDailyEarnings !== null && att.totalDailyEarnings > 0) {
+          daySalary = att.totalDailyEarnings;
+        } else {
+          daySalary = Number((dailyRate / 2).toFixed(2)) + (att.overtimePayEarned || 0) - (att.lateDeductionAmount || 0);
+        }
       } else if (att.status === 'excused_leave') {
         daySalary = dailyRate;
       } else {
+        // off, absent, unpaid_leave
         daySalary = 0;
       }
       daySalary = Math.max(0, Number(daySalary.toFixed(2)));
@@ -981,7 +1040,8 @@ export function generateEmployeeStatement(params: {
       const clockOut2 = att.hasSecondShift ? (att.shift2CheckOutTime || '-') : '-';
 
       let statusLabel = 'حاضر (دوام كامل)';
-      if (att.status === 'half_day') statusLabel = 'نصف دوام';
+      if (att.status === 'off') statusLabel = 'عطلة / راحة أسبوعية';
+      else if (att.status === 'half_day') statusLabel = 'نصف دوام';
       else if (att.status === 'absent') statusLabel = 'غائب';
       else if (att.status === 'late') statusLabel = 'متأخر';
       else if (att.status === 'excused_leave') statusLabel = 'إجازة بعذر';
@@ -999,11 +1059,11 @@ export function generateEmployeeStatement(params: {
         deduction: 0,
         disbursement: 0,
         runningBalance: 0,
-        presentDays: (att.status === 'present' ? 1 : att.status === 'half_day' ? 0.5 : 0),
+        presentDays: (att.status === 'present' || att.status === 'late' ? 1 : att.status === 'half_day' ? 0.5 : 0),
         workedHours: att.actualWorkedHours || 0,
         overtimeHours: att.overtimeHours || 0,
         absentDays: (att.status === 'absent' || att.status === 'unpaid_leave' ? 1 : 0),
-        notes: att.notes || '',
+        notes: att.notes || (att.status === 'off' ? 'عطلة' : ''),
         attendanceRecord: {
           ...att,
           checkInTime: clockIn1,
@@ -1020,7 +1080,7 @@ export function generateEmployeeStatement(params: {
         }
       });
     } else {
-      // يوم بدون تسجيل حضور - يظهر أيضاً في الجدول وفق رغبة العميل
+      // يوم بدون تسجيل حضور - يظهر أيضاً في الجدول
       periodTx.push({
         id: `day-${dateStr}`,
         date: dateStr,

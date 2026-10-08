@@ -237,8 +237,13 @@ interface AccountingContextType {
   saveMultipleDaysAttendanceBatch: (records: Array<Partial<AttendanceRecord> & { employeeId: string; date: string }>) => void;
   getAttendanceForDate: (date: string) => AttendanceRecord[];
   transferOvertimeToIncentives: (dateOrMonth: string, recordsToTransfer?: AttendanceRecord[]) => { count: number; totalAmount: number };
-  recalculateEmployeeAttendanceRecords: (employeeId: string) => { count: number; updated: number };
-  recalculateAllAttendanceRecords: () => { count: number; updated: number };
+  recalculateEmployeeAttendanceRecords: (
+    employeeId: string,
+    options?: { fromDate?: string; toDate?: string; includeAll?: boolean }
+  ) => { count: number; updated: number; excluded: number };
+  recalculateAllAttendanceRecords: (
+    options?: { fromDate?: string; toDate?: string; includeAll?: boolean }
+  ) => { count: number; updated: number; excluded: number };
   calculateEmployeeSalaryBreakdown: (
     employee: Employee,
     startDate?: string,
@@ -1267,6 +1272,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       localStorage.setItem(`${STORAGE_KEY}_advances`, JSON.stringify(employeeAdvances));
       localStorage.setItem(`${STORAGE_KEY}_deductions`, JSON.stringify(employeeDeductions));
       localStorage.setItem(`${STORAGE_KEY}_incentives`, JSON.stringify(employeeIncentives));
+      localStorage.setItem(`${STORAGE_KEY}_attendance`, JSON.stringify(attendanceRecords));
       localStorage.setItem(`${STORAGE_KEY}_payrollSheets`, JSON.stringify(payrollSheets));
       localStorage.setItem(`${STORAGE_KEY}_stockMovements`, JSON.stringify(stockMovements));
       localStorage.setItem(`${STORAGE_KEY}_companies`, JSON.stringify(companies));
@@ -1303,7 +1309,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } catch (err) {
       console.warn('LocalStorage immediate save notice:', err);
     }
-  }, [settings, accounts, treasuries, journalEntries, inventory, parties, employees, printOrders, invoices, purchases, purchaseReturns, salesReturns, vouchers, employeeAdvances, employeeDeductions, employeeIncentives, payrollSheets, stockMovements, companies, branches, warehouses, warehouseOperations, activeWarehouseId, roles, users, activeCompanyId, activeBranchId, currentUserId]);
+  }, [settings, accounts, treasuries, journalEntries, inventory, parties, employees, printOrders, invoices, purchases, purchaseReturns, salesReturns, vouchers, employeeAdvances, employeeDeductions, employeeIncentives, attendanceRecords, payrollSheets, stockMovements, companies, branches, warehouses, warehouseOperations, activeWarehouseId, roles, users, activeCompanyId, activeBranchId, currentUserId]);
 
   // Keep treasury balances synchronized with their Chart of Accounts assets
   useEffect(() => {
@@ -3836,7 +3842,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       overtimeRatePerHour = Number((baseHourlyRate * overtimeMultiplier).toFixed(2));
     }
 
-    if (status === 'absent' || status === 'unpaid_leave') {
+    if (status === 'absent' || status === 'unpaid_leave' || (status as string) === 'off') {
       return {
         breakMinutes,
         officialDailyHours,
@@ -4131,6 +4137,12 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         currentList.push(fullRecord);
       });
 
+      try {
+        localStorage.setItem(`${STORAGE_KEY}_attendance`, JSON.stringify(currentList));
+      } catch (err) {
+        console.warn('LocalStorage immediate daily attendance save notice:', err);
+      }
+
       return currentList;
     });
   };
@@ -4218,6 +4230,12 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         currentList.push(fullRecord);
       });
 
+      try {
+        localStorage.setItem(`${STORAGE_KEY}_attendance`, JSON.stringify(currentList));
+      } catch (err) {
+        console.warn('LocalStorage immediate attendance save notice:', err);
+      }
+
       return currentList;
     });
   };
@@ -4250,14 +4268,34 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return { count, totalAmount: Number(totalAmount.toFixed(2)) };
   };
 
-  const recalculateEmployeeAttendanceRecords = (employeeId: string): { count: number; updated: number } => {
+  const recalculateEmployeeAttendanceRecords = (
+    employeeId: string,
+    options?: { fromDate?: string; toDate?: string; includeAll?: boolean }
+  ): { count: number; updated: number; excluded: number } => {
     const emp = employees.find(e => e.id === employeeId);
-    if (!emp) return { count: 0, updated: 0 };
+    if (!emp) return { count: 0, updated: 0, excluded: 0 };
+
+    const effectiveFrom = options?.includeAll
+      ? undefined
+      : (options?.fromDate !== undefined ? options.fromDate : emp.policyEffectiveDate);
+    const effectiveTo = options?.toDate;
 
     let updatedCount = 0;
-    setAttendanceRecords(prev =>
-      prev.map(r => {
+    let excludedCount = 0;
+
+    setAttendanceRecords(prev => {
+      const updated = prev.map(r => {
         if (r.employeeId === employeeId) {
+          // استثناء وحماية الفترة السابقة قبل تاريخ بدء تطبيق الإعدادات
+          if (effectiveFrom && r.date < effectiveFrom) {
+            excludedCount++;
+            return r;
+          }
+          if (effectiveTo && r.date > effectiveTo) {
+            excludedCount++;
+            return r;
+          }
+
           const metrics = calculateAttendanceMetrics({
             employee: emp,
             status: r.status,
@@ -4278,18 +4316,48 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           };
         }
         return r;
-      })
-    );
+      });
 
-    return { count: attendanceRecords.filter(r => r.employeeId === employeeId).length, updated: updatedCount };
+      try {
+        localStorage.setItem('salhatex_attendanceRecords', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Error saving attendance records:', e);
+      }
+      return updated;
+    });
+
+    return {
+      count: attendanceRecords.filter(r => r.employeeId === employeeId).length,
+      updated: updatedCount,
+      excluded: excludedCount
+    };
   };
 
-  const recalculateAllAttendanceRecords = (): { count: number; updated: number } => {
+  const recalculateAllAttendanceRecords = (
+    options?: { fromDate?: string; toDate?: string; includeAll?: boolean }
+  ): { count: number; updated: number; excluded: number } => {
     let updatedCount = 0;
-    setAttendanceRecords(prev =>
-      prev.map(r => {
+    let excludedCount = 0;
+
+    setAttendanceRecords(prev => {
+      const updated = prev.map(r => {
         const emp = employees.find(e => e.id === r.employeeId);
         if (!emp) return r;
+
+        // تطبيق تاريخ بدء سريان الإعدادات المحدد لكل موظف تلقائياً
+        const effectiveFrom = options?.includeAll
+          ? undefined
+          : (options?.fromDate !== undefined ? options.fromDate : emp.policyEffectiveDate);
+        const effectiveTo = options?.toDate;
+
+        if (effectiveFrom && r.date < effectiveFrom) {
+          excludedCount++;
+          return r;
+        }
+        if (effectiveTo && r.date > effectiveTo) {
+          excludedCount++;
+          return r;
+        }
 
         const metrics = calculateAttendanceMetrics({
           employee: emp,
@@ -4309,10 +4377,17 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ...metrics,
           updatedAt: new Date().toISOString()
         };
-      })
-    );
+      });
 
-    return { count: attendanceRecords.length, updated: updatedCount };
+      try {
+        localStorage.setItem('salhatex_attendanceRecords', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Error saving attendance records:', e);
+      }
+      return updated;
+    });
+
+    return { count: attendanceRecords.length, updated: updatedCount, excluded: excludedCount };
   };
 
   const calculateEmployeeSalaryBreakdown = (
