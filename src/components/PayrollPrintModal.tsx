@@ -3,6 +3,8 @@ import { useAccounting } from '../context/AccountingContext';
 import { Printer, X, CheckCircle, Building2, Calendar, DollarSign, FileText } from 'lucide-react';
 import { PrintHeader } from './common/PrintHeader';
 import { ReportSignatures } from './common/ReportSignatures';
+import { formatDecimalHours } from '../utils/dateUtils';
+
 
 export const PayrollPrintModal: React.FC = () => {
   const { selectedPayrollSheetForPrint, setSelectedPayrollSheetForPrint, settings } = useAccounting();
@@ -119,7 +121,8 @@ export const PayrollPrintModal: React.FC = () => {
                       <td className="p-2 border border-slate-300 text-slate-600">{item.jobTitle}</td>
                       <td className="p-2 border border-slate-300 text-center text-slate-600">{salaryLabel}</td>
                       <td className="p-2 border border-slate-300 text-center font-mono text-[10px]">
-                        {item.presentDays ?? item.workDays ?? 0}ح | {item.absentDays ?? 0}غ | {item.totalWorkedHours ?? 0}س
+                        {item.presentDays ?? item.workDays ?? 0}ح | {item.absentDays ?? 0}غ | {formatDecimalHours(item.totalWorkedHours ?? 0)}
+
                       </td>
                       <td className="p-2 border border-slate-300 text-center font-mono">{item.basicSalary.toLocaleString()}</td>
                       <td className="p-2 border border-slate-300 text-center font-mono text-amber-800 font-bold">

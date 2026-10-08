@@ -684,7 +684,7 @@ export const PayrollSheetModal: React.FC<PayrollSheetModalProps> = ({
                               </span>
                             </div>
                             <div className="text-[9px] text-slate-500 font-mono mt-0.5">
-                              {item.totalWorkedHours ?? 0} ساعة عمل صافية
+                              {formatDecimalHours(item.totalWorkedHours ?? 0)} صافي العمل
                             </div>
                           </td>
 

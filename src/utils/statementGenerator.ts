@@ -773,14 +773,18 @@ export function generateEmployeeStatement(params: {
 
   if (employee.salaryType === 'daily') {
     dailyRate = baseSalaryAmount;
-    hourlyRate = dailyRate / officialDailyHours;
+    const rawRate = dailyRate / officialDailyHours;
+    hourlyRate = employee.roundHourlyRateUp ? Math.ceil(rawRate * 10) / 10 : Number(rawRate.toFixed(2));
   } else if (employee.salaryType === 'weekly') {
     dailyRate = baseSalaryAmount / 6;
-    hourlyRate = dailyRate / officialDailyHours;
+    const rawRate = dailyRate / officialDailyHours;
+    hourlyRate = employee.roundHourlyRateUp ? Math.ceil(rawRate * 10) / 10 : Number(rawRate.toFixed(2));
   } else {
     // monthly
-    dailyRate = baseSalaryAmount / 30;
-    hourlyRate = dailyRate / officialDailyHours;
+    const workDays = employee.monthlyWorkDays || 26;
+    dailyRate = baseSalaryAmount / workDays;
+    const rawRate = dailyRate / officialDailyHours;
+    hourlyRate = employee.roundHourlyRateUp ? Math.ceil(rawRate * 10) / 10 : Number(rawRate.toFixed(2));
   }
 
   // احتساب الراتب الأساسي المفترض للفترة بناءً على الحضور والغياب وساعات العمل

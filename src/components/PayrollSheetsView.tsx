@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { PayrollSheet } from '../types';
 import { posSound } from '../utils/audio';
+import { formatDecimalHours } from '../utils/dateUtils';
 import { EmployeePayslipModal } from './EmployeePayslipModal';
+
 import {
   FileSpreadsheet,
   PlusCircle,
@@ -459,7 +461,8 @@ export const PayrollSheetsView: React.FC<PayrollSheetsViewProps> = ({
                           {item.salaryType === 'monthly' ? 'شهري' : item.salaryType === 'weekly' ? 'أسبوعي' : 'يومي'}
                         </td>
                         <td className="p-2 text-center font-mono text-[10px] bg-blue-50/30">
-                          {item.presentDays ?? item.workDays ?? 0}ح | {item.absentDays ?? 0}غ | {item.totalWorkedHours ?? 0}س
+                          {item.presentDays ?? item.workDays ?? 0}ح | {item.absentDays ?? 0}غ | {formatDecimalHours(item.totalWorkedHours ?? 0)}
+
                         </td>
                         <td className="p-2 text-center font-mono">{item.basicSalary.toLocaleString()}</td>
                         <td className="p-2 text-center font-mono text-amber-800 font-bold">

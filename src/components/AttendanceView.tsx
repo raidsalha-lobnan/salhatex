@@ -1125,8 +1125,7 @@ export const AttendanceView: React.FC = () => {
               <div className="flex items-center gap-1.5 text-slate-700">
                 <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                 <span>الساعات الفعلية:</span>
-                <span className="font-bold text-blue-700 font-mono">{dailyTotals.totalWorkedHours}</span>
-                <span className="text-gray-500 text-[11px]">ساعة</span>
+                <span className="font-bold text-blue-700 font-mono">{formatDecimalHours(dailyTotals.totalWorkedHours)}</span>
               </div>
 
               <span className="text-slate-300">|</span>
@@ -1134,8 +1133,7 @@ export const AttendanceView: React.FC = () => {
               <div className="flex items-center gap-1.5 text-amber-800">
                 <TrendingUp className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                 <span>ساعات الأوفرتايم:</span>
-                <span className="font-bold text-amber-900 font-mono">{dailyTotals.totalOvertimeHours}</span>
-                <span className="text-amber-700 text-[11px]">ساعة</span>
+                <span className="font-bold text-amber-900 font-mono">{formatDecimalHours(dailyTotals.totalOvertimeHours)}</span>
               </div>
 
               <span className="text-slate-300">|</span>
@@ -1734,16 +1732,14 @@ export const AttendanceView: React.FC = () => {
 
               <div className="flex items-center gap-1.5 text-slate-700">
                 <span>الساعات الفعلية:</span>
-                <span className="font-bold text-blue-700 font-mono">{monthlyTotals.totalWorkedHours}</span>
-                <span className="text-gray-500 text-[11px]">ساعة</span>
+                <span className="font-bold text-blue-700 font-mono">{formatDecimalHours(monthlyTotals.totalWorkedHours)}</span>
               </div>
 
               <span className="text-slate-300">|</span>
 
               <div className="flex items-center gap-1.5 text-amber-800">
                 <span>ساعات الأوفرتايم:</span>
-                <span className="font-bold text-amber-900 font-mono">{monthlyTotals.totalOvertimeHours}</span>
-                <span className="text-amber-700 text-[11px]">ساعة</span>
+                <span className="font-bold text-amber-900 font-mono">{formatDecimalHours(monthlyTotals.totalOvertimeHours)}</span>
               </div>
 
               <span className="text-slate-300">|</span>
@@ -2549,7 +2545,7 @@ export const AttendanceView: React.FC = () => {
                     </button>
                   </div>
                   <p className="text-[11px] text-gray-600 font-mono">
-                    الدوام: {editEmp.officialStartTime || '08:00'} إلى {editEmp.officialEndTime || '16:30'} ({editEmp.officialDailyHours || 8} س) | استراحة مخصومة: {editEmp.defaultBreakMinutes ?? 30} د | أوفرتايم: {editEmp.overtimeMethod === 'fixed_rate' ? `${editEmp.customOvertimeRate} ${currencySymbol}/س` : `${editEmp.overtimeMultiplier || 1.5}x`}
+                    الدوام: {editEmp.officialStartTime || '08:00'} إلى {editEmp.officialEndTime || '16:30'} ({editEmp.officialDailyHours || 8} س) | استراحة مخصومة: {editEmp.defaultBreakMinutes ?? 30} د | أوفرتايم: {editEmp.overtimeMethod === 'fixed_rate' ? `${editEmp.customOvertimeRate} ${currencySymbol}/س` : `${editEmp.overtimeMultiplier ?? 1.5}x`}
                   </p>
                 </div>
               )}

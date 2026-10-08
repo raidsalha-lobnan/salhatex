@@ -3,6 +3,8 @@ import { DateInput } from '../components/common/DateInput';
 import { useAccounting } from '../context/AccountingContext';
 import { Employee, SalaryType, EmployeeDepartment, PaymentMethod, PayrollSheet } from '../types';
 import { posSound } from '../utils/audio';
+import { formatDecimalHours } from '../utils/dateUtils';
+
 import { EmployeeAdjustmentsView } from './EmployeeAdjustmentsView';
 import { PayrollSheetsView } from './PayrollSheetsView';
 import { AttendanceView } from './AttendanceView';
@@ -1637,7 +1639,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
                     </div>
                     <div className="bg-slate-800 p-1.5 rounded">
                       <span className="text-slate-400 block">ساعات العمل:</span>
-                      <strong className="text-blue-300 font-mono">{payBreakdown.totalWorkedHours} س</strong>
+                      <strong className="text-blue-300 font-mono">{formatDecimalHours(payBreakdown.totalWorkedHours)}</strong>
                     </div>
                   </div>
 
