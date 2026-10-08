@@ -20,11 +20,20 @@ try {
   }, config.firestoreDatabaseId && config.firestoreDatabaseId !== '(default)' ? config.firestoreDatabaseId : undefined);
 } catch (e) {
   try {
-    firestoreDb = config.firestoreDatabaseId && config.firestoreDatabaseId !== '(default)'
-      ? getFirestore(app, config.firestoreDatabaseId)
-      : getFirestore(app);
+    // Fallback if persistent cache is blocked (common in sandboxed iframes)
+    // We still want to preserve ignoreUndefinedProperties and long polling!
+    firestoreDb = initializeFirestore(app, {
+      ignoreUndefinedProperties: true,
+      experimentalAutoDetectLongPolling: true
+    }, config.firestoreDatabaseId && config.firestoreDatabaseId !== '(default)' ? config.firestoreDatabaseId : undefined);
   } catch (err) {
-    firestoreDb = getFirestore(app);
+    try {
+      firestoreDb = config.firestoreDatabaseId && config.firestoreDatabaseId !== '(default)'
+        ? getFirestore(app, config.firestoreDatabaseId)
+        : getFirestore(app);
+    } catch (err2) {
+      firestoreDb = getFirestore(app);
+    }
   }
 }
 

@@ -1,8 +1,98 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Standalone validation helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Default deny catch-all
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
+    }
+
+    // Rules for all the specific workshop collections
+    match /sewing_accounts/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_treasuries/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_parties/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_employees/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_invoices/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_purchases/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_purchaseReturns/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_salesReturns/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_vouchers/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_printOrders/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_journalEntries/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_employeeAdvances/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_employeeDeductions/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_employeeIncentives/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_attendanceRecords/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_payrollSheets/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_inventory/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_stockMovements/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_companies/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_branches/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_warehouses/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_warehouseOperations/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_roles/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_users/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_debtClearings/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_expenses/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /sewing_settings/{id} {
+      allow read, write: if isSignedIn();
     }
   }
 }
