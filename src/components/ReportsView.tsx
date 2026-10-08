@@ -499,13 +499,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ initialReport }) => {
       }
     });
 
+    const priorRows = rows.filter(r => fromDate && r.date < fromDate);
+    const openingBalance = priorRows.reduce((sum, r) => sum + (r.dueAmount - r.paidAmount), 0);
+
     const filtered = rows.filter(r => {
       if (fromDate && r.date < fromDate) return false;
       if (toDate && r.date > toDate) return false;
       return true;
     }).sort((a, b) => a.date.localeCompare(b.date));
 
-    let running = 0;
+    let running = openingBalance;
     const computedRows = filtered.map(r => {
       running += (r.dueAmount - r.paidAmount);
       return {
@@ -520,9 +523,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ initialReport }) => {
     return {
       employee: emp,
       rows: computedRows,
+      openingBalance,
       totalDue,
       totalPaid,
-      netBalance: totalDue - totalPaid
+      netBalance: openingBalance + totalDue - totalPaid
     };
   }, [employees, selectedEmpId, employeeAdvances, employeeDeductions, employeeIncentives, payrollSheets, fromDate, toDate]);
 
@@ -1012,7 +1016,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ initialReport }) => {
           </div>
 
           {/* 3. جدول الحركات المالي المفصل */}
-          <div className="overflow-x-auto border border-slate-400 rounded-md shadow-2xs min-h-[440px] print:min-h-[720px] flex flex-col justify-between bg-white">
+          <div className="border border-slate-400 rounded-md shadow-2xs flex flex-col justify-between bg-white w-full overflow-visible">
             <table className="w-full text-right report-table border-collapse h-full">
               <thead className="bg-slate-800 text-white font-bold border-b border-slate-900 print:bg-slate-200 print:text-slate-900">
                 <tr>
@@ -1487,7 +1491,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ initialReport }) => {
           </div>
 
           {/* 3. جدول الحركات المالي المفصل للمورد */}
-          <div className="overflow-x-auto border border-slate-400 rounded-md shadow-2xs min-h-[440px] print:min-h-[720px] flex flex-col justify-between bg-white">
+          <div className="border border-slate-400 rounded-md shadow-2xs flex flex-col justify-between bg-white w-full overflow-visible">
             <table className="w-full text-right report-table border-collapse h-full">
               <thead className="bg-slate-800 text-white font-bold border-b border-slate-900 print:bg-slate-200 print:text-slate-900">
                 <tr>
@@ -2087,22 +2091,40 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ initialReport }) => {
           </div>
 
           {/* 3. جدول الحركات المالي المفصل للموظف */}
-          <div className="overflow-x-auto">
+          <div className="overflow-visible">
             <table className="w-full text-right report-table border-collapse">
               <thead className="bg-slate-800 text-white font-semibold border-b">
                 <tr>
                   <th className="text-center w-8 min-w-8">م</th>
                   <th className="text-center w-20 min-w-20">التاريخ</th>
-                  <th>البيان والشرح والتفاصيل</th>
-                  <th className="text-left w-24 min-w-24 whitespace-nowrap">استحقاق (+)</th>
-                  <th className="text-left w-24 min-w-24 whitespace-nowrap">منصرف (-)</th>
-                  <th className="text-left w-28 min-w-28 whitespace-nowrap">الرصيد المتبقي</th>
+                  <th>البيان والشرح والتفاصيل الكاملة</th>
+                  <th className="text-left w-28 min-w-28 whitespace-nowrap bg-emerald-950/40 text-emerald-200">دائن (له - راتب/حافز)</th>
+                  <th className="text-left w-28 min-w-28 whitespace-nowrap bg-rose-950/40 text-rose-200">مدين (عليه - سلفة/صرف/خصم)</th>
+                  <th className="text-left w-28 min-w-28 whitespace-nowrap bg-slate-700">رصيد (التراكمي)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-slate-200 font-mono">
+                {/* Opening Balance Row */}
+                <tr className="bg-slate-100 font-bold border-b border-slate-300 text-slate-800">
+                  <td className="text-center text-slate-400 font-sans p-2">-</td>
+                  <td className="font-mono text-slate-600 text-center whitespace-nowrap p-2">{fromDate || 'الرصيد السابق'}</td>
+                  <td className="font-sans font-bold text-slate-800 p-2 bg-slate-100/60">
+                    رصيد افتتاحي سابق - رصيد الحساب الافتتاحي للموظف (ما قبل تاريخ {fromDate || 'بداية الحركة'})
+                  </td>
+                  <td className="font-mono font-bold text-emerald-800 text-left whitespace-nowrap p-2">
+                    {employeeStatementData.openingBalance > 0 ? employeeStatementData.openingBalance.toFixed(2) : '-'}
+                  </td>
+                  <td className="font-mono font-bold text-rose-800 text-left whitespace-nowrap p-2">
+                    {employeeStatementData.openingBalance < 0 ? Math.abs(employeeStatementData.openingBalance).toFixed(2) : '-'}
+                  </td>
+                  <td className="font-mono font-black text-slate-950 text-left bg-slate-100 whitespace-nowrap p-2">
+                    {employeeStatementData.openingBalance.toFixed(2)} {settings.currency}
+                  </td>
+                </tr>
+
                 {employeeStatementData.rows.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-6 text-center text-slate-400 font-bold">
+                    <td colSpan={6} className="py-6 text-center text-slate-400 font-bold font-sans">
                       لا توجد حركات مسجلة لهذا الموظف خلال الفترة المحددة
                     </td>
                   </tr>
@@ -2114,15 +2136,22 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ initialReport }) => {
                         idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
                       }`}
                     >
-                      <td className="text-center text-slate-500 font-mono">
+                      <td className="text-center text-slate-500 font-mono p-2">
                         {idx + 1}
                       </td>
-                      <td className="font-mono text-slate-700 text-center whitespace-nowrap">
+                      <td className="font-mono text-slate-700 text-center whitespace-nowrap p-2">
                         {row.date}
                       </td>
-                      <td>
-                        <div className="font-bold text-slate-900 leading-tight flex flex-wrap items-center gap-1">
-                          <span className="text-slate-900 font-bold">{row.type}</span>
+                      <td className="p-2">
+                        <div className="font-bold text-slate-900 leading-tight flex flex-wrap items-center gap-1 font-sans">
+                          <span className={`px-1.5 py-0.5 rounded text-[10.5px] font-bold ${
+                            row.type.includes('سلفة') ? 'bg-amber-100 text-amber-900 border border-amber-300' :
+                            row.type.includes('استقطاع') ? 'bg-rose-100 text-rose-900 border border-rose-300' :
+                            row.type.includes('مكافأة') ? 'bg-purple-100 text-purple-900 border border-purple-300' :
+                            'bg-blue-100 text-blue-900 border border-blue-300'
+                          }`}>
+                            {row.type}
+                          </span>
                           {row.refNumber && (
                             <>
                               <span className="text-slate-400 font-normal">-</span>
@@ -2137,14 +2166,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ initialReport }) => {
                           )}
                         </div>
                       </td>
-                      <td className="font-mono font-bold text-purple-700 text-left whitespace-nowrap">
+                      <td className="font-mono font-bold text-emerald-700 text-left whitespace-nowrap p-2">
                         {row.dueAmount > 0 ? row.dueAmount.toFixed(2) : '-'}
                       </td>
-                      <td className="font-mono font-bold text-rose-700 text-left whitespace-nowrap">
+                      <td className="font-mono font-bold text-rose-700 text-left whitespace-nowrap p-2">
                         {row.paidAmount > 0 ? row.paidAmount.toFixed(2) : '-'}
                       </td>
-                      <td className="font-mono font-black text-slate-900 text-left bg-slate-50/70 whitespace-nowrap">
-                        {row.runningBalance.toFixed(2)}
+                      <td className="font-mono font-black text-slate-900 text-left bg-slate-50/70 whitespace-nowrap p-2">
+                        {row.runningBalance.toFixed(2)} {settings.currency}
                       </td>
                     </tr>
                   ))

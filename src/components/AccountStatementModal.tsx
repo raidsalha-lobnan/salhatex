@@ -240,7 +240,7 @@ export const AccountStatementModal: React.FC = () => {
       onClick={handleClose}
     >
       <div
-        className="bg-white rounded-xl max-w-5xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[94vh] print:max-h-none print:max-w-none print:border-none print:shadow-none print:w-full print:rounded-none cursor-default"
+        className="bg-white rounded-xl max-w-5xl w-full shadow-2xl border border-slate-200 overflow-visible my-auto flex flex-col print:max-w-none print:border-none print:shadow-none print:w-full print:rounded-none cursor-default"
         onClick={e => e.stopPropagation()}
       >
         
@@ -575,7 +575,7 @@ export const AccountStatementModal: React.FC = () => {
               </div>
 
               {/* Detailed Transactions Table - Optimized Font 12 & A4 Width */}
-              <div className="border border-slate-400 rounded-md overflow-x-auto shadow-2xs min-h-[440px] print:min-h-[720px] flex flex-col justify-between bg-white">
+              <div className="border border-slate-400 rounded-md shadow-2xs flex flex-col justify-between bg-white w-full overflow-visible">
                 <table className="w-full text-right report-table border-collapse h-full">
                   <thead>
                     <tr className="bg-slate-800 text-white font-bold border-b border-slate-900 print:bg-slate-200 print:text-slate-900">
@@ -589,26 +589,26 @@ export const AccountStatementModal: React.FC = () => {
                         {isCustomer ? 'دائن (له)' : 'دائن (التوريدات)'}
                       </th>
                       <th className="w-28 min-w-28 text-left bg-slate-700 print:bg-slate-300 whitespace-nowrap">
-                        الرصيد التراكمي
+                        رصيد (التراكمي)
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 font-mono">
                     {/* Opening Balance Row */}
                     <tr className="bg-slate-100/90 font-bold border-b border-slate-300 text-slate-800">
-                      <td className="text-center text-slate-400 font-sans border-l border-slate-300">-</td>
-                      <td className="text-center text-slate-600 font-mono border-l border-slate-300">{fromDate || 'الرصيد السابق'}</td>
-                      <td className="font-sans text-slate-700 font-semibold border-l border-slate-300">
-                        رصيد سابق - رصيد الحساب الافتتاحي السابق (ما قبل تاريخ {fromDate || 'بدء الحركة'})
+                      <td className="text-center text-slate-400 font-sans border-l border-slate-300 p-2">-</td>
+                      <td className="text-center text-slate-600 font-mono border-l border-slate-300 p-2">{fromDate || 'الرصيد السابق'}</td>
+                      <td className="font-sans text-slate-800 font-bold border-l border-slate-300 p-2 bg-slate-100/60">
+                        رصيد افتتاحي سابق - رصيد الحساب الافتتاحي السابق (ما قبل تاريخ {fromDate || 'بدء الحركة'})
                       </td>
-                      <td className="text-left font-bold text-slate-700 font-mono whitespace-nowrap border-l border-slate-300">
+                      <td className="text-left font-bold text-rose-800 font-mono whitespace-nowrap border-l border-slate-300 p-2">
                         {partyStatement.openingBalance > 0 ? partyStatement.openingBalance.toFixed(2) : '-'}
                       </td>
-                      <td className="text-left font-bold text-slate-700 font-mono whitespace-nowrap border-l border-slate-300">
+                      <td className="text-left font-bold text-emerald-800 font-mono whitespace-nowrap border-l border-slate-300 p-2">
                         {partyStatement.openingBalance < 0 ? Math.abs(partyStatement.openingBalance).toFixed(2) : '-'}
                       </td>
-                      <td className="text-left font-black text-slate-950 bg-slate-100 font-mono whitespace-nowrap">
-                        {partyStatement.openingBalance.toFixed(2)}
+                      <td className="text-left font-black text-slate-950 bg-slate-100 font-mono whitespace-nowrap p-2">
+                        {partyStatement.openingBalance.toFixed(2)} {settings.currency}
                       </td>
                     </tr>
 
@@ -1238,21 +1238,15 @@ export const AccountStatementModal: React.FC = () => {
                       <tr className="bg-slate-800 text-white font-bold border-b border-slate-900 print:bg-slate-200 print:text-slate-900 text-xs">
                         <th className="w-7 min-w-7 text-center border-l border-slate-600 print:border-slate-400">م</th>
                         <th className="w-20 min-w-20 text-center border-l border-slate-600 print:border-slate-400">التاريخ</th>
-                        <th className="border-l border-slate-600 print:border-slate-400">نوع الحركة والبيان وسجل الدوام التفصيلي</th>
-                        <th className="w-24 min-w-24 text-left bg-emerald-950/40 print:bg-emerald-50 border-l border-slate-600 print:border-slate-400 whitespace-nowrap">
-                          استحقاقات (له)
+                        <th className="border-l border-slate-600 print:border-slate-400">البيان والشرح وسجل الحركة والدوام</th>
+                        <th className="w-28 min-w-28 text-left bg-emerald-950/40 print:bg-emerald-50 border-l border-slate-600 print:border-slate-400 whitespace-nowrap">
+                          دائن (له - راتب/حافز)
                         </th>
-                        <th className="w-20 min-w-20 text-left bg-amber-950/40 print:bg-amber-50 border-l border-slate-600 print:border-slate-400 whitespace-nowrap">
-                          سلف (عليه)
-                        </th>
-                        <th className="w-20 min-w-20 text-left bg-rose-950/40 print:bg-rose-50 border-l border-slate-600 print:border-slate-400 whitespace-nowrap">
-                          خصومات (عليه)
-                        </th>
-                        <th className="w-22 min-w-22 text-left bg-blue-950/40 print:bg-blue-50 border-l border-slate-600 print:border-slate-400 whitespace-nowrap">
-                          صرف مسدد
+                        <th className="w-28 min-w-28 text-left bg-rose-950/40 print:bg-rose-50 border-l border-slate-600 print:border-slate-400 whitespace-nowrap">
+                          مدين (عليه - سلفة/صرف/خصم)
                         </th>
                         <th className="w-28 min-w-28 text-left bg-slate-700 print:bg-slate-300 whitespace-nowrap">
-                          الرصيد التراكمي
+                          رصيد (التراكمي)
                         </th>
                       </tr>
                     </thead>
@@ -1415,17 +1409,15 @@ export const AccountStatementModal: React.FC = () => {
                       <tr className="bg-slate-100/90 font-bold border-b border-slate-300 text-slate-800">
                         <td className="text-center text-slate-400 font-sans border-l border-slate-300 p-2">-</td>
                         <td className="text-center text-slate-600 font-mono border-l border-slate-300 p-2">{fromDate || 'الرصيد السابق'}</td>
-                        <td className="font-sans text-slate-700 font-semibold border-l border-slate-300 p-2">
-                          رصيد سابق - الرصيد الافتتاحي السابق للموظف (ما قبل تاريخ {fromDate || 'بداية العمل'})
+                        <td className="font-sans text-slate-800 font-bold border-l border-slate-300 p-2 bg-slate-100/60">
+                          رصيد افتتاحي سابق - الرصيد الافتتاحي السابق للموظف (ما قبل تاريخ {fromDate || 'بداية العمل'})
                         </td>
-                        <td className="text-left font-bold text-emerald-700 font-mono whitespace-nowrap border-l border-slate-300 p-2">
+                        <td className="text-left font-bold text-emerald-800 font-mono whitespace-nowrap border-l border-slate-300 p-2">
                           {employeeStatement.openingBalance > 0 ? employeeStatement.openingBalance.toFixed(2) : '-'}
                         </td>
-                        <td className="text-left font-bold text-amber-700 font-mono whitespace-nowrap border-l border-slate-300 p-2">
+                        <td className="text-left font-bold text-rose-800 font-mono whitespace-nowrap border-l border-slate-300 p-2">
                           {employeeStatement.openingBalance < 0 ? Math.abs(employeeStatement.openingBalance).toFixed(2) : '-'}
                         </td>
-                        <td className="text-left text-slate-400 font-mono whitespace-nowrap border-l border-slate-300 p-2">-</td>
-                        <td className="text-left text-slate-400 font-mono whitespace-nowrap border-l border-slate-300 p-2">-</td>
                         <td className="text-left font-black text-slate-950 bg-slate-100 font-mono whitespace-nowrap p-2">
                           {employeeStatement.openingBalance.toFixed(2)} {settings.currency}
                         </td>
@@ -1433,12 +1425,16 @@ export const AccountStatementModal: React.FC = () => {
 
                       {employeeStatement.rows.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="py-8 text-center text-slate-400 font-sans font-bold">
+                          <td colSpan={6} className="py-8 text-center text-slate-400 font-sans font-bold">
                             لا توجد حركات أو مسيرات رواتب مسجلة للموظف خلال هذه الفترة المحددة.
                           </td>
                         </tr>
                       ) : (
-                        employeeStatement.rows.map((row, idx) => (
+                        employeeStatement.rows.map((row, idx) => {
+                          const debitAmount = (row.advance || 0) + (row.deduction || 0) + (row.disbursement || 0);
+                          const creditAmount = row.entitlement || 0;
+
+                          return (
                           <tr
                             key={`${row.id || 'emp-row'}-${idx}`}
                             className={`hover:bg-slate-50/90 transition-colors ${
@@ -1456,7 +1452,7 @@ export const AccountStatementModal: React.FC = () => {
                                   row.type === 'incentive' ? 'bg-purple-100 text-purple-900 border border-purple-300' :
                                   'bg-blue-100 text-blue-900 border border-blue-300'
                                 }`}>
-                                  {row.typeLabel}
+                                  {row.type === 'advance' ? '💸 سلفة نقدية' : row.typeLabel}
                                 </span>
                                 {row.referenceNumber && (
                                   <span className="font-mono font-semibold text-slate-700">[{row.referenceNumber}]</span>
@@ -1528,16 +1524,10 @@ export const AccountStatementModal: React.FC = () => {
                               )}
                             </td>
                             <td className="text-left font-bold text-emerald-700 font-mono align-middle whitespace-nowrap border-l border-slate-300 p-2">
-                              {row.entitlement > 0 ? row.entitlement.toFixed(2) : '-'}
-                            </td>
-                            <td className="text-left font-bold text-amber-700 font-mono align-middle whitespace-nowrap border-l border-slate-300 p-2">
-                              {row.advance > 0 ? row.advance.toFixed(2) : '-'}
+                              {creditAmount > 0 ? creditAmount.toFixed(2) : '-'}
                             </td>
                             <td className="text-left font-bold text-rose-700 font-mono align-middle whitespace-nowrap border-l border-slate-300 p-2">
-                              {row.deduction > 0 ? row.deduction.toFixed(2) : '-'}
-                            </td>
-                            <td className="text-left font-bold text-blue-700 font-mono align-middle whitespace-nowrap border-l border-slate-300 p-2">
-                              {row.disbursement > 0 ? row.disbursement.toFixed(2) : '-'}
+                              {debitAmount > 0 ? debitAmount.toFixed(2) : '-'}
                             </td>
                             <td className={`text-left font-black font-mono align-middle whitespace-nowrap bg-slate-50/70 p-2 ${
                               row.runningBalance >= 0 ? 'text-slate-900' : 'text-amber-800'
@@ -1545,7 +1535,8 @@ export const AccountStatementModal: React.FC = () => {
                               {row.runningBalance.toFixed(2)} {settings.currency}
                             </td>
                           </tr>
-                        ))
+                          );
+                        })
                       )}
                     </tbody>
                   )}

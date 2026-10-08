@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAccounting } from '../context/AccountingContext';
-import { Printer, X, Scissors, Layers, CheckCircle2, Ruler, User, Package, AlertTriangle, Palette, Image as ImageIcon, Maximize2, Sparkles } from 'lucide-react';
+import { Printer, X, Scissors, Layers, CheckCircle2, Ruler, User, Package, AlertTriangle, Palette, Image as ImageIcon, Maximize2, Sparkles, Users, Calculator, Clock } from 'lucide-react';
 import { PrintHeader } from './common/PrintHeader';
 import { SuppliedMaterialItem, ColorSizeQuantityRow } from '../types';
 import { ImagePreviewModal } from './workshop/ImagePreviewModal';
@@ -449,6 +449,116 @@ export const JobTicketModal: React.FC = () => {
             <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-amber-900">
               <strong className="block mb-1">تعليمات وملاحظات الزبون والخياطة:</strong>
               <p>{(job as any).notes || job.specs?.notes}</p>
+            </div>
+          )}
+
+          {/* Workers Labor & Production Cost Breakdown Table */}
+          {(((job as any).assignedWorkersLabor && (job as any).assignedWorkersLabor.length > 0) || ((job as any).dailyLaborLogs && (job as any).dailyLaborLogs.length > 0)) && (
+            <div className="border border-slate-300 rounded-xl overflow-hidden print:border-slate-400 space-y-0">
+              <div className="bg-slate-100 p-2.5 font-bold text-slate-900 text-xs border-b border-slate-200 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Calculator className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>بيان عمالة الموديل وساعات العمل والإنتاج (Daily Labor & Overtime Breakdown)</span>
+                </span>
+                <span className="text-[10px] font-mono font-bold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
+                  إجمالي أجور العمالة: {(job as any).totalLaborCost || 0} {settings.currency}
+                </span>
+              </div>
+
+              {/* Detailed Daily Slots Breakdown if available */}
+              {(job as any).dailyLaborLogs && (job as any).dailyLaborLogs.length > 0 ? (
+                <div className="overflow-x-auto border-b border-slate-200">
+                  <div className="bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-700 border-b border-slate-200">
+                    🗓️ جدول سجل الفترات وساعات العمل اليومية للموديل:
+                  </div>
+                  <table className="w-full text-right text-xs">
+                    <thead className="bg-slate-100/70 text-slate-700 font-bold border-b border-slate-200 text-[10px]">
+                      <tr>
+                        <th className="py-1 px-2 w-6 text-center">#</th>
+                        <th className="py-1 px-2">التاريخ واليوم</th>
+                        <th className="py-1 px-2">العامل / الموظف</th>
+                        <th className="py-1 px-2">المهمة</th>
+                        <th className="py-1 px-2 text-center">الوقت (من ➔ إلى)</th>
+                        <th className="py-1 px-2 text-center">الساعات</th>
+                        <th className="py-1 px-2 text-center">الدوام / الإضافي</th>
+                        <th className="py-1 px-2 text-center">التكلفة</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 text-slate-900 text-[11px]">
+                      {((job as any).dailyLaborLogs as any[]).map((slot, idx) => (
+                        <tr key={slot.id || idx}>
+                          <td className="py-1 px-2 text-center font-mono text-slate-400">{idx + 1}</td>
+                          <td className="py-1 px-2 font-mono font-semibold">{slot.date}</td>
+                          <td className="py-1 px-2 font-bold">{slot.employeeName}</td>
+                          <td className="py-1 px-2 text-indigo-700">{slot.stageOrRole}</td>
+                          <td className="py-1 px-2 text-center font-mono dir-ltr">{slot.startTime} - {slot.endTime}</td>
+                          <td className="py-1 px-2 text-center font-mono font-bold">{slot.hoursWorked} س</td>
+                          <td className="py-1 px-2 text-center font-mono text-[10px]">
+                            {slot.overtimeHours > 0 ? (
+                              <span className="text-amber-800 font-bold">أوفرتايم ({slot.overtimeHours}س x{slot.overtimeMultiplier})</span>
+                            ) : (
+                              <span className="text-emerald-700 font-semibold">رسمي (100%)</span>
+                            )}
+                          </td>
+                          <td className="py-1 px-2 text-center font-mono font-bold text-emerald-800">{slot.totalLaborCost} {settings.currency}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {/* Workers Summary Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 text-[11px]">
+                    <tr>
+                      <th className="py-1.5 px-2.5 w-6 text-center">#</th>
+                      <th className="py-1.5 px-2.5">العامل / الموظف</th>
+                      <th className="py-1.5 px-2.5">المهمة / المرحلة</th>
+                      <th className="py-1.5 px-2.5 text-center">طريقة الحساب</th>
+                      <th className="py-1.5 px-2.5 text-center">ساعات / قطع</th>
+                      <th className="py-1.5 px-2.5 text-center">أجر الساعة</th>
+                      <th className="py-1.5 px-2.5 text-center">إجمالي الأجر</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 text-slate-900">
+                    {((job as any).assignedWorkersLabor as any[] || []).map((w, idx) => (
+                      <tr key={w.id || idx} className="text-xs">
+                        <td className="py-1.5 px-2.5 text-center font-mono text-slate-400 font-semibold">{idx + 1}</td>
+                        <td className="py-1.5 px-2.5 font-bold text-slate-900">
+                          {w.employeeName}
+                          {w.jobTitle ? <span className="text-[10px] text-slate-500 font-normal block">{w.jobTitle}</span> : null}
+                        </td>
+                        <td className="py-1.5 px-2.5 font-semibold text-indigo-700">{w.stageOrRole}</td>
+                        <td className="py-1.5 px-2.5 text-center text-slate-600 font-medium">
+                          {w.calculationType === 'daily_slots' ? 'فترات يومية (بالوقت)' : w.calculationType === 'hourly' ? 'بالساعة (من الراتب)' : 'بالقطعة'}
+                        </td>
+                        <td className="py-1.5 px-2.5 text-center font-mono font-bold text-emerald-700">
+                          {w.calculationType === 'piece' ? `${w.piecesCompleted || 1} قطعة` : `${w.hoursWorked} ساعة`}
+                        </td>
+                        <td className="py-1.5 px-2.5 text-center font-mono font-semibold">
+                          {w.hourlyRate || w.pieceRate || 0} {settings.currency}
+                        </td>
+                        <td className="py-1.5 px-2.5 text-center font-mono font-bold text-emerald-700">
+                          {w.totalLaborCost} {settings.currency}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {(job as any).totalProductionCost > 0 && (
+                <div className="bg-slate-50 p-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs font-mono font-bold">
+                  <span className="text-slate-600 font-sans">
+                    إجمالي التكلفة الإنتاجية (خامات + أجور عمالة): <strong className="text-indigo-800">{(job as any).totalProductionCost} {settings.currency}</strong>
+                  </span>
+                  <span className="text-slate-600 font-sans">
+                    تكلفة القطعة الواحدة: <strong className="text-purple-800">{(job as any).productionCostPerUnit || 0} {settings.currency}</strong>
+                  </span>
+                </div>
+              )}
             </div>
           )}
 

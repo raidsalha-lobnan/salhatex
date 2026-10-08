@@ -302,6 +302,53 @@ export interface SuppliedMaterialItem {
   notes?: string;              // ملاحظات البند والمواصفات
 }
 
+export interface WorkOrderDailyTimeSlot {
+  id: string;
+  date: string;                  // YYYY-MM-DD (تاريخ يوم العمل في الموديل)
+  employeeId: string;            // معرف العامل
+  employeeName: string;          // اسم العامل
+  jobTitle?: string;             // مسمى الوظيفة
+  stageOrRole: string;           // المهمة/المرحلة: قص، خياطة، تطريز، كوي...
+  startTime: string;             // وقت البدء باليوم (مثلاً "16:00" أو "04:00 PM")
+  endTime: string;               // وقت الانتهاء باليوم (مثلاً "19:00" أو "07:00 PM")
+  hoursWorked: number;           // إجمالي ساعات العمل لهذه الفترة (مثلاً 3.0 ساعات)
+  
+  // مقارنة واحتساب الدوام الرسمي مقابل الأوفرتايم
+  baseHourlyRate: number;        // أجر الساعة العادية
+  regularHours: number;          // الساعات التي تقع ضمن الدوام الرسمي للعامل
+  overtimeHours: number;         // الساعات التي تعتبر إضافية (أوفر تايم)
+  overtimeMultiplier: number;    // مضاعف الأوفر تايم (1.0، 1.25، 1.5، 2.0...)
+  overtimeRate: number;          // أجر ساعة الأوفرتايم
+  
+  regularLaborCost: number;      // تكلفة الساعات العادية
+  overtimeLaborCost: number;     // تكلفة ساعات الأوفرتايم
+  totalLaborCost: number;        // إجمالي تكلفة هذه الفترة
+  slotType: 'regular' | 'overtime' | 'mixed'; // نوع الفترة المحسوب آلياً
+  notes?: string;
+}
+
+export interface WorkOrderWorkerLabor {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  jobTitle?: string;
+  stageOrRole: string;        // المهمة/المرحلة: قص، خياطة، تطريز، كوي وتجميع، جودة...
+  calculationType: 'hourly' | 'piece' | 'daily_slots'; // احتساب بالساعة أو بالقطعة أو بالفترات والأيام
+  hoursWorked: number;        // عدد ساعات العمل الإجمالية في هذا الموديل/أمر التشغيل
+  regularHours?: number;      // إجمالي الساعات النظامية
+  overtimeHours?: number;     // إجمالي ساعات الأوفر تايم
+  hourlyRate: number;         // أجر الساعة المستخرج تلقائياً من راتب الموظف مع إمكانية التعديل
+  overtimeRate?: number;      // أجر ساعة الأوفرتايم
+  overtimeMultiplier?: number;// مضاعف الأوفرتايم
+  piecesCompleted?: number;   // عدد القطع المنجزة (في حال اختيار الحساب بالقطعة)
+  pieceRate?: number;         // أجر القطعة الواحدة
+  regularLaborCost?: number;  // تكلفة الساعات الرسمية
+  overtimeLaborCost?: number; // تكلفة ساعات الإضافي
+  totalLaborCost: number;     // إجمالي التكلفة لهذا العامل = (ساعات × أجر الساعة) أو (قطع × أجر القطعة)
+  dailyTimeSlots?: WorkOrderDailyTimeSlot[]; // السجلات والفترات اليومية التفصيلية
+  notes?: string;
+}
+
 export interface PrintJobOrder {
   id: string;
   orderNumber: string;
@@ -322,10 +369,16 @@ export interface PrintJobOrder {
   measurements?: TailoringMeasurements; // جدول القياسات والكميات والألوان التفصيلية
   colorSizeMatrix?: ColorSizeQuantityRow[]; // جدول القياسات والكميات والألوان التفصيلي
   suppliedMaterials?: SuppliedMaterialItem[]; // جدول الخامات والإكسسوارات الموردة للتشغيل
+  assignedWorkersLabor?: WorkOrderWorkerLabor[]; // عمالة الموديل وساعات العمل المسجلة واحتساب الأجور
+  dailyLaborLogs?: WorkOrderDailyTimeSlot[]; // السجل اليومي الشامل لساعات وعمالة الموديل
+  totalLaborCost?: number;       // إجمالي تكلفة أجور وساعات العمالة في الموديل/أمر التشغيل
+  totalMaterialsCost?: number;   // إجمالي تكلفة الخامات المستهلكة
+  totalProductionCost?: number;  // إجمالي التكلفة الإنتاجية الكاملة لأمر التشغيل (خامات + أجور عمالة)
+  productionCostPerUnit?: number;// تكلفة إنتاج القطعة الواحدة = التكلفة الإنتاجية ÷ عدد القطع
   quantity: number;          // عدد القطع
   colorType?: string;        // لون الموديل أو التطريز
   finishingOptions: string[];// خيارات التشطيب (سحاب مخفي، أزرار صدف، تطريز كمبيوتر، كتافيات، بطانة كاملة...)
-  unitCost: number;          // سعر تفصيل القطعة
+  unitCost: number;          // سعر تفصيل القطعة (سعر البيع للعميل)
   totalPrice: number;        // إجمالي الفاتورة
   depositPaid: number;       // العربون المدفوع
   remainingBalance: number;  // المتبقي عند الاستلام
@@ -339,6 +392,7 @@ export interface PrintJobOrder {
   finisherId?: string;       // مسؤول الكي والتشطيب
   finisherName?: string;
   pieceRateWage?: number;    // أجر الخياط بالقطعة
+  workStartDate?: string;    // تاريخ وموعد دخول الموديل للعمل بالورشة
   fittingDate?: string;      // موعد القياس والبروفة
   deliveryDate: string;      // تاريخ التسليم النهائي
   notes?: string;

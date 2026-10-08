@@ -285,9 +285,9 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
       deductLateMinutes: formDeductLateMinutes,
       hireDate: formHireDate,
       status: formStatus,
-      paymentMethod: formPaymentMethod,
-      bankName: formPaymentMethod === 'bank_transfer' ? formBankName : undefined,
-      iban: formPaymentMethod === 'bank_transfer' ? formIban : undefined,
+      paymentMethod: formPaymentMethod || 'cash',
+      bankName: formBankName.trim() || undefined,
+      iban: formIban.trim() || undefined,
       emergencyContactName: formEmergencyName.trim() || undefined,
       emergencyContactPhone: formEmergencyPhone.trim() || undefined,
       emergencyRelation: formEmergencyRelation.trim() || undefined,
@@ -375,34 +375,28 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
 
   return (
     <div className="space-y-4">
-      {/* Top Header Card */}
-      <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center">
-                <Users className="w-5 h-5" />
-              </div>
-              <h1 className="text-lg font-bold text-slate-900">
+      {/* Top Header & Compact Metrics Card */}
+      <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-2.5 space-y-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
+            <div>
+              <h1 className="text-sm font-bold text-slate-900 leading-tight">
                 سجل شؤون الموظفين والرواتب
               </h1>
-              <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-bold border border-blue-200">
-                {employees.length} موظف
-              </span>
             </div>
-            <p className="text-[10px] text-slate-400 font-light mt-1">
-              إدارة بيانات فريق العمل، المسميات الوظيفية، وتحديد أنظمة الرواتب (يومي، أسبوعي، شهري) وإصدار سندات الصرف
-            </p>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-1.5 w-full sm:w-auto">
             <button
               onClick={() => window.print()}
-              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-200"
+              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer border border-slate-200"
               title="طباعة كشف الموظفين"
             >
-              <Printer className="w-4 h-4 text-slate-600" />
-              <span className="hidden md:inline">طباعة الكشف</span>
+              <Printer className="w-3.5 h-3.5 text-slate-600" />
+              <span>طباعة</span>
             </button>
 
             <button
@@ -411,88 +405,64 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
                   setSelectedEmployeeForStatement(employees[0]);
                 }
               }}
-              className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="فتح الكشف المالي التفصيلي للموظفين"
+              className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
             >
-              <FileText className="w-4 h-4 text-indigo-600" />
-              <span className="hidden sm:inline">كشف مالي تفصيلي</span>
+              <FileText className="w-3.5 h-3.5 text-indigo-600" />
+              <span>كشف مالي</span>
             </button>
 
             <button
               onClick={handleOpenAdd}
-              className="flex-1 sm:flex-none px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              className="flex-1 sm:flex-none px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 cursor-pointer shadow-xs"
             >
-              <UserPlus className="w-4 h-4" />
+              <UserPlus className="w-3.5 h-3.5" />
               <span>إضافة موظف جديد</span>
             </button>
           </div>
         </div>
 
-        {/* Live Metrics Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-slate-100">
-          <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
-            <div className="text-[10px] text-slate-400 font-light font-medium flex items-center justify-between">
-              <span>إجمالي الموظفين</span>
-              <Users className="w-3.5 h-3.5 text-blue-500" />
-            </div>
-            <div className="text-lg font-black text-slate-800 mt-1">
-              {employees.length}{' '}
-              <span className="text-[10px] font-normal text-slate-500">
-                ({activeCount} على رأس العمل)
-              </span>
-            </div>
+        {/* Live Metrics Ribbon - Ultra Compact */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100 text-xs">
+          <div className="bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200/80 flex items-center justify-between">
+            <span className="text-slate-500 text-[11px]">الموظفون:</span>
+            <span className="font-bold text-slate-900 font-mono">
+              {employees.length} <span className="text-[10px] text-emerald-600">({activeCount} نشط)</span>
+            </span>
           </div>
 
-          <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
-            <div className="text-[10px] text-slate-400 font-light font-medium flex items-center justify-between">
-              <span>مسير الرواتب الشهري التقديري</span>
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-            </div>
-            <div className="text-lg font-black text-emerald-700 font-mono mt-1">
-              {totalMonthlyPayrollEstimate.toLocaleString()}{' '}
-              <span className="text-[10px] font-bold text-emerald-600">{settings.currency}</span>
-            </div>
+          <div className="bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200/80 flex items-center justify-between">
+            <span className="text-slate-500 text-[11px]">مسير الرواتب:</span>
+            <span className="font-bold text-emerald-700 font-mono">
+              {totalMonthlyPayrollEstimate.toLocaleString()} {settings.currency}
+            </span>
           </div>
 
-          <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
-            <div className="text-[10px] text-slate-400 font-light font-medium flex items-center justify-between">
-              <span>رواتب شهرية</span>
-              <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.2 rounded font-bold">شهري</span>
-            </div>
-            <div className="text-lg font-black text-slate-800 mt-1">
-              {monthlyCount}{' '}
-              <span className="text-[10px] font-normal text-slate-500">موظفين</span>
-            </div>
+          <div className="bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200/80 flex items-center justify-between">
+            <span className="text-slate-500 text-[11px]">رواتب شهرية:</span>
+            <span className="font-bold text-blue-700 font-mono">{monthlyCount} موظفين</span>
           </div>
 
-          <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
-            <div className="text-[10px] text-slate-400 font-light font-medium flex items-center justify-between">
-              <span>رواتب أسبوعية ويومية</span>
-              <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-bold">أسبوعي/يومي</span>
-            </div>
-            <div className="text-lg font-black text-slate-800 mt-1">
-              <span className="text-amber-700">{weeklyCount} أسبوعي</span>
-              <span className="text-slate-400 mx-1">|</span>
-              <span className="text-emerald-700">{dailyCount} يومي</span>
-            </div>
+          <div className="bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200/80 flex items-center justify-between">
+            <span className="text-slate-500 text-[11px]">أسبوعي / يومي:</span>
+            <span className="font-bold text-amber-700 font-mono">{weeklyCount} أسبوعي | {dailyCount} يومي</span>
           </div>
         </div>
       </div>
 
-      {/* Primary Sub-Navigation Tabs */}
-      <div className="flex items-center gap-1.5 p-1.5 bg-slate-200/75 rounded-xl border border-slate-300/80 shadow-2xs">
+      {/* Primary Sub-Navigation Tabs - Condensed */}
+      <div className="flex items-center gap-1 p-1 bg-slate-200/80 rounded-lg border border-slate-300/80 shadow-2xs text-xs">
         <button
           type="button"
           onClick={() => setActiveSubTab('employees')}
-          className={`flex-1 py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+          className={`flex-1 py-1.5 px-2 rounded-md font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
             activeSubTab === 'employees'
               ? 'bg-white text-blue-900 shadow-xs border border-slate-200'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
           }`}
         >
-          <Users className="w-4 h-4 text-blue-600" />
-          <span>دليل وبيانات الموظفين</span>
-          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
+          <Users className="w-3.5 h-3.5 text-blue-600" />
+          <span>دليل الموظفين</span>
+          <span className="bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold">
             {employees.length}
           </span>
         </button>
@@ -500,16 +470,16 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
         <button
           type="button"
           onClick={() => setActiveSubTab('adjustments')}
-          className={`flex-1 py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+          className={`flex-1 py-1.5 px-2 rounded-md font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
             activeSubTab === 'adjustments'
               ? 'bg-white text-blue-900 shadow-xs border border-slate-200'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
           }`}
         >
-          <CreditCard className="w-4 h-4 text-amber-600" />
-          <span>السلف والخصومات والحوافز</span>
+          <CreditCard className="w-3.5 h-3.5 text-amber-600" />
+          <span>السلف والخصومات</span>
           {employeeAdvances.filter(a => a.status === 'pending').length + employeeDeductions.filter(d => d.status === 'pending').length > 0 && (
-            <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
+            <span className="bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold">
               {employeeAdvances.filter(a => a.status === 'pending').length + employeeDeductions.filter(d => d.status === 'pending').length} معلق
             </span>
           )}
@@ -518,31 +488,28 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
         <button
           type="button"
           onClick={() => setActiveSubTab('attendance')}
-          className={`flex-1 py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+          className={`flex-1 py-1.5 px-2 rounded-md font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
             activeSubTab === 'attendance'
               ? 'bg-white text-indigo-900 shadow-xs border border-slate-200'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
           }`}
         >
-          <Clock className="w-4 h-4 text-indigo-600" />
+          <Clock className="w-3.5 h-3.5 text-indigo-600" />
           <span>الحضور والدوام والأوفرتايم</span>
-          <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
-            كشف يومي
-          </span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveSubTab('payroll_sheets')}
-          className={`flex-1 py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+          className={`flex-1 py-1.5 px-2 rounded-md font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
             activeSubTab === 'payroll_sheets'
               ? 'bg-white text-blue-900 shadow-xs border border-slate-200'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
           }`}
         >
-          <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-          <span>كشوفات ومسيرات الرواتب</span>
-          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
+          <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+          <span>مسيرات الرواتب</span>
+          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold">
             {payrollSheets.length}
           </span>
         </button>
@@ -569,33 +536,33 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
       {/* Tab Content: Employees Directory */}
       {activeSubTab === 'employees' && (
         <>
-      {/* Filter and Search Bar */}
-      <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-3 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
+      {/* Filter and Search Bar - Condensed */}
+      <div className="bg-white rounded-lg shadow-xs border border-slate-200 p-2 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="بحث بالاسم، الكود (EMP)، المسمى الوظيفي، الجوال أو رقم الهوية..."
-            className="w-full pr-9 pl-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:ring-1 focus:ring-blue-500"
+            placeholder="بحث بالاسم، الكود (EMP)، المسمى الوظيفي..."
+            className="w-full pr-8 pl-3 py-1 bg-slate-50 border border-slate-200 rounded text-xs focus:bg-white focus:ring-1 focus:ring-blue-500"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+              className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
             >
               ✕
             </button>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           {/* Department Filter */}
           <select
             value={selectedDept}
             onChange={e => setSelectedDept(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:bg-white focus:ring-1 focus:ring-blue-500"
+            className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 focus:bg-white focus:ring-1 focus:ring-blue-500"
           >
             <option value="all">كل الأقسام</option>
             <option value="printing">ورشة الطباعة والمكائن</option>
@@ -612,7 +579,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
           <select
             value={selectedSalaryType}
             onChange={e => setSelectedSalaryType(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:bg-white focus:ring-1 focus:ring-blue-500"
+            className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 focus:bg-white focus:ring-1 focus:ring-blue-500"
           >
             <option value="all">كل أنواع الرواتب</option>
             <option value="monthly">راتب شهري</option>
@@ -624,7 +591,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
           <select
             value={selectedStatus}
             onChange={e => setSelectedStatus(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:bg-white focus:ring-1 focus:ring-blue-500"
+            className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 focus:bg-white focus:ring-1 focus:ring-blue-500"
           >
             <option value="all">كل الحالات</option>
             <option value="active">على رأس العمل (نشط)</option>
@@ -633,10 +600,10 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
           </select>
 
           {/* Toggle View Mode */}
-          <div className="flex border border-slate-200 rounded-lg overflow-hidden bg-slate-50 p-0.5">
+          <div className="flex border border-slate-200 rounded overflow-hidden bg-slate-50 p-0.5">
             <button
               onClick={() => setViewMode('table')}
-              className={`px-2 py-1 text-xs rounded font-semibold transition-colors cursor-pointer ${
+              className={`px-2 py-0.5 text-xs rounded font-semibold transition-colors cursor-pointer ${
                 viewMode === 'table' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
@@ -644,7 +611,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
             </button>
             <button
               onClick={() => setViewMode('cards')}
-              className={`px-2 py-1 text-xs rounded font-semibold transition-colors cursor-pointer ${
+              className={`px-2 py-0.5 text-xs rounded font-semibold transition-colors cursor-pointer ${
                 viewMode === 'cards' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
@@ -669,185 +636,139 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
           </button>
         </div>
       ) : viewMode === 'table' ? (
-        /* Detailed Table View */
+        /* Detailed Table View - Streamlined & Compact */
         <div className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-right text-xs">
-              <thead className="bg-slate-800 text-white font-semibold">
+              <thead className="bg-slate-900 text-white font-semibold">
                 <tr>
-                  <th className="p-3">الموظف / الكود</th>
-                  <th className="p-3">المسمى الوظيفي والقسم</th>
-                  <th className="p-3">نوع الراتب</th>
-                  <th className="p-3">الراتب الأساسي والبدلات</th>
-                  <th className="p-3">طريقة الصرف</th>
-                  <th className="p-3">الحالة</th>
-                  <th className="p-3 text-center">الإجراءات</th>
+                  <th className="py-2 px-3">الموظف / الكود</th>
+                  <th className="py-2 px-3">المسمى الوظيفي والقسم</th>
+                  <th className="py-2 px-3">نوع الراتب</th>
+                  <th className="py-2 px-3">الراتب والبدلات</th>
+                  <th className="py-2 px-3">الحالة</th>
+                  <th className="py-2 px-3 text-center">الإجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredEmployees.map(emp => {
                   const deptInfo = DEPARTMENT_LABELS[emp.department] || DEPARTMENT_LABELS.other;
                   const salaryInfo = SALARY_TYPE_INFO[emp.salaryType];
-                  const totalSalary = (emp.salaryAmount || 0) + (emp.allowances || 0);
 
                   return (
-                    <tr key={emp.id} className="hover:bg-blue-50/40 transition-colors">
+                    <tr key={emp.id} className="hover:bg-blue-50/30 transition-colors">
                       {/* Name & Code */}
-                      <td className="p-3">
+                      <td className="py-2 px-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold flex items-center justify-center text-xs shrink-0">
+                          <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold flex items-center justify-center text-xs shrink-0">
                             {emp.name ? emp.name.slice(0, 1) : 'م'}
                           </div>
                           <div>
-                            <div className="font-bold text-slate-900 hover:text-blue-600 cursor-pointer" onClick={() => {
-                              setSelectedEmployeeForDetail(emp);
-                              setShowDetailModal(true);
-                            }}>
+                            <div
+                              className="font-bold text-slate-900 hover:text-blue-600 cursor-pointer"
+                              onClick={() => {
+                                setSelectedEmployeeForDetail(emp);
+                                setShowDetailModal(true);
+                              }}
+                            >
                               {emp.name}
                             </div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="font-mono text-[9px] text-slate-400 font-light bg-slate-100 px-1 py-0.2 rounded font-semibold">
-                                {emp.code}
-                              </span>
-                              {emp.phone && (
-                                <span className="text-[10px] text-slate-400 font-mono">
-                                  {emp.phone}
-                                </span>
-                              )}
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
+                              <span className="bg-slate-100 px-1 rounded text-slate-600 font-semibold">{emp.code}</span>
+                              {emp.phone && <span>{emp.phone}</span>}
                             </div>
                           </div>
                         </div>
                       </td>
 
                       {/* Job Title & Department */}
-                      <td className="p-3">
+                      <td className="py-2 px-3">
                         <div className="font-semibold text-slate-800">{emp.jobTitle}</div>
-                        <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-medium border mt-1 ${deptInfo.color}`}>
+                        <span className={`inline-block text-[9px] px-1.5 py-0.2 rounded font-medium border ${deptInfo.color}`}>
                           {deptInfo.name}
                         </span>
                       </td>
 
                       {/* Salary Type */}
-                      <td className="p-3">
-                        <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded border ${salaryInfo.badge}`}>
+                      <td className="py-2 px-3">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border ${salaryInfo.badge}`}>
                           <Clock className="w-3 h-3" />
                           <span>{salaryInfo.label}</span>
                         </span>
-                        <div className="text-[10px] text-slate-400 mt-0.5">
-                          {salaryInfo.desc}
-                        </div>
                       </td>
 
                       {/* Salary Amount & Allowances */}
-                      <td className="p-3">
-                        <div className="font-mono font-bold text-slate-900 text-sm">
+                      <td className="py-2 px-3">
+                        <div className="font-mono font-bold text-slate-900 text-xs">
                           {emp.salaryAmount.toLocaleString()}{' '}
                           <span className="text-[10px] font-normal text-slate-500">{settings.currency}</span>
                         </div>
                         {emp.allowances ? (
-                          <div className="text-[9px] text-slate-400 font-light mt-0.5 flex items-center gap-1">
-                            <span>+ بدلات:</span>
-                            <span className="font-mono font-semibold text-emerald-600">
-                              {emp.allowances.toLocaleString()} {settings.currency}
-                            </span>
-                            <span className="text-slate-400 font-mono">
-                              (الإجمالي: {totalSalary.toLocaleString()})
-                            </span>
+                          <div className="text-[9px] text-slate-400 font-mono">
+                            +بدلات: <span className="font-semibold text-emerald-600">{emp.allowances.toLocaleString()}</span>
                           </div>
                         ) : null}
                       </td>
 
-                      {/* Payment Method */}
-                      <td className="p-3">
-                        <div className="flex items-center gap-1 text-slate-700">
-                          {emp.paymentMethod === 'bank_transfer' ? (
-                            <>
-                              <Building2 className="w-3.5 h-3.5 text-blue-600" />
-                              <span>تحويل بنكي</span>
-                            </>
-                          ) : emp.paymentMethod === 'cheque' ? (
-                            <>
-                              <FileText className="w-3.5 h-3.5 text-amber-600" />
-                              <span>شيك بنكي</span>
-                            </>
-                          ) : (
-                            <>
-                              <Banknote className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>نقداً (كاش)</span>
-                            </>
-                          )}
-                        </div>
-                        {emp.bankName && (
-                          <div className="text-[10px] text-slate-400 truncate max-w-[140px] mt-0.5">
-                            {emp.bankName}
-                          </div>
-                        )}
-                      </td>
-
                       {/* Status */}
-                      <td className="p-3">
+                      <td className="py-2 px-3">
                         {emp.status === 'active' ? (
-                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                             <span>على رأس العمل</span>
                           </span>
                         ) : emp.status === 'on_leave' ? (
-                          <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                             <span>في إجازة</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                             <span>منتهي الخدمة</span>
                           </span>
                         )}
                       </td>
 
                       {/* Actions */}
-                      <td className="p-3">
+                      <td className="py-2 px-3">
                         <div className="flex items-center justify-center gap-1 flex-wrap">
                           <button
                             onClick={() => handleOpenAdjustment('advance', emp.id)}
-                            className="px-1.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded text-[10px] font-bold flex items-center gap-0.5 transition-colors cursor-pointer"
-                            title="تسجيل سلفة نقدية للموظف"
+                            className="px-1.5 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded text-[10px] font-bold transition-colors cursor-pointer"
+                            title="تسجيل سلفة"
                           >
-                            <CreditCard className="w-3 h-3 text-amber-600" />
-                            <span>سلفة</span>
+                            سلفة
                           </button>
 
                           <button
                             onClick={() => handleOpenAdjustment('deduction', emp.id)}
-                            className="px-1.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded text-[10px] font-bold flex items-center gap-0.5 transition-colors cursor-pointer"
-                            title="تسجيل خصم / جزاء للموظف"
+                            className="px-1.5 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded text-[10px] font-bold transition-colors cursor-pointer"
+                            title="تسجيل خصم"
                           >
-                            <MinusCircle className="w-3 h-3 text-rose-600" />
-                            <span>خصم</span>
+                            خصم
                           </button>
 
                           <button
                             onClick={() => handleOpenAdjustment('incentive', emp.id)}
-                            className="px-1.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded text-[10px] font-bold flex items-center gap-0.5 transition-colors cursor-pointer"
-                            title="تسجيل حافز ومكافأة للموظف"
+                            className="px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded text-[10px] font-bold transition-colors cursor-pointer"
+                            title="تسجيل حافز"
                           >
-                            <PlusCircle className="w-3 h-3 text-emerald-600" />
-                            <span>حافز</span>
+                            حافز
                           </button>
 
                           <button
                             onClick={() => setSelectedEmployeeForStatement(emp)}
-                            className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                            title="كشف مالي تفصيلي للموظف"
+                            className="px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded text-[10px] font-bold transition-colors cursor-pointer"
+                            title="كشف مالي تفصيلي"
                           >
-                            <FileText className="w-3 h-3 text-indigo-600" />
-                            <span>كشف مالي</span>
+                            كشف مالي
                           </button>
 
                           <button
                             onClick={() => handleOpenPay(emp)}
-                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                            title="صرف راتب فوري للموظف"
+                            className="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-bold transition-colors cursor-pointer"
+                            title="صرف راتب"
                           >
-                            <DollarSign className="w-3 h-3" />
-                            <span>صرف</span>
+                            صرف
                           </button>
 
                           <button
@@ -856,7 +777,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
                               setShowDetailModal(true);
                             }}
                             className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
-                            title="عرض الملف الكامل وسجل الرواتب"
+                            title="عرض التفاصيل"
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
@@ -864,7 +785,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
                           <button
                             onClick={() => handleOpenEdit(emp)}
                             className="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors cursor-pointer"
-                            title="تعديل بيانات الموظف"
+                            title="تعديل"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
@@ -872,7 +793,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
                           <button
                             onClick={() => handleDeleteEmployee(emp)}
                             className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
-                            title="حذف الموظف"
+                            title="حذف"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1050,19 +971,19 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
       {/* ADD / EDIT EMPLOYEE MODAL */}
       {/* ========================================================================= */}
       {showAddEditModal && (
-        <div className="fixed inset-0 z-[100] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 overflow-y-auto">
-          <div className="bg-white rounded-xl max-w-2xl w-full overflow-hidden shadow-2xl border border-slate-200 my-8">
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-[100] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-2 overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-200 my-4">
+            <div className="px-3 py-2 bg-slate-900 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white">
-                  <UserPlus className="w-4 h-4" />
+                <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center text-white">
+                  <UserPlus className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold">
-                    {editingEmployee ? `تعديل بيانات الموظف: ${editingEmployee.name}` : 'إضافة موظف جديد إلى السجلات'}
+                  <h3 className="text-xs font-bold leading-tight">
+                    {editingEmployee ? `تعديل بيانات الموظف: ${editingEmployee.name}` : 'إضافة موظف جديد'}
                   </h3>
-                  <p className="text-[10px] text-slate-400">
-                    أدخل تفاصيل الموظف، المسمى الوظيفي، نوع الراتب (شهري، أسبوعي، يومي) والقيمة المالية
+                  <p className="text-[10px] text-slate-400 leading-tight">
+                    أدخل البيانات الوظيفية والمالية بدقة
                   </p>
                 </div>
               </div>
@@ -1074,109 +995,107 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
               </button>
             </div>
 
-            <form onSubmit={handleSaveEmployee} className="p-4 space-y-4 max-h-[82vh] overflow-y-auto text-xs">
+            <form onSubmit={handleSaveEmployee} className="p-3 space-y-2.5 max-h-[85vh] overflow-y-auto text-xs">
               {/* Section 1: Basic Information */}
               <div>
-                <h4 className="font-bold text-slate-900 mb-2 pb-1 border-b border-slate-100 flex items-center gap-1.5">
+                <h4 className="font-bold text-slate-900 mb-1.5 pb-0.5 border-b border-slate-200 flex items-center gap-1.5 text-xs">
                   <Briefcase className="w-3.5 h-3.5 text-blue-600" />
                   <span>1. البيانات الأساسية والوظيفية</span>
                 </h4>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                   <div className="sm:col-span-2">
-                    <label className="block text-slate-700 font-semibold mb-1">
-                      اسم الموظف بالكامل <span className="text-rose-500">*</span>:
+                    <label className="block text-slate-700 font-semibold mb-0.5 text-[11px]">
+                      اسم الموظف بالكامل <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
                       value={formName}
                       onChange={e => setFormName(e.target.value)}
-                      placeholder="مثال: أحمد محمود النجار"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 font-medium focus:bg-white focus:ring-1 focus:ring-blue-500"
+                      placeholder="اسم الموظف الثلاثي/الرباعي"
+                      className="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-medium focus:bg-white focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-700 font-semibold mb-1">كود الموظف:</label>
+                    <label className="block text-slate-700 font-semibold mb-0.5 text-[11px]">كود الموظف</label>
                     <div className="flex gap-1">
                       <input
                         type="text"
                         value={formCode}
                         onChange={e => setFormCode(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 font-mono text-center font-bold text-slate-800"
+                        className="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono text-center font-bold text-slate-800"
                       />
                       <button
                         type="button"
                         onClick={() => setFormCode(`EMP-${Math.floor(100 + Math.random() * 900)}`)}
-                        className="px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-semibold cursor-pointer border border-slate-200"
-                        title="توليد كود تلقائي"
+                        className="px-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded text-[10px] font-bold cursor-pointer shrink-0"
+                        title="توليد كود"
                       >
                         توليد
                       </button>
                     </div>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2.5">
                   <div>
-                    <label className="block text-slate-700 font-semibold mb-1">
-                      المسمى الوظيفي <span className="text-rose-500">*</span>:
+                    <label className="block text-slate-700 font-semibold mb-0.5 text-[11px]">
+                      المسمى الوظيفي <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
                       value={formJobTitle}
                       onChange={e => setFormJobTitle(e.target.value)}
-                      placeholder="مثال: فني طباعة أوفست، مصمم جرافيك، كاشير..."
-                      className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 focus:bg-white focus:ring-1 focus:ring-blue-500"
+                      placeholder="مثال: فني طباعة، خياط..."
+                      className="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:bg-white focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-700 font-semibold mb-1">القسم / الإدارة:</label>
+                    <label className="block text-slate-700 font-semibold mb-0.5 text-[11px]">القسم / الإدارة</label>
                     <select
                       value={formDepartment}
                       onChange={e => setFormDepartment(e.target.value as EmployeeDepartment)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 focus:bg-white focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:bg-white focus:ring-1 focus:ring-blue-500"
                     >
                       <option value="printing">ورشة ومكائن الطباعة</option>
                       <option value="design">التصميم والجرافيك والفرز</option>
-                      <option value="sales_pos">المبيعات ونقاط البيع (الكاشير)</option>
+                      <option value="sales_pos">المبيعات ونقاط البيع</option>
                       <option value="finishing">التجليد والتشطيب والقص</option>
                       <option value="management">الإدارة والإشراف العام</option>
                       <option value="accounting">المحاسبة والمالية</option>
-                      <option value="delivery">التوصيل والخدمات اللوجستية</option>
+                      <option value="delivery">التوصيل واللوجستيات</option>
                       <option value="other">أقسام أخرى</option>
                     </select>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-2.5">
                   <div>
-                    <label className="block text-slate-700 font-semibold mb-1">رقم الهوية / الإقامة:</label>
+                    <label className="block text-slate-700 font-semibold mb-0.5 text-[11px]">الهوية / الإقامة</label>
                     <input
                       type="text"
                       value={formNationalId}
                       onChange={e => setFormNationalId(e.target.value)}
                       placeholder="10 أرقام..."
-                      className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 font-mono focus:bg-white focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono focus:bg-white focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-700 font-semibold mb-1">تاريخ المباشرة / التعيين:</label>
-                    <DateInput value={formHireDate} onChange={e => setFormHireDate(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 font-mono focus:bg-white focus:ring-1 focus:ring-blue-500"
+                    <label className="block text-slate-700 font-semibold mb-0.5 text-[11px]">تاريخ المباشرة</label>
+                    <DateInput
+                      value={formHireDate}
+                      onChange={e => setFormHireDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-mono focus:bg-white focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-700 font-semibold mb-1">حالة العمل:</label>
+                    <label className="block text-slate-700 font-semibold mb-0.5 text-[11px]">حالة العمل</label>
                     <select
                       value={formStatus}
                       onChange={e => setFormStatus(e.target.value as 'active' | 'on_leave' | 'terminated')}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 focus:bg-white focus:ring-1 focus:ring-blue-500 font-semibold"
+                      className="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-blue-500"
                     >
                       <option value="active">على رأس العمل (نشط)</option>
                       <option value="on_leave">في إجازة رسمية</option>
@@ -1186,77 +1105,37 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
                 </div>
               </div>
 
-              {/* Section 2: Salary Structure (CRITICAL USER REQUIREMENT) */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <h4 className="font-bold text-slate-900 mb-2 pb-1 border-b border-slate-200 flex items-center justify-between">
+              {/* Section 2: Salary Structure (Ultra-Compact) */}
+              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                <h4 className="font-bold text-slate-900 mb-1.5 pb-0.5 border-b border-slate-200 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
                     <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
                     <span>2. نظام الراتب والاستحقاقات المالية</span>
                   </div>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.2 rounded">
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">
                     إلزامي
                   </span>
                 </h4>
 
-                {/* Salary Type Selector */}
-                <div className="mb-3">
-                  <label className="block text-slate-700 font-bold mb-1.5">
-                    اختر نوع احتساب الراتب:
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setFormSalaryType('monthly')}
-                      className={`p-2.5 rounded-lg border text-center transition-all cursor-pointer ${
-                        formSalaryType === 'monthly'
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs font-bold'
-                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="text-xs font-bold">راتب شهري</div>
-                      <div className={`text-[10px] mt-0.5 ${formSalaryType === 'monthly' ? 'text-blue-100' : 'text-slate-400'}`}>
-                        صرف نهاية كل شهر
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setFormSalaryType('weekly')}
-                      className={`p-2.5 rounded-lg border text-center transition-all cursor-pointer ${
-                        formSalaryType === 'weekly'
-                          ? 'bg-amber-600 text-white border-amber-600 shadow-xs font-bold'
-                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="text-xs font-bold">راتب أسبوعي</div>
-                      <div className={`text-[10px] mt-0.5 ${formSalaryType === 'weekly' ? 'text-amber-100' : 'text-slate-400'}`}>
-                        صرف نهاية كل أسبوع
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setFormSalaryType('daily')}
-                      className={`p-2.5 rounded-lg border text-center transition-all cursor-pointer ${
-                        formSalaryType === 'daily'
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs font-bold'
-                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="text-xs font-bold">راتب يومي (يومية)</div>
-                      <div className={`text-[10px] mt-0.5 ${formSalaryType === 'daily' ? 'text-emerald-100' : 'text-slate-400'}`}>
-                        يومية عمل فعلية
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Salary Amount and Allowances */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                  {/* Salary Type Selector */}
                   <div>
-                    <label className="block text-slate-700 font-bold mb-1">
-                      قيمة الراتب الأساسي ({formSalaryType === 'monthly' ? 'شهرياً' : formSalaryType === 'weekly' ? 'أسبوعياً' : 'لليوم الواحد'}){' '}
-                      <span className="text-rose-500">*</span>:
+                    <label className="block text-slate-700 font-bold mb-0.5 text-[11px]">نوع احتساب الراتب</label>
+                    <select
+                      value={formSalaryType}
+                      onChange={e => setFormSalaryType(e.target.value as 'monthly' | 'weekly' | 'daily')}
+                      className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs font-bold text-slate-900 focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="monthly">راتب شهري</option>
+                      <option value="weekly">راتب أسبوعي</option>
+                      <option value="daily">راتب يومي (يومية)</option>
+                    </select>
+                  </div>
+
+                  {/* Base Salary */}
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-0.5 text-[11px]">
+                      الراتب الأساسي <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -1265,122 +1144,86 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
                         required
                         value={formSalaryAmount}
                         onChange={e => setFormSalaryAmount(Number(e.target.value))}
-                        className="w-full bg-white border border-slate-300 rounded-md p-2 pl-12 font-mono font-bold text-slate-900 text-sm focus:ring-2 focus:ring-blue-500"
+                        className="w-full bg-white border border-slate-300 rounded p-1.5 pl-10 text-xs font-mono font-bold text-slate-900 focus:ring-1 focus:ring-blue-500"
                       />
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-[10px]">
                         {settings.currency}
                       </span>
                     </div>
                   </div>
 
+                  {/* Allowances */}
                   <div>
-                    <label className="block text-slate-700 font-bold mb-1">
-                      البدلات الدورية (سكن / انتقال / إعاشة):
-                    </label>
+                    <label className="block text-slate-700 font-bold mb-0.5 text-[11px]">البدلات الدورية</label>
                     <div className="relative">
                       <input
                         type="number"
                         step="0.01"
                         value={formAllowances}
                         onChange={e => setFormAllowances(Number(e.target.value))}
-                        className="w-full bg-white border border-slate-300 rounded-md p-2 pl-12 font-mono font-bold text-slate-900 text-sm focus:ring-2 focus:ring-blue-500"
+                        className="w-full bg-white border border-slate-300 rounded p-1.5 pl-10 text-xs font-mono font-bold text-slate-900 focus:ring-1 focus:ring-blue-500"
                       />
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-[10px]">
                         {settings.currency}
                       </span>
                     </div>
                   </div>
-                </div>
 
-                {/* Contract & Hourly Calculation Terms */}
-                <div className="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                  <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5 border-b border-slate-200 pb-1.5">
-                    <Clock className="w-4 h-4 text-blue-600" />
-                    <span>آلية واشتراطات احتساب الراتب واليومية والساعة:</span>
+                  {/* Monthly Work Days Divisor */}
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-0.5 text-[11px]">أيام العمل بالشهر</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={formMonthlyWorkDays}
+                      onChange={e => setFormMonthlyWorkDays(Math.max(1, Number(e.target.value) || 26))}
+                      className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs font-mono font-bold text-slate-900 focus:ring-1 focus:ring-blue-500"
+                    />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {/* Monthly Work Days Divisor */}
-                    <div>
-                      <label className="block text-slate-700 font-semibold mb-1 text-xs">
-                        عدد أيام العمل بالشهر (لتقسيم الراتب):
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          min="1"
-                          max="31"
-                          value={formMonthlyWorkDays}
-                          onChange={e => setFormMonthlyWorkDays(Math.max(1, Number(e.target.value) || 26))}
-                          className="w-full bg-white border border-slate-300 rounded-md p-1.5 pl-12 font-mono font-bold text-slate-900 text-xs focus:ring-1 focus:ring-blue-500"
-                        />
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-[11px]">
-                          يوم / شهر
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
-                        مثلاً: 26 يوم (لخصم الجمعات) أو 30 يوم حسب الاتفاق
-                      </p>
-                    </div>
-
-                    {/* Daily Hours */}
-                    <div>
-                      <label className="block text-slate-700 font-semibold mb-1 text-xs">
-                        ساعات العمل المطلوبة يومياً:
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          min="1"
-                          max="24"
-                          value={formOfficialDailyHours}
-                          onChange={e => setFormOfficialDailyHours(Math.max(1, Number(e.target.value) || 8))}
-                          className="w-full bg-white border border-slate-300 rounded-md p-1.5 pl-14 font-mono font-bold text-slate-900 text-xs focus:ring-1 focus:ring-blue-500"
-                        />
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-[11px]">
-                          ساعة / يوم
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
-                        الدوام اليومي المعتمد (مثلاً 8 ساعات عمل)
-                      </p>
-                    </div>
+                  {/* Daily Hours */}
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-0.5 text-[11px]">الساعات اليومية</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="24"
+                      value={formOfficialDailyHours}
+                      onChange={e => setFormOfficialDailyHours(Math.max(1, Number(e.target.value) || 8))}
+                      className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs font-mono font-bold text-slate-900 focus:ring-1 focus:ring-blue-500"
+                    />
                   </div>
 
-                  {/* Checkbox Toggles for Rounding & Late Deduction */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                    {/* Round Hourly Rate Up */}
-                    <label className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={formRoundHourlyRateUp}
-                        onChange={e => setFormRoundHourlyRateUp(e.target.checked)}
-                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
-                      />
-                      <div className="text-xs">
-                        <span className="font-bold text-slate-800 block">تقريب أجر الساعة لأعلى</span>
-                        <span className="text-[10px] text-slate-500 block">تقريب كسور أجر الساعة لأقرب كسر/نصف شيكل</span>
-                      </div>
-                    </label>
-
-                    {/* Deduct Late Minutes Toggle */}
-                    <label className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={formDeductLateMinutes}
-                        onChange={e => setFormDeductLateMinutes(e.target.checked)}
-                        className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
-                      />
-                      <div className="text-xs">
-                        <span className="font-bold text-slate-800 block">خصم على التأخير عن المواعيد</span>
-                        <span className="text-[10px] text-slate-500 block">
-                          {formDeductLateMinutes ? 'مفعل: يخصم التأخيرات الزمانية' : 'غير مفعل: احتساب بالدوام دون خصم المواعيد'}
-                        </span>
-                      </div>
+                  {/* Round Rate Toggle */}
+                  <div className="flex items-center gap-1.5 bg-white p-1.5 rounded border border-slate-200">
+                    <input
+                      type="checkbox"
+                      id="roundHourly"
+                      checked={formRoundHourlyRateUp}
+                      onChange={e => setFormRoundHourlyRateUp(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <label htmlFor="roundHourly" className="text-[11px] font-bold text-slate-800 cursor-pointer">
+                      تقريب أجر الساعة لأعلى
                     </label>
                   </div>
 
-                  {/* Live Breakdown Result Preview Box */}
+                  {/* Deduct Late Toggle */}
+                  <div className="flex items-center gap-1.5 bg-white p-1.5 rounded border border-slate-200">
+                    <input
+                      type="checkbox"
+                      id="deductLate"
+                      checked={formDeductLateMinutes}
+                      onChange={e => setFormDeductLateMinutes(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                    />
+                    <label htmlFor="deductLate" className="text-[11px] font-bold text-slate-800 cursor-pointer">
+                      خصم دقائق التأخير
+                    </label>
+                  </div>
+
+                  {/* Live Calculation Mini Summary */}
                   {(() => {
                     const amt = Number(formSalaryAmount) || 0;
                     const days = Math.max(1, Number(formMonthlyWorkDays) || 26);
@@ -1388,91 +1231,31 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
                     const rawDaily = amt / days;
                     const rawHourly = rawDaily / hrs;
                     const roundedHourly = formRoundHourlyRateUp ? Math.ceil(rawHourly * 10) / 10 : Number(rawHourly.toFixed(2));
+                    const totalContract = amt + Number(formAllowances || 0);
 
                     return (
-                      <div className="p-2.5 bg-blue-950 text-white rounded-lg border border-blue-800 space-y-1 text-xs">
-                        <div className="flex items-center justify-between font-bold text-amber-300">
-                          <span>معادلة اتفاق أجر هذا الموظف حياً:</span>
-                          <span className="font-mono bg-blue-900/80 px-2 py-0.5 rounded border border-blue-700/60 text-white">
-                            أجر الساعة الصافي: {roundedHourly.toFixed(1)} {settings.currency} / س
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-blue-100/90 leading-relaxed font-mono">
-                          • أجر اليومية = {amt.toLocaleString()} ÷ {days} يوم عمل = <strong>{rawDaily.toFixed(2)}</strong> {settings.currency} / يوم
-                          <br />
-                          • أجر الساعة الأساسي = {rawDaily.toFixed(2)} ÷ {hrs} ساعات = {rawHourly.toFixed(4)} {formRoundHourlyRateUp ? `➔ مقرب لأعلى = ${roundedHourly.toFixed(1)} ${settings.currency}` : `${settings.currency}`}
-                          <br />
-                          • سياسة التأخير: <strong className={formDeductLateMinutes ? 'text-amber-300' : 'text-emerald-300'}>{formDeductLateMinutes ? 'تخصم دقائق التأخير الصباحي' : 'غير مخصوم على المواعيد (تعتمد ساعات العمل بالمرونة)'}</strong>
-                        </div>
+                      <div className="bg-blue-900 text-white rounded p-1.5 font-mono text-[11px] flex items-center justify-between col-span-1 sm:col-span-1 border border-blue-700">
+                        <span>أجر الساعة:</span>
+                        <span className="font-bold text-amber-300">
+                          {roundedHourly.toFixed(1)} {settings.currency}/س
+                        </span>
                       </div>
                     );
                   })()}
                 </div>
-
-                {/* Calculation breakdown summary */}
-                <div className="mt-2.5 p-2 bg-emerald-50 rounded-lg border border-emerald-200 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5 text-emerald-800 font-semibold">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>إجمالي الاستحقاق المالي التعاقدي:</span>
-                  </div>
-                  <div className="font-mono font-black text-emerald-900 text-sm">
-                    {(Number(formSalaryAmount || 0) + Number(formAllowances || 0)).toLocaleString()}{' '}
-                    <span className="text-xs font-normal text-emerald-700">
-                      {settings.currency} / {formSalaryType === 'monthly' ? 'شهر' : formSalaryType === 'weekly' ? 'أسبوع' : 'يوم عمل'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Payment Disbursement Method */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-3 pt-3 border-t border-slate-200">
-                  <div>
-                    <label className="block text-slate-700 font-semibold mb-1">طريقة صرف الراتب:</label>
-                    <select
-                      value={formPaymentMethod}
-                      onChange={e => setFormPaymentMethod(e.target.value as PaymentMethod)}
-                      className="w-full bg-white border border-slate-300 rounded-md p-2 focus:ring-1 focus:ring-blue-500 font-semibold"
-                    >
-                      <option value="bank_transfer">تحويل بنكي</option>
-                      <option value="cash">نقداً من الصندوق (الكاشير)</option>
-                      <option value="cheque">شيك بنكي</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-semibold mb-1">اسم البنك (إن وجد):</label>
-                    <input
-                      type="text"
-                      value={formBankName}
-                      onChange={e => setFormBankName(e.target.value)}
-                      placeholder="مثال: الراجحي، الأهلي، الإنماء..."
-                      className="w-full bg-white border border-slate-300 rounded-md p-2 focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-semibold mb-1">رقم الآيبان (IBAN):</label>
-                    <input
-                      type="text"
-                      value={formIban}
-                      onChange={e => setFormIban(e.target.value)}
-                      placeholder="SA0000000000000000000000"
-                      className="w-full bg-white border border-slate-300 rounded-md p-2 font-mono text-[11px] focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
               </div>
 
-              {/* Section 3: Contact & Emergency */}
+              {/* Section 3: Contact & Emergency Data */}
               <div>
-                <h4 className="font-bold text-slate-900 mb-2 pb-1 border-b border-slate-100 flex items-center gap-1.5">
+                <h4 className="font-bold text-slate-900 mb-1 pb-0.5 border-b border-slate-100 flex items-center gap-1.5 text-xs">
                   <Phone className="w-3.5 h-3.5 text-blue-600" />
                   <span>3. بيانات الاتصال والطوارئ</span>
                 </h4>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs">
                   <div>
-                    <label className="block text-slate-700 font-semibold mb-1">
-                      رقم الجوال الشخصي <span className="text-rose-500">*</span>:
+                    <label className="block text-slate-700 font-medium mb-0.5 text-[11px]">
+                      الجوال <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -1480,53 +1263,51 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
                       value={formPhone}
                       onChange={e => setFormPhone(e.target.value)}
                       placeholder="05xxxxxxxx"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 font-mono focus:bg-white focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-white border border-slate-300 rounded p-1 text-xs font-mono focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-700 font-semibold mb-1">البريد الإلكتروني:</label>
+                    <label className="block text-slate-700 font-medium mb-0.5 text-[11px]">البريد الإلكتروني</label>
                     <input
                       type="email"
                       value={formEmail}
                       onChange={e => setFormEmail(e.target.value)}
-                      placeholder="employee@example.com"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 font-mono focus:bg-white focus:ring-1 focus:ring-blue-500"
+                      placeholder="email@domain.com"
+                      className="w-full bg-white border border-slate-300 rounded p-1 text-xs font-mono focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-2.5 bg-slate-50 p-2 rounded-lg border border-slate-100">
                   <div>
-                    <label className="block text-slate-600 text-[11px] font-semibold mb-1">اسم قريب للطوارئ:</label>
+                    <label className="block text-slate-700 font-medium mb-0.5 text-[11px]">قريب الطوارئ</label>
                     <input
                       type="text"
                       value={formEmergencyName}
                       onChange={e => setFormEmergencyName(e.target.value)}
-                      placeholder="اسم جهة الاتصال..."
-                      className="w-full bg-white border border-slate-200 rounded-md p-1.5 text-xs"
+                      placeholder="اسم القريب..."
+                      className="w-full bg-white border border-slate-300 rounded p-1 text-xs focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-600 text-[11px] font-semibold mb-1">جوال الطوارئ:</label>
+                    <label className="block text-slate-700 font-medium mb-0.5 text-[11px]">الصلة</label>
+                    <input
+                      type="text"
+                      value={formEmergencyRelation}
+                      onChange={e => setFormEmergencyRelation(e.target.value)}
+                      placeholder="أب، أخ..."
+                      className="w-full bg-white border border-slate-300 rounded p-1 text-xs focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-slate-700 font-medium mb-0.5 text-[11px]">جوال الطوارئ</label>
                     <input
                       type="text"
                       value={formEmergencyPhone}
                       onChange={e => setFormEmergencyPhone(e.target.value)}
                       placeholder="05xxxxxxxx"
-                      className="w-full bg-white border border-slate-200 rounded-md p-1.5 font-mono text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-600 text-[11px] font-semibold mb-1">صلة القرابة:</label>
-                    <input
-                      type="text"
-                      value={formEmergencyRelation}
-                      onChange={e => setFormEmergencyRelation(e.target.value)}
-                      placeholder="أب، أخ، زوجة..."
-                      className="w-full bg-white border border-slate-200 rounded-md p-1.5 text-xs"
+                      className="w-full bg-white border border-slate-300 rounded p-1 text-xs font-mono focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -1534,31 +1315,31 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({ initialSubTab = 'e
 
               {/* Section 4: Notes */}
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">ملاحظات إضافية وسيرة وظيفية:</label>
-                <textarea
-                  rows={2}
+                <label className="block text-slate-700 font-semibold mb-0.5 text-[11px]">ملاحظات إضافية:</label>
+                <input
+                  type="text"
                   value={formNotes}
                   onChange={e => setFormNotes(e.target.value)}
-                  placeholder="ملاحظات حول الخبرات، الماكينات التي يجيد العمل عليها، الشروط..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 focus:bg-white focus:ring-1 focus:ring-blue-500"
+                  placeholder="أي ملاحظات أو شروط أخرى..."
+                  className="w-full bg-slate-50 border border-slate-300 rounded p-1.5 text-xs focus:bg-white focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 
               {/* Modal Actions */}
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
+              <div className="pt-2 border-t border-slate-200 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowAddEditModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold cursor-pointer"
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
-                  <Check className="w-4 h-4" />
-                  <span>{editingEmployee ? 'تحديث بيانات الموظف' : 'حفظ الموظف الجديد'}</span>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{editingEmployee ? 'تحديث البيانات' : 'حفظ الموظف'}</span>
                 </button>
               </div>
             </form>

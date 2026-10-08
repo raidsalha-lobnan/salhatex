@@ -534,9 +534,15 @@ export const PrintOrdersView: React.FC = () => {
                           {/* Financials & Balance */}
                           <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100 font-mono">
                             <div>
-                              <span className="text-slate-400 text-[10px] block font-sans">الإجمالي</span>
+                              <span className="text-slate-400 text-[10px] block font-sans">إجمالي البيع</span>
                               <strong className="text-slate-900">{order.totalPrice} {settings.currency}</strong>
                             </div>
+                            {order.totalProductionCost && order.totalProductionCost > 0 ? (
+                              <div className="text-center">
+                                <span className="text-slate-400 text-[10px] block font-sans">التكلفة الإنتاجية</span>
+                                <strong className="text-amber-700">{order.totalProductionCost} {settings.currency}</strong>
+                              </div>
+                            ) : null}
                             <div className="text-left">
                               <span className="text-slate-400 text-[10px] block font-sans">المتبقي</span>
                               <strong className={order.remainingBalance > 0 ? 'text-rose-600' : 'text-emerald-600'}>
