@@ -47,45 +47,20 @@ export const TailorPieceworkTracker: React.FC<TailorPieceworkTrackerProps> = ({ 
     );
   }, [employees]);
 
-  // Local piecework state persisted in memory / context simulation
+  // Local piecework state persisted in memory / LocalStorage
   const [logs, setLogs] = useState<TailorPieceworkLog[]>(() => {
-    // Generate initial realistic logs based on existing work orders and tailors
-    const initialLogs: TailorPieceworkLog[] = [
-      {
-        id: 'log-1',
-        employeeId: tailors[0]?.id || 'emp-1',
-        employeeName: tailors[0]?.name || 'أحمد الخياط',
-        date: new Date().toISOString().split('T')[0],
-        workOrderNumber: 'JOB-2026-0084',
-        modelName: 'ثوب سعودي كلاسيك مطرز كبك',
-        operationType: 'sewing',
-        operationName: 'خياطة وتجميع كامل',
-        quantity: 4,
-        ratePerPiece: 25,
-        totalEarned: 100,
-        notes: 'تشطيب ممتاز وتسليم في الموعد',
-        isPaid: false,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'log-2',
-        employeeId: tailors[1]?.id || 'emp-2',
-        employeeName: tailors[1]?.name || 'محمود الفصال',
-        date: new Date().toISOString().split('T')[0],
-        workOrderNumber: 'JOB-2026-0085',
-        modelName: 'فستان سهرة حرير شيفون',
-        operationType: 'cutting',
-        operationName: 'فصال وقص باترون خاص',
-        quantity: 2,
-        ratePerPiece: 35,
-        totalEarned: 70,
-        notes: 'قص قماش حرير طبيعي دقيق',
-        isPaid: false,
-        createdAt: new Date().toISOString()
-      }
-    ];
-    return initialLogs;
+    try {
+      const saved = localStorage.getItem('salhatex_tailor_piecework_logs');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('salhatex_tailor_piecework_logs', JSON.stringify(logs));
+    } catch {}
+  }, [logs]);
 
   const [selectedTailorFilter, setSelectedTailorFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');

@@ -1111,8 +1111,8 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             chunk.map(async (colName) => {
               try {
                 const querySnapshot = await getDocs(collection(db, fsCol(colName)));
+                const filteredDocs: any[] = [];
                 if (!querySnapshot.empty) {
-                  const filteredDocs: any[] = [];
                   for (const d of querySnapshot.docs) {
                     const docData = d.data();
                     if (!docData || !docData.id) continue;
@@ -1126,12 +1126,9 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
                     filteredDocs.push(docData);
                   }
-
-                  if (filteredDocs.length > 0) {
-                    hasCloudData = true;
-                    data[colName] = filteredDocs;
-                  }
                 }
+                hasCloudData = true;
+                data[colName] = filteredDocs;
               } catch (e: any) {
                 // Silently fallback to local state if offline or unavailable
                 if (e?.code !== 'unavailable') {
@@ -1160,32 +1157,32 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
         
         if (isMounted && hasCloudData) {
-            if (Array.isArray(data.parties) && data.parties.length > 0) setParties(data.parties);
-            if (Array.isArray(data.invoices) && data.invoices.length > 0) setInvoices(data.invoices);
-            if (Array.isArray(data.employees) && data.employees.length > 0) setEmployees(data.employees);
-            if (Array.isArray(data.vouchers) && data.vouchers.length > 0) setVouchers(data.vouchers);
-            if (Array.isArray(data.printOrders) && data.printOrders.length > 0) setPrintOrders(data.printOrders);
-            if (Array.isArray(data.inventory) && data.inventory.length > 0) setInventory(data.inventory);
-            if (Array.isArray(data.accounts) && data.accounts.length > 0) setAccounts(data.accounts);
-            if (Array.isArray(data.treasuries) && data.treasuries.length > 0) setTreasuries(data.treasuries);
-            if (Array.isArray(data.purchases) && data.purchases.length > 0) setPurchases(data.purchases);
-            if (Array.isArray(data.purchaseReturns) && data.purchaseReturns.length > 0) setPurchaseReturns(data.purchaseReturns);
-            if (Array.isArray(data.salesReturns) && data.salesReturns.length > 0) setSalesReturns(data.salesReturns);
-            if (Array.isArray(data.journalEntries) && data.journalEntries.length > 0) setJournalEntries(data.journalEntries);
-            if (Array.isArray(data.employeeAdvances) && data.employeeAdvances.length > 0) setEmployeeAdvances(data.employeeAdvances);
-            if (Array.isArray(data.employeeDeductions) && data.employeeDeductions.length > 0) setEmployeeDeductions(data.employeeDeductions);
-            if (Array.isArray(data.employeeIncentives) && data.employeeIncentives.length > 0) setEmployeeIncentives(data.employeeIncentives);
-            if (Array.isArray(data.attendanceRecords) && data.attendanceRecords.length > 0) setAttendanceRecords(data.attendanceRecords);
-            if (Array.isArray(data.payrollSheets) && data.payrollSheets.length > 0) setPayrollSheets(data.payrollSheets);
-            if (Array.isArray(data.stockMovements) && data.stockMovements.length > 0) setStockMovements(data.stockMovements);
-            if (Array.isArray(data.companies) && data.companies.length > 0) setCompanies(data.companies);
-            if (Array.isArray(data.branches) && data.branches.length > 0) setBranches(data.branches);
-            if (Array.isArray(data.warehouses) && data.warehouses.length > 0) setWarehouses(data.warehouses);
-            if (Array.isArray(data.warehouseOperations) && data.warehouseOperations.length > 0) setWarehouseOperations(data.warehouseOperations);
-            if (Array.isArray(data.roles) && data.roles.length > 0) setRoles(data.roles);
-            if (Array.isArray(data.users) && data.users.length > 0) setUsers(data.users);
-            if (Array.isArray(data.debtClearings) && data.debtClearings.length > 0) setDebtClearings(data.debtClearings);
-            if (Array.isArray(data.expenses) && data.expenses.length > 0) setExpenses(data.expenses);
+            if (Array.isArray(data.parties)) setParties(data.parties);
+            if (Array.isArray(data.invoices)) setInvoices(data.invoices);
+            if (Array.isArray(data.employees)) setEmployees(data.employees);
+            if (Array.isArray(data.vouchers)) setVouchers(data.vouchers);
+            if (Array.isArray(data.printOrders)) setPrintOrders(data.printOrders);
+            if (Array.isArray(data.inventory)) setInventory(data.inventory);
+            if (Array.isArray(data.accounts)) setAccounts(data.accounts);
+            if (Array.isArray(data.treasuries)) setTreasuries(data.treasuries);
+            if (Array.isArray(data.purchases)) setPurchases(data.purchases);
+            if (Array.isArray(data.purchaseReturns)) setPurchaseReturns(data.purchaseReturns);
+            if (Array.isArray(data.salesReturns)) setSalesReturns(data.salesReturns);
+            if (Array.isArray(data.journalEntries)) setJournalEntries(data.journalEntries);
+            if (Array.isArray(data.employeeAdvances)) setEmployeeAdvances(data.employeeAdvances);
+            if (Array.isArray(data.employeeDeductions)) setEmployeeDeductions(data.employeeDeductions);
+            if (Array.isArray(data.employeeIncentives)) setEmployeeIncentives(data.employeeIncentives);
+            if (Array.isArray(data.attendanceRecords)) setAttendanceRecords(data.attendanceRecords);
+            if (Array.isArray(data.payrollSheets)) setPayrollSheets(data.payrollSheets);
+            if (Array.isArray(data.stockMovements)) setStockMovements(data.stockMovements);
+            if (Array.isArray(data.companies)) setCompanies(data.companies);
+            if (Array.isArray(data.branches)) setBranches(data.branches);
+            if (Array.isArray(data.warehouses)) setWarehouses(data.warehouses);
+            if (Array.isArray(data.warehouseOperations)) setWarehouseOperations(data.warehouseOperations);
+            if (Array.isArray(data.roles)) setRoles(data.roles);
+            if (Array.isArray(data.users)) setUsers(data.users);
+            if (Array.isArray(data.debtClearings)) setDebtClearings(data.debtClearings);
+            if (Array.isArray(data.expenses)) setExpenses(data.expenses);
             
             if (data.settings && typeof data.settings === 'object') {
               setSettings(prev => ({
