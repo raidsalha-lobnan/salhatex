@@ -4241,8 +4241,8 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const unpaidLeaveDays = empAttendance.filter(r => r.status === 'unpaid_leave').length;
     const excusedLeaveDays = empAttendance.filter(r => r.status === 'excused_leave').length;
     const totalWorkedHours = Number(empAttendance.reduce((sum, r) => sum + (r.actualWorkedHours || 0), 0).toFixed(1));
-    const overtimeHours = Number(empAttendance.reduce((sum, r) => sum + (r.overtimeHours || 0), 0).toFixed(1));
-    const overtimePay = Number(empAttendance.reduce((sum, r) => sum + (r.overtimePayEarned || 0), 0).toFixed(2));
+    const overtimeHours = Number(empAttendance.filter(r => !r.isTransferredToPayroll).reduce((sum, r) => sum + (r.overtimeHours || 0), 0).toFixed(1));
+    const overtimePay = Number(empAttendance.filter(r => !r.isTransferredToPayroll).reduce((sum, r) => sum + (r.overtimePayEarned || 0), 0).toFixed(2));
     const lateDeductions = Number(empAttendance.reduce((sum, r) => sum + (r.lateDeductionAmount || 0), 0).toFixed(2));
     const lateMinutes = empAttendance.reduce((sum, r) => sum + (r.lateMinutes || 0), 0);
     const officialHoursExpected = (presentDays + absentDays) * (employee.officialDailyHours || 8);

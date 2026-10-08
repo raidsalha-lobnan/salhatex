@@ -683,6 +683,7 @@ export interface EmployeeStatementRow {
   workedHours?: number;
   overtimeHours?: number;
   absentDays?: number;
+  attendanceRecord?: any;
 }
 
 export interface EmployeeStatementAttendanceSummary {
@@ -760,8 +761,8 @@ export function generateEmployeeStatement(params: {
   const unpaidLeaveDays = empAttendance.filter(r => r.status === 'unpaid_leave').length;
   const excusedLeaveDays = empAttendance.filter(r => r.status === 'excused_leave').length;
   const totalWorkedHours = Number(empAttendance.reduce((sum, r) => sum + (r.actualWorkedHours || 0), 0).toFixed(1));
-  const overtimeHours = Number(empAttendance.reduce((sum, r) => sum + (r.overtimeHours || 0), 0).toFixed(1));
-  const overtimePay = Number(empAttendance.reduce((sum, r) => sum + (r.overtimePayEarned || 0), 0).toFixed(2));
+  const overtimeHours = Number(empAttendance.filter(r => !r.isTransferredToPayroll).reduce((sum, r) => sum + (r.overtimeHours || 0), 0).toFixed(1));
+  const overtimePay = Number(empAttendance.filter(r => !r.isTransferredToPayroll).reduce((sum, r) => sum + (r.overtimePayEarned || 0), 0).toFixed(2));
   const lateDeductions = Number(empAttendance.reduce((sum, r) => sum + (r.lateDeductionAmount || 0), 0).toFixed(2));
   const lateMinutes = empAttendance.reduce((sum, r) => sum + (r.lateMinutes || 0), 0);
   const officialDailyHours = employee.officialDailyHours || 8;
@@ -888,6 +889,7 @@ export function generateEmployeeStatement(params: {
     workedHours?: number;
     overtimeHours?: number;
     absentDays?: number;
+    attendanceRecord?: any;
   }
 
   const allTx: RawEmpTx[] = [];
@@ -1030,80 +1032,97 @@ export function generateEmployeeStatement(params: {
           r.employeeId === employee.id && r.date.startsWith(monthStr)
         );
 
-        let mPresentDays = mAttendance.filter(r => r.status === 'present' || r.status === 'late' || r.status === 'half_day').length;
-        let mAbsentDays = mAttendance.filter(r => r.status === 'absent' || r.status === 'unpaid_leave').length;
-        let mWorkedHours = Number(mAttendance.reduce((sum, r) => sum + (r.actualWorkedHours || 0), 0).toFixed(1));
-        let mOvertimeHours = Number(mAttendance.reduce((sum, r) => sum + (r.overtimeHours || 0), 0).toFixed(1));
-        let mOvertimePay = Number(mAttendance.reduce((sum, r) => sum + (r.overtimePayEarned || 0), 0).toFixed(2));
-        let mLateDed = Number(mAttendance.reduce((sum, r) => sum + (r.lateDeductionAmount || 0), 0).toFixed(2));
+        if (mAttendance.length > 0) {
+          // عرض تفصيلي يومي لدوام الموظف كما طلب العميل
+          mAttendance.forEach(r => {
+            const exists = allTx.some(t => t.id === `attendance-${r.id}`);
+            if (!exists) {
+              const clockIn1 = r.checkInTime || r.shift1CheckInTime || '-';
+              const clockOut1 = r.checkOutTime || r.shift1CheckOutTime || '-';
+              const clockIn2 = r.hasSecondShift ? (r.shift2CheckInTime || '-') : '-';
+              const clockOut2 = r.hasSecondShift ? (r.shift2CheckOutTime || '-') : '-';
 
-        let monthBasicSalary = 0;
-        let attendanceNotes = '';
+              let shiftDetail = `حضور 1: [${clockIn1}] - انصراف 1: [${clockOut1}]`;
+              if (r.hasSecondShift) {
+                shiftDetail += ` | حضور 2: [${clockIn2}] - انصراف 2: [${clockOut2}]`;
+              }
 
-        if (employee.salaryType === 'daily') {
-          const dRate = Number(employee.salaryAmount || 0);
-          if (mAttendance.length > 0) {
-            const regPay = Number(mAttendance.reduce((sum, r) => sum + (r.regularPayEarned || 0), 0).toFixed(2));
-            monthBasicSalary = regPay > 0 ? regPay : Number((dRate * mPresentDays).toFixed(2));
-            attendanceNotes = ` [دوام: ${mPresentDays} يوم (${mWorkedHours} ساعة عمل)]`;
-          } else {
-            monthBasicSalary = Number((dRate * 26).toFixed(2));
-            attendanceNotes = ` [أجر يومي: ${dRate} ${currencySymbol} × 26 يوم]`;
-          }
-        } else if (employee.salaryType === 'weekly') {
-          const wRate = Number(employee.salaryAmount || 0);
-          const rawW = wRate * 4;
-          const absDed = mAbsentDays > 0 ? Number(((wRate / 6) * mAbsentDays).toFixed(2)) : 0;
-          monthBasicSalary = Math.max(0, rawW - absDed);
-          attendanceNotes = mAbsentDays > 0 ? ` [غياب: ${mAbsentDays} يوم - خصم ${absDed} ${currencySymbol}]` : ` [حضور كامل]`;
+              // لمنع تكرار احتساب الأوفرتايم إذا تم ترحيله كحوافز، نطرحه من مستحقات اليوم
+              let dayEntitlement = r.totalDailyEarnings || 0;
+              if (r.isTransferredToPayroll && r.overtimePayEarned > 0) {
+                dayEntitlement = Math.max(0, Number((dayEntitlement - r.overtimePayEarned).toFixed(2)));
+              }
+
+              allTx.push({
+                id: `attendance-${r.id}`,
+                date: r.date,
+                refNum: `ATT-${r.date.replace(/-/g, '')}`,
+                type: 'salary_accrual',
+                typeLabel: 'يومية دوام',
+                description: `دوام تفصيلي: ${shiftDetail} [الساعات الفعلية: ${r.actualWorkedHours || 0}س، عمل رسمي: ${r.regularHours || 0}س، إضافي: ${r.overtimeHours || 0}س]`,
+                entitlement: dayEntitlement,
+                advance: 0,
+                deduction: 0,
+                disbursement: 0,
+                period: monthStr,
+                presentDays: 1,
+                workedHours: r.actualWorkedHours || 0,
+                overtimeHours: r.isTransferredToPayroll ? 0 : (r.overtimeHours || 0),
+                absentDays: r.status === 'absent' || r.status === 'unpaid_leave' ? 1 : 0,
+                notes: r.notes || '',
+                attendanceRecord: r
+              });
+            }
+          });
         } else {
-          // monthly
-          const mAmount = Number(employee.salaryAmount || 0);
-          const workDays = employee.monthlyWorkDays || 26;
-          const absDed = mAbsentDays > 0 ? Number(((mAmount / workDays) * mAbsentDays).toFixed(2)) : 0;
-          monthBasicSalary = Math.max(0, mAmount - absDed);
-          attendanceNotes = mAbsentDays > 0
-            ? ` [غياب: ${mAbsentDays} يوم - خصم ${absDed} ${currencySymbol}]`
-            : mPresentDays > 0 ? ` [دوام: ${mPresentDays} يوم (${mWorkedHours} س)]` : '';
-        }
+          // استخدام النظام المجمع للأشهر السابقة التي ليس لها سجلات دوام
+          let mPresentDays = 0;
+          let mAbsentDays = 0;
+          let mWorkedHours = 0;
+          let mOvertimeHours = 0;
+          let mOvertimePay = 0;
+          let mLateDed = 0;
 
-        const totalMonthSalary = Number((monthBasicSalary + allowances + mOvertimePay).toFixed(2));
+          const dRate = Number(employee.salaryAmount || 0);
+          let monthBasicSalary = 0;
+          let attendanceNotes = '';
 
-        if (totalMonthSalary > 0) {
-          allTx.push({
-            id: `accrual-${employee.id}-${monthStr}`,
-            date: accrualDate,
-            refNum: `SAL-${monthStr}`,
-            type: 'salary_accrual',
-            typeLabel: employee.salaryType === 'daily' ? 'أجر يوميات الدوام' : 'راتب شهري مستحق',
-            description: `استحقاق راتب شهر ${monthStr} (أساسي: ${monthBasicSalary.toFixed(2)}${allowances > 0 ? ` + بدلات: ${allowances.toFixed(2)}` : ''}${mOvertimePay > 0 ? ` + إضافي: ${mOvertimePay.toFixed(2)}` : ''})${attendanceNotes}`,
-            entitlement: totalMonthSalary,
-            advance: 0,
-            deduction: 0,
-            disbursement: 0,
-            period: monthStr,
-            presentDays: mPresentDays,
-            workedHours: mWorkedHours,
-            overtimeHours: mOvertimeHours,
-            absentDays: mAbsentDays
-          });
-        }
+          if (employee.salaryType === 'daily') {
+            monthBasicSalary = Number((dRate * 26).toFixed(2));
+            attendanceNotes = ` [أجر يومي: ${dRate} ₪ × 26 يوم]`;
+          } else if (employee.salaryType === 'weekly') {
+            const wRate = Number(employee.salaryAmount || 0);
+            const rawW = wRate * 4;
+            monthBasicSalary = rawW;
+            attendanceNotes = ` [حضور كامل]`;
+          } else {
+            // monthly
+            const mAmount = Number(employee.salaryAmount || 0);
+            monthBasicSalary = mAmount;
+            attendanceNotes = '';
+          }
 
-        // إضافة حركة خصم التأخير المسجلة إن وجدت في سجلات الدوام لهذا الشهر
-        if (mLateDed > 0) {
-          allTx.push({
-            id: `late-ded-${employee.id}-${monthStr}`,
-            date: `${monthStr}-27`,
-            refNum: `LATE-${monthStr}`,
-            type: 'deduction',
-            typeLabel: 'خصم تأخير الدوام',
-            description: `خصم التأخير عن مواعيد الدوام لشهر ${monthStr}`,
-            entitlement: 0,
-            advance: 0,
-            deduction: mLateDed,
-            disbursement: 0,
-            period: monthStr
-          });
+          const totalMonthSalary = Number((monthBasicSalary + allowances).toFixed(2));
+
+          if (totalMonthSalary > 0) {
+            allTx.push({
+              id: `accrual-${employee.id}-${monthStr}`,
+              date: accrualDate,
+              refNum: `SAL-${monthStr}`,
+              type: 'salary_accrual',
+              typeLabel: employee.salaryType === 'daily' ? 'أجر يوميات الدوام' : 'راتب شهري مستحق',
+              description: `استحقاق راتب شهر ${monthStr} (أساسي: ${monthBasicSalary.toFixed(2)}${allowances > 0 ? ` + بدلات: ${allowances.toFixed(2)}` : ''})${attendanceNotes}`,
+              entitlement: totalMonthSalary,
+              advance: 0,
+              deduction: 0,
+              disbursement: 0,
+              period: monthStr,
+              presentDays: mPresentDays,
+              workedHours: mWorkedHours,
+              overtimeHours: mOvertimeHours,
+              absentDays: mAbsentDays
+            });
+          }
         }
       }
     }
@@ -1160,7 +1179,8 @@ export function generateEmployeeStatement(params: {
       presentDays: tx.presentDays,
       workedHours: tx.workedHours,
       overtimeHours: tx.overtimeHours,
-      absentDays: tx.absentDays
+      absentDays: tx.absentDays,
+      attendanceRecord: tx.attendanceRecord
     });
   });
 

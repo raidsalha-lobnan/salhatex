@@ -1259,7 +1259,48 @@ export const AccountStatementModal: React.FC = () => {
                             </div>
 
                             {/* شريط معلومات الدوام إن وجدت في الحركة */}
-                            {(row.presentDays !== undefined && row.presentDays > 0) && (
+                            {row.type === 'salary_accrual' && row.typeLabel === 'يومية دوام' && row.attendanceRecord ? (
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10.5px] text-slate-700 bg-slate-50 border border-slate-200 p-2 rounded-lg mt-1 print:bg-white print:border-slate-300">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-slate-400">حضور 1:</span>
+                                  <strong className="font-mono text-slate-800">{row.attendanceRecord.checkInTime || row.attendanceRecord.shift1CheckInTime || '-'}</strong>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-slate-400">انصراف 1:</span>
+                                  <strong className="font-mono text-slate-800">{row.attendanceRecord.checkOutTime || row.attendanceRecord.shift1CheckOutTime || '-'}</strong>
+                                </div>
+                                {row.attendanceRecord.hasSecondShift ? (
+                                  <>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-slate-400">حضور 2:</span>
+                                      <strong className="font-mono text-slate-800">{row.attendanceRecord.shift2CheckInTime || '-'}</strong>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-slate-400">انصراف 2:</span>
+                                      <strong className="font-mono text-slate-800">{row.attendanceRecord.shift2CheckOutTime || '-'}</strong>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="col-span-2 text-[10px] text-slate-400">دوام مستمر (فترة واحدة)</div>
+                                )}
+                                <div className="flex items-center gap-1">
+                                  <span className="text-slate-400">الساعات الفعلية:</span>
+                                  <strong className="font-mono text-blue-900 bg-blue-50 px-1 rounded">{formatDecimalHours(row.attendanceRecord.actualWorkedHours || 0)}</strong>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-slate-400">عمل رسمي:</span>
+                                  <strong className="font-mono text-indigo-900 bg-indigo-50 px-1 rounded">{formatDecimalHours(row.attendanceRecord.regularHours || 0)}</strong>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-slate-400">أوفر تايم:</span>
+                                  <strong className="font-mono text-amber-900 bg-amber-50 px-1 rounded">+{formatDecimalHours(row.attendanceRecord.overtimeHours || 0)}</strong>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-slate-400">راتب اليوم:</span>
+                                  <strong className="font-mono text-emerald-900 bg-emerald-50 px-1 rounded">{row.attendanceRecord.totalDailyEarnings || 0} {settings.currency}</strong>
+                                </div>
+                              </div>
+                            ) : (row.presentDays !== undefined && row.presentDays > 0) ? (
                               <div className="flex flex-wrap items-center gap-2 text-[10.5px] text-slate-600 bg-blue-50/60 px-2 py-0.5 rounded border border-blue-100">
                                 <span>دوام: <strong className="text-blue-900 font-mono">{row.presentDays}</strong> يوم</span>
                                 {row.workedHours !== undefined && (
@@ -1272,7 +1313,7 @@ export const AccountStatementModal: React.FC = () => {
                                   <span className="text-rose-600 font-bold">• غياب: {row.absentDays} يوم</span>
                                 )}
                               </div>
-                            )}
+                            ) : null}
 
                             {row.notes && !row.description.includes(row.notes) && (
                               <div className="text-[10px] text-slate-500 italic">
