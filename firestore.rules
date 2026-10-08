@@ -85,6 +85,9 @@ service cloud.firestore {
     match /sewing_users/{id} {
       allow read, write: if isSignedIn();
     }
+    match /sewing_userSessions/{id} {
+      allow read, write: if isSignedIn();
+    }
     match /sewing_debtClearings/{id} {
       allow read, write: if isSignedIn();
     }

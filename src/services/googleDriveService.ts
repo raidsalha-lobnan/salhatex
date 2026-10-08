@@ -107,7 +107,7 @@ export async function getOrCreateDriveFolder(accessToken: string): Promise<strin
       body: JSON.stringify({
         name: DRIVE_FOLDER_NAME,
         mimeType: 'application/vnd.google-apps.folder',
-        description: 'مجلد مرفقات وتصاميم فواتير مطبعة ومكتبة لبنان'
+        description: 'مجلد مرفقات وتصاميم وفواتير صالحة تكستيل Salhatex'
       })
     });
 
@@ -140,7 +140,7 @@ export async function uploadFileToGoogleDrive(
   // 3. Prepare metadata and multipart body
   const metadata: any = {
     name: fileName,
-    description: `مرفق أصلي تم حفظه عبر برنامج الأيهم المحاسبي - مطبعة لبنان في ${new Date().toLocaleString('ar-SA')}`
+    description: `مرفق أصلي تم حفظه عبر برنامج صالحة تكستيل (Salhatex) في ${new Date().toLocaleString('ar-SA')}`
   };
 
   if (folderId) {

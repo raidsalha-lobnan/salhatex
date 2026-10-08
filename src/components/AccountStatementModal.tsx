@@ -81,6 +81,7 @@ export const AccountStatementModal: React.FC = () => {
   const [toDate, setToDate] = useState<string>('');
   const [filterType, setFilterType] = useState<'all' | 'debit' | 'credit'>('all');
   const [showItemDetails, setShowItemDetails] = useState<boolean>(true);
+  const [empViewMode, setEmpViewMode] = useState<'financial_ledger' | 'attendance_diary'>('attendance_diary');
 
   // Active party or employee
   const currentParty = useMemo(() => {
@@ -1179,189 +1180,448 @@ export const AccountStatementModal: React.FC = () => {
                 </div>
               </div>
 
+              {/* اختيار نمط عرض الكشف للموظف (منع العرض في الطباعة ليكون الكشف المطبوع نظيفاً) */}
+              <div className="flex flex-wrap items-center justify-between bg-slate-100 p-2.5 rounded-xl border border-slate-200 print:hidden text-xs gap-2">
+                <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-blue-600 animate-pulse" />
+                  شكل وتفاصيل كشف حساب الموظف للمعاينة والطباعة:
+                </span>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setEmpViewMode('attendance_diary')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+                      empViewMode === 'attendance_diary'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>دفتر الدوام واليوميات التفصيلي (الافتراضي)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEmpViewMode('financial_ledger')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+                      empViewMode === 'financial_ledger'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>كشف الحركات والقيود المالية العام</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Detailed Transactions & Movements Table */}
               <div className="border border-slate-400 rounded-md overflow-x-auto shadow-2xs min-h-[440px] print:min-h-[720px] flex flex-col justify-between bg-white">
                 <table className="w-full text-right report-table border-collapse h-full">
-                  <thead>
-                    <tr className="bg-slate-800 text-white font-bold border-b border-slate-900 print:bg-slate-200 print:text-slate-900 text-xs">
-                      <th className="w-7 min-w-7 text-center border-l border-slate-600 print:border-slate-400">م</th>
-                      <th className="w-20 min-w-20 text-center border-l border-slate-600 print:border-slate-400">التاريخ</th>
-                      <th className="border-l border-slate-600 print:border-slate-400">نوع الحركة والبيان وسجل الدوام التفصيلي</th>
-                      <th className="w-24 min-w-24 text-left bg-emerald-950/40 print:bg-emerald-50 border-l border-slate-600 print:border-slate-400 whitespace-nowrap">
-                        استحقاقات (له)
-                      </th>
-                      <th className="w-20 min-w-20 text-left bg-amber-950/40 print:bg-amber-50 border-l border-slate-600 print:border-slate-400 whitespace-nowrap">
-                        سلف (عليه)
-                      </th>
-                      <th className="w-20 min-w-20 text-left bg-rose-950/40 print:bg-rose-50 border-l border-slate-600 print:border-slate-400 whitespace-nowrap">
-                        خصومات (عليه)
-                      </th>
-                      <th className="w-22 min-w-22 text-left bg-blue-950/40 print:bg-blue-50 border-l border-slate-600 print:border-slate-400 whitespace-nowrap">
-                        صرف مسدد
-                      </th>
-                      <th className="w-28 min-w-28 text-left bg-slate-700 print:bg-slate-300 whitespace-nowrap">
-                        الرصيد التراكمي
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 font-mono text-xs">
-                    {/* Opening Balance Row */}
-                    <tr className="bg-slate-100/90 font-bold border-b border-slate-300 text-slate-800">
-                      <td className="text-center text-slate-400 font-sans border-l border-slate-300">-</td>
-                      <td className="text-center text-slate-600 font-mono border-l border-slate-300">{fromDate || 'الرصيد السابق'}</td>
-                      <td className="font-sans text-slate-700 font-semibold border-l border-slate-300">
-                        رصيد سابق - الرصيد الافتتاحي السابق للموظف (ما قبل تاريخ {fromDate || 'بداية العمل'})
-                      </td>
-                      <td className="text-left font-bold text-emerald-700 font-mono whitespace-nowrap border-l border-slate-300">
-                        {employeeStatement.openingBalance > 0 ? employeeStatement.openingBalance.toFixed(2) : '-'}
-                      </td>
-                      <td className="text-left font-bold text-amber-700 font-mono whitespace-nowrap border-l border-slate-300">
-                        {employeeStatement.openingBalance < 0 ? Math.abs(employeeStatement.openingBalance).toFixed(2) : '-'}
-                      </td>
-                      <td className="text-left text-slate-400 font-mono whitespace-nowrap border-l border-slate-300">-</td>
-                      <td className="text-left text-slate-400 font-mono whitespace-nowrap border-l border-slate-300">-</td>
-                      <td className="text-left font-black text-slate-950 bg-slate-100 font-mono whitespace-nowrap">
-                        {employeeStatement.openingBalance.toFixed(2)}
-                      </td>
-                    </tr>
+                  {empViewMode === 'attendance_diary' ? (
+                    <thead>
+                      <tr className="bg-slate-800 text-white font-bold border-b border-slate-900 print:bg-slate-200 print:text-slate-900 text-xs">
+                        <th className="w-7 min-w-7 text-center border-l border-slate-600 print:border-slate-400">م</th>
+                        <th className="w-20 min-w-20 text-center border-l border-slate-600 print:border-slate-400">التاريخ</th>
+                        <th className="w-16 min-w-16 text-center border-l border-slate-600 print:border-slate-400">حضور 1</th>
+                        <th className="w-16 min-w-16 text-center border-l border-slate-600 print:border-slate-400">انصراف 1</th>
+                        <th className="w-16 min-w-16 text-center border-l border-slate-600 print:border-slate-400">حضور 2</th>
+                        <th className="w-16 min-w-16 text-center border-l border-slate-600 print:border-slate-400">انصراف 2</th>
+                        <th className="w-20 min-w-20 text-center border-l border-slate-600 print:border-slate-400">الساعات الفعلية</th>
+                        <th className="w-20 min-w-20 text-center border-l border-slate-600 print:border-slate-400">ساعات عمل رسمي</th>
+                        <th className="w-16 min-w-16 text-center border-l border-slate-600 print:border-slate-400">أوفر تايم</th>
+                        <th className="border-l border-slate-600 print:border-slate-400">راتب اليوم / السلفة والعمليات المتبقية</th>
+                        <th className="w-28 min-w-28 text-left bg-slate-700 print:bg-slate-300 whitespace-nowrap">الرصيد التراكمي</th>
+                      </tr>
+                    </thead>
+                  ) : (
+                    <thead>
+                      <tr className="bg-slate-800 text-white font-bold border-b border-slate-900 print:bg-slate-200 print:text-slate-900 text-xs">
+                        <th className="w-7 min-w-7 text-center border-l border-slate-600 print:border-slate-400">م</th>
+                        <th className="w-20 min-w-20 text-center border-l border-slate-600 print:border-slate-400">التاريخ</th>
+                        <th className="border-l border-slate-600 print:border-slate-400">نوع الحركة والبيان وسجل الدوام التفصيلي</th>
+                        <th className="w-24 min-w-24 text-left bg-emerald-950/40 print:bg-emerald-50 border-l border-slate-600 print:border-slate-400 whitespace-nowrap">
+                          استحقاقات (له)
+                        </th>
+                        <th className="w-20 min-w-20 text-left bg-amber-950/40 print:bg-amber-50 border-l border-slate-600 print:border-slate-400 whitespace-nowrap">
+                          سلف (عليه)
+                        </th>
+                        <th className="w-20 min-w-20 text-left bg-rose-950/40 print:bg-rose-50 border-l border-slate-600 print:border-slate-400 whitespace-nowrap">
+                          خصومات (عليه)
+                        </th>
+                        <th className="w-22 min-w-22 text-left bg-blue-950/40 print:bg-blue-50 border-l border-slate-600 print:border-slate-400 whitespace-nowrap">
+                          صرف مسدد
+                        </th>
+                        <th className="w-28 min-w-28 text-left bg-slate-700 print:bg-slate-300 whitespace-nowrap">
+                          الرصيد التراكمي
+                        </th>
+                      </tr>
+                    </thead>
+                  )}
 
-                    {employeeStatement.rows.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="py-8 text-center text-slate-400 font-sans font-bold">
-                          لا توجد حركات أو مسيرات رواتب مسجلة للموظف خلال هذه الفترة المحددة.
+                  {empViewMode === 'attendance_diary' ? (
+                    <tbody className="divide-y divide-slate-200 font-mono text-[11px]">
+                      {/* Opening Balance Row for Attendance Diary */}
+                      <tr className="bg-slate-100/90 font-bold border-b border-slate-300 text-slate-800 text-[11px]">
+                        <td className="text-center text-slate-400 font-sans border-l border-slate-300 p-2">-</td>
+                        <td className="text-center text-slate-600 font-mono border-l border-slate-300 p-2">{fromDate || 'الرصيد السابق'}</td>
+                        <td className="text-center text-slate-400 font-mono border-l border-slate-300 p-2">-</td>
+                        <td className="text-center text-slate-400 font-mono border-l border-slate-300 p-2">-</td>
+                        <td className="text-center text-slate-400 font-mono border-l border-slate-300 p-2">-</td>
+                        <td className="text-center text-slate-400 font-mono border-l border-slate-300 p-2">-</td>
+                        <td className="text-center text-slate-400 font-mono border-l border-slate-300 p-2">-</td>
+                        <td className="text-center text-slate-400 font-mono border-l border-slate-300 p-2">-</td>
+                        <td className="text-center text-slate-400 font-mono border-l border-slate-300 p-2">-</td>
+                        <td className="font-sans text-slate-700 font-semibold border-l border-slate-300 p-2">
+                          رصيد سابق - الرصيد الافتتاحي السابق للموظف (ما قبل تاريخ {fromDate || 'بداية العمل'})
+                        </td>
+                        <td className="text-left font-black text-slate-950 bg-slate-100 font-mono whitespace-nowrap p-2">
+                          {employeeStatement.openingBalance.toFixed(2)} {settings.currency}
                         </td>
                       </tr>
-                    ) : (
-                      employeeStatement.rows.map((row, idx) => (
-                        <tr
-                          key={`${row.id || 'emp-row'}-${idx}`}
-                          className={`hover:bg-slate-50/90 transition-colors ${
-                            idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'
-                          }`}
-                        >
-                          <td className="text-center text-slate-400 font-sans align-middle border-l border-slate-300">{idx + 1}</td>
-                          <td className="text-slate-700 whitespace-nowrap text-center align-middle font-mono border-l border-slate-300">{row.date}</td>
-                          <td className="font-sans text-slate-800 align-middle space-y-1 border-l border-slate-300">
-                            <div className="font-bold text-slate-900 leading-tight flex flex-wrap items-center gap-1.5">
-                              <span className={`px-1.5 py-0.5 rounded text-[10.5px] font-bold ${
-                                row.type === 'salary_accrual' ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' :
-                                row.type === 'advance' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
-                                row.type === 'deduction' ? 'bg-rose-100 text-rose-900 border border-rose-300' :
-                                row.type === 'incentive' ? 'bg-purple-100 text-purple-900 border border-purple-300' :
-                                'bg-blue-100 text-blue-900 border border-blue-300'
-                              }`}>
-                                {row.typeLabel}
-                              </span>
-                              {row.referenceNumber && (
-                                <span className="font-mono font-semibold text-slate-700">[{row.referenceNumber}]</span>
-                              )}
-                              <span className="text-slate-800 font-medium">{row.description}</span>
-                            </div>
 
-                            {/* شريط معلومات الدوام إن وجدت في الحركة */}
-                            {row.type === 'salary_accrual' && row.typeLabel === 'يومية دوام' && row.attendanceRecord ? (
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10.5px] text-slate-700 bg-slate-50 border border-slate-200 p-2 rounded-lg mt-1 print:bg-white print:border-slate-300">
-                                <div className="flex items-center gap-1">
-                                  <span className="text-slate-400">حضور 1:</span>
-                                  <strong className="font-mono text-slate-800">{row.attendanceRecord.checkInTime || row.attendanceRecord.shift1CheckInTime || '-'}</strong>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="text-slate-400">انصراف 1:</span>
-                                  <strong className="font-mono text-slate-800">{row.attendanceRecord.checkOutTime || row.attendanceRecord.shift1CheckOutTime || '-'}</strong>
-                                </div>
-                                {row.attendanceRecord.hasSecondShift ? (
-                                  <>
-                                    <div className="flex items-center gap-1">
-                                      <span className="text-slate-400">حضور 2:</span>
-                                      <strong className="font-mono text-slate-800">{row.attendanceRecord.shift2CheckInTime || '-'}</strong>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      <span className="text-slate-400">انصراف 2:</span>
-                                      <strong className="font-mono text-slate-800">{row.attendanceRecord.shift2CheckOutTime || '-'}</strong>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <div className="col-span-2 text-[10px] text-slate-400">دوام مستمر (فترة واحدة)</div>
-                                )}
-                                <div className="flex items-center gap-1">
-                                  <span className="text-slate-400">الساعات الفعلية:</span>
-                                  <strong className="font-mono text-blue-900 bg-blue-50 px-1 rounded">{formatDecimalHours(row.attendanceRecord.actualWorkedHours || 0)}</strong>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="text-slate-400">عمل رسمي:</span>
-                                  <strong className="font-mono text-indigo-900 bg-indigo-50 px-1 rounded">{formatDecimalHours(row.attendanceRecord.regularHours || 0)}</strong>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="text-slate-400">أوفر تايم:</span>
-                                  <strong className="font-mono text-amber-900 bg-amber-50 px-1 rounded">+{formatDecimalHours(row.attendanceRecord.overtimeHours || 0)}</strong>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="text-slate-400">راتب اليوم:</span>
-                                  <strong className="font-mono text-emerald-900 bg-emerald-50 px-1 rounded">{row.attendanceRecord.totalDailyEarnings || 0} {settings.currency}</strong>
-                                </div>
-                              </div>
-                            ) : (row.presentDays !== undefined && row.presentDays > 0) ? (
-                              <div className="flex flex-wrap items-center gap-2 text-[10.5px] text-slate-600 bg-blue-50/60 px-2 py-0.5 rounded border border-blue-100">
-                                <span>دوام: <strong className="text-blue-900 font-mono">{row.presentDays}</strong> يوم</span>
-                                {row.workedHours !== undefined && (
-                                  <span>• ساعات العمل: <strong className="text-blue-900 font-mono">{formatDecimalHours(row.workedHours)}</strong></span>
-                                )}
-                                {row.overtimeHours !== undefined && row.overtimeHours > 0 && (
-                                  <span className="text-amber-700 font-bold">• إضافي: +{formatDecimalHours(row.overtimeHours)}</span>
-                                )}
-                                {row.absentDays !== undefined && row.absentDays > 0 && (
-                                  <span className="text-rose-600 font-bold">• غياب: {row.absentDays} يوم</span>
-                                )}
-                              </div>
-                            ) : null}
-
-                            {row.notes && !row.description.includes(row.notes) && (
-                              <div className="text-[10px] text-slate-500 italic">
-                                ملاحظة: {row.notes}
-                              </div>
-                            )}
-                          </td>
-                          <td className="text-left font-bold text-emerald-700 font-mono align-middle whitespace-nowrap border-l border-slate-300">
-                            {row.entitlement > 0 ? row.entitlement.toFixed(2) : '-'}
-                          </td>
-                          <td className="text-left font-bold text-amber-700 font-mono align-middle whitespace-nowrap border-l border-slate-300">
-                            {row.advance > 0 ? row.advance.toFixed(2) : '-'}
-                          </td>
-                          <td className="text-left font-bold text-rose-700 font-mono align-middle whitespace-nowrap border-l border-slate-300">
-                            {row.deduction > 0 ? row.deduction.toFixed(2) : '-'}
-                          </td>
-                          <td className="text-left font-bold text-blue-700 font-mono align-middle whitespace-nowrap border-l border-slate-300">
-                            {row.disbursement > 0 ? row.disbursement.toFixed(2) : '-'}
-                          </td>
-                          <td className={`text-left font-black font-mono align-middle whitespace-nowrap bg-slate-50/70 ${
-                            row.runningBalance >= 0 ? 'text-slate-900' : 'text-amber-800'
-                          }`}>
-                            {row.runningBalance.toFixed(2)}
+                      {employeeStatement.rows.length === 0 ? (
+                        <tr>
+                          <td colSpan={11} className="py-8 text-center text-slate-400 font-sans font-bold">
+                            لا توجد حركات أو سجلات دوام مسجلة للموظف خلال هذه الفترة المحددة.
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-slate-100 font-bold border-t border-slate-300 text-slate-900 text-xs">
-                      <td colSpan={3} className="text-left font-sans">الإجمالي العام للحركات بالفترة:</td>
-                      <td className="text-left font-mono text-emerald-800 font-black whitespace-nowrap">
-                        {employeeStatement.totalEntitlements.toFixed(2)}
-                      </td>
-                      <td className="text-left font-mono text-amber-800 font-black whitespace-nowrap">
-                        {employeeStatement.totalAdvances.toFixed(2)}
-                      </td>
-                      <td className="text-left font-mono text-rose-800 font-black whitespace-nowrap">
-                        {employeeStatement.totalDeductions.toFixed(2)}
-                      </td>
-                      <td className="text-left font-mono text-blue-800 font-black whitespace-nowrap">
-                        {employeeStatement.totalDisbursements.toFixed(2)}
-                      </td>
-                      <td className="text-left font-mono text-slate-900 font-black bg-slate-200/80 whitespace-nowrap">
-                        {employeeStatement.closingBalance.toFixed(2)} {settings.currency}
-                      </td>
-                    </tr>
-                  </tfoot>
+                      ) : (
+                        employeeStatement.rows.map((row, idx) => {
+                          const isAttendance = row.type === 'salary_accrual' && row.typeLabel === 'يومية دوام' && row.attendanceRecord;
+                          
+                          const clockIn1 = isAttendance ? (row.attendanceRecord.checkInTime || row.attendanceRecord.shift1CheckInTime || '-') : '-';
+                          const clockOut1 = isAttendance ? (row.attendanceRecord.checkOutTime || row.attendanceRecord.shift1CheckOutTime || '-') : '-';
+                          const clockIn2 = isAttendance && row.attendanceRecord.hasSecondShift ? (row.attendanceRecord.shift2CheckInTime || '-') : '-';
+                          const clockOut2 = isAttendance && row.attendanceRecord.hasSecondShift ? (row.attendanceRecord.shift2CheckOutTime || '-') : '-';
+                          
+                          const workedHours = isAttendance ? formatDecimalHours(row.attendanceRecord.actualWorkedHours || 0) : '-';
+                          const regHours = isAttendance ? formatDecimalHours(row.attendanceRecord.regularHours || 0) : '-';
+                          const otHours = isAttendance && row.attendanceRecord.overtimeHours > 0 ? `+${formatDecimalHours(row.attendanceRecord.overtimeHours)}` : '-';
+                          
+                          let detailContent: React.ReactNode = null;
+                          if (isAttendance) {
+                            const isPresent = row.attendanceRecord.status === 'present';
+                            const statusBadge = !isPresent ? (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-bold mr-1.5 bg-slate-100 text-slate-700 border border-slate-300">
+                                {row.attendanceRecord.status === 'absent' ? 'غائب' :
+                                 row.attendanceRecord.status === 'half_day' ? 'نصف دوام' :
+                                 row.attendanceRecord.status === 'off' ? 'عطلة' :
+                                 row.attendanceRecord.status === 'sick' ? 'إجازة مرضية' :
+                                 row.attendanceRecord.status === 'excused_leave' ? 'إجازة بعذر' : 'غير مسجل'}
+                              </span>
+                            ) : null;
+
+                            detailContent = (
+                              <div className="flex flex-col gap-0.5 font-sans">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center">
+                                    <span className="font-bold text-slate-700 text-[10.5px]">أجر اليومية:</span>
+                                    {statusBadge}
+                                  </div>
+                                  <strong className={`font-mono px-1.5 py-0.5 rounded border text-[11px] ${
+                                    row.entitlement > 0
+                                      ? 'text-emerald-900 bg-emerald-50 border-emerald-200'
+                                      : 'text-slate-500 bg-slate-50 border-slate-200'
+                                  }`}>
+                                    {row.entitlement.toFixed(2)} {settings.currency}
+                                  </strong>
+                                </div>
+                                {row.notes && (
+                                  <div className="text-[10px] text-slate-500 italic">ملاحظة: {row.notes}</div>
+                                )}
+                              </div>
+                            );
+                          } else if (row.type === 'advance') {
+                            detailContent = (
+                              <div className="bg-amber-50 text-amber-900 p-2 rounded border border-amber-200 font-sans">
+                                <div className="font-bold flex items-center justify-between">
+                                  <span className="flex items-center gap-1">💸 سلفة نقدية مستقطعة:</span>
+                                  <strong className="font-mono text-amber-800">-{row.advance.toFixed(2)} {settings.currency}</strong>
+                                </div>
+                                <div className="text-[10px] text-amber-700 italic mt-0.5 font-bold">ملاحظات السلفة: {row.notes || row.description}</div>
+                              </div>
+                            );
+                          } else if (row.type === 'deduction') {
+                            detailContent = (
+                              <div className="bg-rose-50 text-rose-900 p-2 rounded border border-rose-200 font-sans">
+                                <div className="font-bold flex items-center justify-between">
+                                  <span>🚨 خصم / جزاء مالي:</span>
+                                  <strong className="font-mono text-rose-800">-{row.deduction.toFixed(2)} {settings.currency}</strong>
+                                </div>
+                                <div className="text-[10px] text-rose-700 italic mt-0.5 font-bold">السبب: {row.notes || row.description}</div>
+                              </div>
+                            );
+                          } else if (row.type === 'incentive') {
+                            detailContent = (
+                              <div className="bg-purple-50 text-purple-900 p-2 rounded border border-purple-200 font-sans">
+                                <div className="font-bold flex items-center justify-between">
+                                  <span>🎁 مكافأة وحافز مالي:</span>
+                                  <strong className="font-mono text-purple-800">+{row.entitlement.toFixed(2)} {settings.currency}</strong>
+                                </div>
+                                <div className="text-[10px] text-purple-700 italic mt-0.5 font-bold font-arabic">السبب: {row.notes || row.description}</div>
+                              </div>
+                            );
+                          } else if (row.type === 'payment_disbursement') {
+                            detailContent = (
+                              <div className="bg-blue-50 text-blue-900 p-2 rounded border border-blue-200 font-sans">
+                                <div className="font-bold flex items-center justify-between">
+                                  <span>📥 صرف راتب مستلم:</span>
+                                  <strong className="font-mono text-blue-800">-{row.disbursement.toFixed(2)} {settings.currency}</strong>
+                                </div>
+                                <div className="text-[10px] text-blue-700 italic mt-0.5 font-bold">البيان: {row.notes || row.description}</div>
+                              </div>
+                            );
+                          } else {
+                            detailContent = (
+                              <div className="font-sans text-slate-700">
+                                <span className="font-bold">{row.typeLabel}:</span>
+                                <span className="mr-1">{row.description}</span>
+                                {row.entitlement > 0 && <span className="text-emerald-700 font-bold font-mono mr-1"> (له: +{row.entitlement.toFixed(2)})</span>}
+                                {row.disbursement > 0 && <span className="text-blue-700 font-bold font-mono mr-1"> (صرف: -{row.disbursement.toFixed(2)})</span>}
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <tr
+                              key={`${row.id || 'emp-row-attendance'}-${idx}`}
+                              className={`hover:bg-slate-50/90 transition-colors ${
+                                idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'
+                              }`}
+                            >
+                              <td className="text-center text-slate-400 font-sans align-middle border-l border-slate-300 p-2">{idx + 1}</td>
+                              <td className="text-slate-700 whitespace-nowrap text-center align-middle font-mono border-l border-slate-300 p-2">{row.date}</td>
+                              <td className="text-center text-slate-800 font-mono align-middle border-l border-slate-300 p-2">{clockIn1}</td>
+                              <td className="text-center text-slate-800 font-mono align-middle border-l border-slate-300 p-2">{clockOut1}</td>
+                              <td className="text-center text-slate-800 font-mono align-middle border-l border-slate-300 p-2">{clockIn2}</td>
+                              <td className="text-center text-slate-800 font-mono align-middle border-l border-slate-300 p-2">{clockOut2}</td>
+                              <td className="text-center text-blue-950 bg-blue-50/25 font-mono align-middle border-l border-slate-300 font-bold p-2">{workedHours}</td>
+                              <td className="text-center text-indigo-950 bg-indigo-50/25 font-mono align-middle border-l border-slate-300 font-bold p-2">{regHours}</td>
+                              <td className="text-center text-amber-700 font-mono align-middle border-l border-slate-300 font-bold p-2">{otHours}</td>
+                              <td className="font-sans text-slate-800 align-middle p-2 border-l border-slate-300">
+                                {detailContent}
+                              </td>
+                              <td className="text-left font-black text-slate-950 bg-slate-50/80 font-mono align-middle whitespace-nowrap p-2">
+                                {row.runningBalance.toFixed(2)} {settings.currency}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  ) : (
+                    <tbody className="divide-y divide-slate-200 font-mono text-xs">
+                      {/* Opening Balance Row */}
+                      <tr className="bg-slate-100/90 font-bold border-b border-slate-300 text-slate-800">
+                        <td className="text-center text-slate-400 font-sans border-l border-slate-300 p-2">-</td>
+                        <td className="text-center text-slate-600 font-mono border-l border-slate-300 p-2">{fromDate || 'الرصيد السابق'}</td>
+                        <td className="font-sans text-slate-700 font-semibold border-l border-slate-300 p-2">
+                          رصيد سابق - الرصيد الافتتاحي السابق للموظف (ما قبل تاريخ {fromDate || 'بداية العمل'})
+                        </td>
+                        <td className="text-left font-bold text-emerald-700 font-mono whitespace-nowrap border-l border-slate-300 p-2">
+                          {employeeStatement.openingBalance > 0 ? employeeStatement.openingBalance.toFixed(2) : '-'}
+                        </td>
+                        <td className="text-left font-bold text-amber-700 font-mono whitespace-nowrap border-l border-slate-300 p-2">
+                          {employeeStatement.openingBalance < 0 ? Math.abs(employeeStatement.openingBalance).toFixed(2) : '-'}
+                        </td>
+                        <td className="text-left text-slate-400 font-mono whitespace-nowrap border-l border-slate-300 p-2">-</td>
+                        <td className="text-left text-slate-400 font-mono whitespace-nowrap border-l border-slate-300 p-2">-</td>
+                        <td className="text-left font-black text-slate-950 bg-slate-100 font-mono whitespace-nowrap p-2">
+                          {employeeStatement.openingBalance.toFixed(2)} {settings.currency}
+                        </td>
+                      </tr>
+
+                      {employeeStatement.rows.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="py-8 text-center text-slate-400 font-sans font-bold">
+                            لا توجد حركات أو مسيرات رواتب مسجلة للموظف خلال هذه الفترة المحددة.
+                          </td>
+                        </tr>
+                      ) : (
+                        employeeStatement.rows.map((row, idx) => (
+                          <tr
+                            key={`${row.id || 'emp-row'}-${idx}`}
+                            className={`hover:bg-slate-50/90 transition-colors ${
+                              idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'
+                            }`}
+                          >
+                            <td className="text-center text-slate-400 font-sans align-middle border-l border-slate-300 p-2">{idx + 1}</td>
+                            <td className="text-slate-700 whitespace-nowrap text-center align-middle font-mono border-l border-slate-300 p-2">{row.date}</td>
+                            <td className="font-sans text-slate-800 align-middle space-y-1 border-l border-slate-300 p-2">
+                              <div className="font-bold text-slate-900 leading-tight flex flex-wrap items-center gap-1.5">
+                                <span className={`px-1.5 py-0.5 rounded text-[10.5px] font-bold ${
+                                  row.type === 'salary_accrual' ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' :
+                                  row.type === 'advance' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
+                                  row.type === 'deduction' ? 'bg-rose-100 text-rose-900 border border-rose-300' :
+                                  row.type === 'incentive' ? 'bg-purple-100 text-purple-900 border border-purple-300' :
+                                  'bg-blue-100 text-blue-900 border border-blue-300'
+                                }`}>
+                                  {row.typeLabel}
+                                </span>
+                                {row.referenceNumber && (
+                                  <span className="font-mono font-semibold text-slate-700">[{row.referenceNumber}]</span>
+                                )}
+                                <span className="text-slate-800 font-medium">{row.description}</span>
+                              </div>
+
+                              {/* شريط معلومات الدوام إن وجدت في الحركة */}
+                              {row.type === 'salary_accrual' && row.typeLabel === 'يومية دوام' && row.attendanceRecord ? (
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10.5px] text-slate-700 bg-slate-50 border border-slate-200 p-2 rounded-lg mt-1 print:bg-white print:border-slate-300">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-slate-400">حضور 1:</span>
+                                    <strong className="font-mono text-slate-800">{row.attendanceRecord.checkInTime || row.attendanceRecord.shift1CheckInTime || '-'}</strong>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-slate-400">انصراف 1:</span>
+                                    <strong className="font-mono text-slate-800">{row.attendanceRecord.checkOutTime || row.attendanceRecord.shift1CheckOutTime || '-'}</strong>
+                                  </div>
+                                  {row.attendanceRecord.hasSecondShift ? (
+                                    <>
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-slate-400">حضور 2:</span>
+                                        <strong className="font-mono text-slate-800">{row.attendanceRecord.shift2CheckInTime || '-'}</strong>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-slate-400">انصراف 2:</span>
+                                        <strong className="font-mono text-slate-800">{row.attendanceRecord.shift2CheckOutTime || '-'}</strong>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="col-span-2 text-[10px] text-slate-400">دوام مستمر (فترة واحدة)</div>
+                                  )}
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-slate-400">الساعات الفعلية:</span>
+                                    <strong className="font-mono text-blue-900 bg-blue-50 px-1 rounded">{formatDecimalHours(row.attendanceRecord.actualWorkedHours || 0)}</strong>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-slate-400">عمل رسمي:</span>
+                                    <strong className="font-mono text-indigo-900 bg-indigo-50 px-1 rounded">{formatDecimalHours(row.attendanceRecord.regularHours || 0)}</strong>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-slate-400">أوفر تايم:</span>
+                                    <strong className="font-mono text-amber-900 bg-amber-50 px-1 rounded">+{formatDecimalHours(row.attendanceRecord.overtimeHours || 0)}</strong>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-slate-400">راتب اليوم:</span>
+                                    <strong className="font-mono text-emerald-900 bg-emerald-50 px-1 rounded">{row.attendanceRecord.totalDailyEarnings || 0} {settings.currency}</strong>
+                                  </div>
+                                </div>
+                              ) : (row.presentDays !== undefined && row.presentDays > 0) ? (
+                                <div className="flex flex-wrap items-center gap-2 text-[10.5px] text-slate-600 bg-blue-50/60 px-2 py-0.5 rounded border border-blue-100">
+                                  <span>دوام: <strong className="text-blue-900 font-mono">{row.presentDays}</strong> يوم</span>
+                                  {row.workedHours !== undefined && (
+                                    <span>• ساعات العمل: <strong className="text-blue-900 font-mono">{formatDecimalHours(row.workedHours)}</strong></span>
+                                  )}
+                                  {row.overtimeHours !== undefined && row.overtimeHours > 0 && (
+                                    <span className="text-amber-700 font-bold">• إضافي: +{formatDecimalHours(row.overtimeHours)}</span>
+                                  )}
+                                  {row.absentDays !== undefined && row.absentDays > 0 && (
+                                    <span className="text-rose-600 font-bold">• غياب: {row.absentDays} يوم</span>
+                                  )}
+                                </div>
+                              ) : null}
+
+                              {row.notes && !row.description.includes(row.notes) && (
+                                <div className="text-[10px] text-slate-500 italic mt-0.5">
+                                  ملاحظة: {row.notes}
+                                </div>
+                              )}
+                            </td>
+                            <td className="text-left font-bold text-emerald-700 font-mono align-middle whitespace-nowrap border-l border-slate-300 p-2">
+                              {row.entitlement > 0 ? row.entitlement.toFixed(2) : '-'}
+                            </td>
+                            <td className="text-left font-bold text-amber-700 font-mono align-middle whitespace-nowrap border-l border-slate-300 p-2">
+                              {row.advance > 0 ? row.advance.toFixed(2) : '-'}
+                            </td>
+                            <td className="text-left font-bold text-rose-700 font-mono align-middle whitespace-nowrap border-l border-slate-300 p-2">
+                              {row.deduction > 0 ? row.deduction.toFixed(2) : '-'}
+                            </td>
+                            <td className="text-left font-bold text-blue-700 font-mono align-middle whitespace-nowrap border-l border-slate-300 p-2">
+                              {row.disbursement > 0 ? row.disbursement.toFixed(2) : '-'}
+                            </td>
+                            <td className={`text-left font-black font-mono align-middle whitespace-nowrap bg-slate-50/70 p-2 ${
+                              row.runningBalance >= 0 ? 'text-slate-900' : 'text-amber-800'
+                            }`}>
+                              {row.runningBalance.toFixed(2)} {settings.currency}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  )}
+
+                  {empViewMode === 'attendance_diary' ? (
+                    <tfoot>
+                      {/* Summary Breakdown Row */}
+                      <tr className="bg-slate-100 font-bold border-t-2 border-slate-400 text-slate-900 text-xs">
+                        <td colSpan={6} className="text-right font-sans p-2 border-l border-slate-300">
+                          <span className="font-bold text-slate-800">إجمالي الفترة المحددة:</span>
+                        </td>
+                        <td className="text-center font-mono text-blue-900 font-black bg-blue-50/50 p-2 border-l border-slate-300">
+                          {employeeStatement.attendanceSummary.totalWorkedHours} س
+                        </td>
+                        <td className="text-center font-mono text-indigo-900 font-bold bg-indigo-50/50 p-2 border-l border-slate-300">
+                          {employeeStatement.attendanceSummary.officialHoursExpected} س
+                        </td>
+                        <td className="text-center font-mono text-amber-800 font-black bg-amber-50/50 p-2 border-l border-slate-300">
+                          {employeeStatement.attendanceSummary.overtimeHours > 0 ? `+${employeeStatement.attendanceSummary.overtimeHours} س` : '0 س'}
+                        </td>
+                        <td className="font-sans p-2 border-l border-slate-300">
+                          <div className="flex flex-wrap items-center justify-between gap-1 text-[11px]">
+                            <span className="text-emerald-800 font-bold">
+                              مجموع الرواتب اليومية: +{employeeStatement.totalEntitlements.toFixed(2)} {settings.currency}
+                            </span>
+                            {employeeStatement.totalAdvances > 0 && (
+                              <span className="text-amber-800 font-bold">
+                                خصم السلف: -{employeeStatement.totalAdvances.toFixed(2)} {settings.currency}
+                              </span>
+                            )}
+                            {employeeStatement.totalDeductions > 0 && (
+                              <span className="text-rose-800 font-bold">
+                                خصومات: -{employeeStatement.totalDeductions.toFixed(2)} {settings.currency}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="text-left font-mono text-slate-950 font-black bg-slate-200/90 p-2 whitespace-nowrap">
+                          {employeeStatement.closingBalance.toFixed(2)} {settings.currency}
+                        </td>
+                      </tr>
+
+                      {/* Prominent Net Payable Row */}
+                      <tr className="bg-emerald-50/90 font-black border-t border-emerald-300 text-emerald-950 text-xs">
+                        <td colSpan={10} className="text-right font-sans p-2.5">
+                          <span className="text-sm font-black text-emerald-900">
+                            صافي المطلوب والمستحق للفترة المحددة (مجموع الرواتب اليومية - إجمالي السلف):
+                          </span>
+                        </td>
+                        <td className="text-left font-mono text-emerald-950 font-black bg-emerald-100/90 p-2.5 whitespace-nowrap text-sm border-r border-emerald-300">
+                          {employeeStatement.closingBalance.toFixed(2)} {settings.currency}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  ) : (
+                    <tfoot>
+                      <tr className="bg-slate-100 font-bold border-t border-slate-300 text-slate-900 text-xs">
+                        <td colSpan={3} className="text-left font-sans p-2">الإجمالي العام للحركات بالفترة:</td>
+                        <td className="text-left font-mono text-emerald-800 font-black whitespace-nowrap p-2">
+                          {employeeStatement.totalEntitlements.toFixed(2)}
+                        </td>
+                        <td className="text-left font-mono text-amber-800 font-black whitespace-nowrap p-2">
+                          {employeeStatement.totalAdvances.toFixed(2)}
+                        </td>
+                        <td className="text-left font-mono text-rose-800 font-black whitespace-nowrap p-2">
+                          {employeeStatement.totalDeductions.toFixed(2)}
+                        </td>
+                        <td className="text-left font-mono text-blue-800 font-black whitespace-nowrap p-2">
+                          {employeeStatement.totalDisbursements.toFixed(2)}
+                        </td>
+                        <td className="text-left font-mono text-slate-900 font-black bg-slate-200/80 p-2 whitespace-nowrap">
+                          {employeeStatement.closingBalance.toFixed(2)} {settings.currency}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
 

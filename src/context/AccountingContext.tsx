@@ -234,6 +234,7 @@ interface AccountingContextType {
   updateAttendanceRecord: (id: string, updates: Partial<AttendanceRecord>) => void;
   deleteAttendanceRecord: (id: string) => void;
   saveDailyAttendanceBatch: (date: string, records: Array<Partial<AttendanceRecord> & { employeeId: string }>) => void;
+  saveMultipleDaysAttendanceBatch: (records: Array<Partial<AttendanceRecord> & { employeeId: string; date: string }>) => void;
   getAttendanceForDate: (date: string) => AttendanceRecord[];
   transferOvertimeToIncentives: (dateOrMonth: string, recordsToTransfer?: AttendanceRecord[]) => { count: number; totalAmount: number };
   recalculateEmployeeAttendanceRecords: (employeeId: string) => { count: number; updated: number };
@@ -3946,7 +3947,11 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const officialStartMinutes = parseMinutes(employee.officialStartTime || '08:00');
     const lateMinutes = Math.max(0, firstInMinutes - officialStartMinutes);
 
-    const regularPayEarned = Number((regularHours * baseHourlyRate).toFixed(2));
+    const dailyRate = employee.salaryType === 'daily' ? (employee.salaryAmount || 140) : 0;
+    const regularPayEarned = employee.salaryType === 'daily'
+      ? (status === 'half_day' ? Number((dailyRate / 2).toFixed(2)) : dailyRate)
+      : Number((regularHours * baseHourlyRate).toFixed(2));
+
     const overtimePayEarned = Number((overtimeHours * overtimeRatePerHour).toFixed(2));
     const lateDeductionAmount = (employee.deductLateMinutes && lateMinutes > 0)
       ? Number(((lateMinutes / 60) * baseHourlyRate).toFixed(2))
@@ -4130,6 +4135,93 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
   };
 
+  const saveMultipleDaysAttendanceBatch = (
+    records: Array<Partial<AttendanceRecord> & { employeeId: string; date: string }>
+  ) => {
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    
+    setAttendanceRecords(prev => {
+      let currentList = [...prev];
+      records.forEach(item => {
+        const emp = employees.find(e => e.id === item.employeeId);
+        if (!emp) return;
+
+        const isSecond = Boolean(item.hasSecondShift);
+        const resolvedCheckIn = isSecond
+          ? (item.shift1CheckInTime || item.checkInTime || emp.officialStartTime || '08:00')
+          : (item.checkInTime || emp.officialStartTime || '08:00');
+        const resolvedCheckOut = isSecond
+          ? (item.shift2CheckOutTime || item.checkOutTime || emp.officialEndTime || '16:30')
+          : (item.checkOutTime || emp.officialEndTime || '16:30');
+
+        const metrics = calculateAttendanceMetrics({
+          employee: emp,
+          status: item.status || 'present',
+          checkInTime: resolvedCheckIn,
+          checkOutTime: resolvedCheckOut,
+          breakMinutes: item.breakMinutes,
+          hasSecondShift: isSecond,
+          shift1CheckInTime: resolvedCheckIn,
+          shift1CheckOutTime: isSecond ? item.shift1CheckOutTime : undefined,
+          shift2CheckInTime: isSecond ? item.shift2CheckInTime : undefined,
+          shift2CheckOutTime: resolvedCheckOut,
+          officialDailyHoursOverride: item.officialDailyHours,
+          baseHourlyRateOverride: item.baseHourlyRate,
+          overtimeMethodOverride: item.overtimeMethod,
+          overtimeMultiplierOverride: item.overtimeMultiplier,
+          customOvertimeRateOverride: item.overtimeRatePerHour
+        });
+
+        const existingRecord = prev.find(r => r.employeeId === emp.id && r.date === item.date);
+
+        const fullRecord: AttendanceRecord = {
+          id: item.id || existingRecord?.id || ('att-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6)),
+          date: item.date,
+          employeeId: emp.id,
+          employeeName: emp.name,
+          employeeCode: emp.code,
+          department: emp.department,
+          status: item.status || 'present',
+          checkInTime: resolvedCheckIn,
+          checkOutTime: resolvedCheckOut,
+          breakMinutes: metrics.breakMinutes,
+          hasSecondShift: isSecond,
+          shift1CheckInTime: resolvedCheckIn,
+          shift1CheckOutTime: isSecond ? item.shift1CheckOutTime : undefined,
+          shift2CheckInTime: isSecond ? item.shift2CheckInTime : undefined,
+          shift2CheckOutTime: resolvedCheckOut,
+          breakBetweenShiftsMinutes: metrics.breakBetweenShiftsMinutes,
+          shift1WorkedHours: metrics.shift1WorkedHours,
+          shift2WorkedHours: metrics.shift2WorkedHours,
+          officialDailyHours: metrics.officialDailyHours,
+          actualWorkedMinutes: metrics.actualWorkedMinutes,
+          actualWorkedHours: metrics.actualWorkedHours,
+          regularHours: metrics.regularHours,
+          overtimeHours: metrics.overtimeHours,
+          lateMinutes: metrics.lateMinutes,
+          earlyDepartureMinutes: metrics.earlyDepartureMinutes,
+          hourlyRateType: item.hourlyRateType || 'from_salary',
+          baseHourlyRate: metrics.baseHourlyRate,
+          overtimeMethod: metrics.overtimeMethod,
+          overtimeMultiplier: metrics.overtimeMultiplier,
+          overtimeRatePerHour: metrics.overtimeRatePerHour,
+          regularPayEarned: metrics.regularPayEarned,
+          overtimePayEarned: metrics.overtimePayEarned,
+          lateDeductionAmount: metrics.lateDeductionAmount,
+          totalDailyEarnings: metrics.totalDailyEarnings,
+          notes: item.notes || '',
+          createdAt: item.createdAt || existingRecord?.createdAt || nowStr,
+          updatedAt: nowStr
+        };
+
+        currentList = currentList.filter(r => !(r.employeeId === emp.id && r.date === item.date));
+        currentList.push(fullRecord);
+      });
+
+      return currentList;
+    });
+  };
+
   const getAttendanceForDate = (date: string): AttendanceRecord[] => {
     return attendanceRecords.filter(r => r.date === date);
   };
@@ -4258,10 +4350,8 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (employee.salaryType === 'daily') {
       const dailyRate = employee.salaryAmount || 0;
       if (empAttendance.length > 0) {
-        // إذا كان هناك سجلات دوام: نحسب الأجر المستحق من مجموع الاستحقاق اليومي لساعات العمل العادية
-        const regularPaySum = Number(empAttendance.reduce((sum, r) => sum + (r.regularPayEarned || 0), 0).toFixed(2));
-        basicSalary = regularPaySum > 0 ? regularPaySum : Number((dailyRate * presentDays).toFixed(2));
-        baseExplanation = `أجر يومي: ${dailyRate} ₪ × ${presentDays} يوم حضور فعلي (${totalWorkedHours} ساعة عمل صافية بعد خصم الاستراحة)`;
+        basicSalary = Number((dailyRate * presentDays).toFixed(2));
+        baseExplanation = `أجر يومي: ${dailyRate} ₪ × ${presentDays} يوم حضور فعلي (${totalWorkedHours} ساعة عمل صافية)`;
       } else {
         basicSalary = Number((dailyRate * defaultWorkDays).toFixed(2));
         baseExplanation = `أجر يومي افتراضي: ${dailyRate} ₪ × ${defaultWorkDays} يوم عمل`;
@@ -7331,6 +7421,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updateAttendanceRecord,
         deleteAttendanceRecord,
         saveDailyAttendanceBatch,
+        saveMultipleDaysAttendanceBatch,
         getAttendanceForDate,
         transferOvertimeToIncentives,
         recalculateEmployeeAttendanceRecords,

@@ -497,22 +497,22 @@ export const MobileNavigationModal: React.FC<MobileNavigationModalProps> = ({
       <div className="bg-[#0f172a] text-slate-100 w-full h-[94vh] sm:h-auto sm:max-h-[90vh] sm:max-w-xl mx-auto rounded-t-3xl sm:rounded-3xl border border-slate-700/80 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-250">
         {/* ========================================================================= */}
         {/* TOP HEADER: System Name, Enterprise, User Info & Logout Button            */}
-        {/* برنامج الأيهم المحاسبي - مطبعة ومكتبة لبنان - اسم المستخدم والوظيفة - خروج  */}
+        {/* برنامج صالحة تكستيل Salhatex - اسم المستخدم والوظيفة - خروج  */}
         {/* ========================================================================= */}
         <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-4 py-3.5 border-b border-slate-700/80 shrink-0">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-md shrink-0 border border-blue-400/30">
-                P
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-lg shadow-md shrink-0 border border-indigo-400/30">
+                S
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <h2 className="text-[15px] font-black text-white tracking-tight truncate">
-                    برنامج الأيهم المحاسبي
+                    برنامج صالحة تكستيل (Salhatex)
                   </h2>
                 </div>
                 <p className="text-[11px] font-bold text-blue-400 truncate mt-0.5">
-                  {settings.businessName || settings.companyName || 'مطبعة ومكتبة لبنان'}
+                  {settings.businessName || settings.companyName || 'مشغل وورشة صالحة تكستيل Salhatex'}
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-400 truncate">
                   <span className="text-slate-300 font-semibold">{currentUser?.fullName || 'م. رائد صالحة'}</span>

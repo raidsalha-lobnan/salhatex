@@ -643,13 +643,13 @@ export const Navbar: React.FC = () => {
             }}
             title={window.innerWidth < 768 ? "فتح القوائم" : "الانتقال إلى الشاشة الرئيسية"}
           >
-            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-md sm:rounded-lg flex items-center justify-center text-white font-black text-xs sm:text-sm shrink-0 shadow-sm">
-              P
+            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-indigo-500 to-blue-700 rounded-md sm:rounded-lg flex items-center justify-center text-white font-black text-xs sm:text-sm shrink-0 shadow-sm">
+              S
             </div>
             <div className="flex flex-col justify-center min-w-0 max-w-[200px] sm:max-w-md">
-              <span className="font-extrabold text-white tracking-tight text-[11px] sm:text-sm leading-tight whitespace-nowrap">برنامج الأيهم المحاسبي</span>
+              <span className="font-extrabold text-white tracking-tight text-[11px] sm:text-sm leading-tight whitespace-nowrap">برنامج صالحة تكستيل (Salhatex)</span>
               <p className="text-[8px] sm:text-[9px] text-emerald-400 truncate leading-tight mt-0.5" dir="rtl">
-                {settings.businessName || settings.companyName} - {currentUser?.fullName} - {currentUser?.roleName}
+                {settings.businessName || settings.companyName || 'صالحة تكستيل - Salhatex'} - {currentUser?.fullName} - {currentUser?.roleName}
               </p>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { auth } from '../firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInAnonymously } from 'firebase/auth';
 import { Lock, Mail, KeyRound, ArrowRight, UserPlus, LogIn, AlertCircle, ShieldCheck, Check } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -15,11 +15,21 @@ export const LoginView: React.FC<{ onLocalLogin?: (id: string) => void }> = ({ o
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
-  const directAdminLogin = () => {
+  const directAdminLogin = async () => {
+    setLoading(true);
+    try {
+      await signInAnonymously(auth);
+    } catch (e) {
+      console.warn("Firebase anonymous auth failed, proceeding in offline mode:", e);
+    }
     const adminUser = DEFAULT_SYSTEM_USERS[0];
     const sessionId = Date.now().toString(36) + Math.random().toString(36).substring(2);
     localStorage.setItem('active_session_id', sessionId);
     localStorage.setItem('sewing_tailoring_workshop_v1_current_user_id', adminUser.id);
+    try {
+      await setDoc(doc(db, 'sewing_userSessions', adminUser.id), { sessionId, timestamp: Date.now() });
+    } catch(e) { console.error("Firestore session error:", e); }
+    setLoading(false);
     if (onLocalLogin) {
       onLocalLogin(adminUser.id);
     } else {
@@ -67,6 +77,12 @@ export const LoginView: React.FC<{ onLocalLogin?: (id: string) => void }> = ({ o
     
     const user = users.find((u: any) => (u.email === email || u.username === email) && u.password === password);
     if (user) {
+      setLoading(true);
+      try {
+        await signInAnonymously(auth);
+      } catch (e) {
+        console.warn("Firebase anonymous auth failed, proceeding in offline mode:", e);
+      }
       const sessionId = Date.now().toString(36) + Math.random().toString(36).substring(2);
       localStorage.setItem('active_session_id', sessionId);
       try {
@@ -74,6 +90,7 @@ export const LoginView: React.FC<{ onLocalLogin?: (id: string) => void }> = ({ o
       } catch(e) { console.error("Firestore session error:", e); }
       
       localStorage.setItem('sewing_tailoring_workshop_v1_current_user_id', user.id);
+      setLoading(false);
       if (onLocalLogin) {
         onLocalLogin(user.id);
       } else {
@@ -104,22 +121,58 @@ export const LoginView: React.FC<{ onLocalLogin?: (id: string) => void }> = ({ o
       const sessionId = Date.now().toString(36) + Math.random().toString(36).substring(2);
       localStorage.setItem('active_session_id', sessionId);
       try {
-        await setDoc(doc(db, 'userSessions', userEmail), { sessionId, timestamp: Date.now() });
+        await setDoc(doc(db, 'sewing_userSessions', userEmail), { sessionId, timestamp: Date.now() });
       } catch(e) {}
       
     } catch (err: any) {
-      console.error(err);
-      setErrorCode(err.code);
+      console.warn("Firebase email auth error, attempting local authentication fallback:", err?.code || err);
+
+      // Check if credentials match local/default system users
+      const localData = localStorage.getItem('sewing_tailoring_workshop_v1_users') || localStorage.getItem('alnoor_press_accounting_v1_users');
+      let users = DEFAULT_SYSTEM_USERS;
+      try {
+        if (localData) users = JSON.parse(localData);
+      } catch(e) {
+        users = DEFAULT_SYSTEM_USERS;
+      }
+
+      const matchedUser = users.find((u: any) => 
+        (u.email?.toLowerCase() === email.toLowerCase() || u.username?.toLowerCase() === email.toLowerCase()) && 
+        u.password === password
+      );
+
+      if (matchedUser) {
+        try {
+          await signInAnonymously(auth);
+        } catch (anonErr) {
+          console.warn("Anonymous auth also bypassed:", anonErr);
+        }
+        const sessionId = Date.now().toString(36) + Math.random().toString(36).substring(2);
+        localStorage.setItem('active_session_id', sessionId);
+        localStorage.setItem('sewing_tailoring_workshop_v1_current_user_id', matchedUser.id);
+        try {
+          await setDoc(doc(db, 'sewing_userSessions', matchedUser.id), { sessionId, timestamp: Date.now() });
+        } catch(e) {}
+
+        if (onLocalLogin) {
+          onLocalLogin(matchedUser.id);
+        } else {
+          window.location.reload();
+        }
+        return;
+      }
+
+      setErrorCode(err.code || '');
       if (err.code === 'auth/operation-not-allowed') {
-         setError('تسجيل الدخول بالبريد غير مفعل في Firebase. يرجى تفعيله من لوحة التحكم.');
+        setError('تسجيل الدخول بالبريد غير مفعل في إعدادات السحابة، ويمكنك استخدام الدخول الفوري بضغطة زر أدناه.');
       } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-         setError('البريد الإلكتروني أو كلمة المرور غير صحيحة');
+        setError('البريد الإلكتروني أو كلمة المرور غير صحيحة');
       } else if (err.code === 'auth/email-already-in-use') {
-         setError('البريد الإلكتروني مستخدم مسبقاً');
+        setError('البريد الإلكتروني مستخدم مسبقاً');
       } else if (err.code === 'auth/weak-password') {
-         setError('كلمة المرور ضعيفة جداً');
+        setError('كلمة المرور ضعيفة جداً');
       } else {
-         setError(err.message || 'حدث خطأ أثناء المصادقة');
+        setError(err.message || 'حدث خطأ أثناء المصادقة');
       }
     } finally {
       setLoading(false);
@@ -168,7 +221,7 @@ export const LoginView: React.FC<{ onLocalLogin?: (id: string) => void }> = ({ o
             </div>
             {errorCode === 'auth/operation-not-allowed' && (
               <a 
-                href="https://console.firebase.google.com/project/rich-web-kq6d2/authentication/providers" 
+                href="https://console.firebase.google.com/project/gen-lang-client-0984774155/authentication/providers" 
                 target="_blank" 
                 rel="noreferrer"
                 className="text-xs bg-rose-600 text-white px-3 py-1.5 rounded-lg hover:bg-rose-700 mt-1 inline-block"

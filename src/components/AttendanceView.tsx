@@ -44,6 +44,7 @@ export const AttendanceView: React.FC = () => {
     employees,
     attendanceRecords,
     saveDailyAttendanceBatch,
+    saveMultipleDaysAttendanceBatch,
     updateAttendanceRecord,
     deleteAttendanceRecord,
     transferOvertimeToIncentives,
@@ -57,7 +58,7 @@ export const AttendanceView: React.FC = () => {
   const currencySymbol = settings.currency || '₪';
 
   // Active view tab
-  const [activeTab, setActiveTab] = useState<'daily' | 'monthly' | 'settings'>('daily');
+  const [activeTab, setActiveTab] = useState<'daily' | 'single_employee_monthly' | 'monthly' | 'settings'>('daily');
 
   // Selected date for daily attendance (defaults to today)
   const [selectedDate, setSelectedDate] = useState<string>(() => {
@@ -72,6 +73,210 @@ export const AttendanceView: React.FC = () => {
   const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState<string>('all');
   const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // States for Method 1: Single Employee Monthly Registration
+  const [selectedMonthlyEmpId, setSelectedMonthlyEmpId] = useState<string>('');
+  const [selectedMonthlyMonth, setSelectedMonthlyMonth] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [monthlyDrafts, setMonthlyDrafts] = useState<Record<string, {
+    status: AttendanceStatus;
+    checkInTime: string;
+    checkOutTime: string;
+    breakMinutes: number;
+    hasSecondShift: boolean;
+    shift1CheckInTime: string;
+    shift1CheckOutTime: string;
+    shift2CheckInTime: string;
+    shift2CheckOutTime: string;
+    notes: string;
+  }>>({});
+
+  // Memoized lists and effects for Single Worker Monthly Attendance (Method 1)
+  const activeEmployees = useMemo(() => {
+    return employees.filter(e => e.status === 'active');
+  }, [employees]);
+
+  const selectedMonthlyEmployee = useMemo(() => {
+    const empId = selectedMonthlyEmpId || activeEmployees[0]?.id || '';
+    return employees.find(e => e.id === empId);
+  }, [selectedMonthlyEmpId, activeEmployees, employees]);
+
+  React.useEffect(() => {
+    if (!selectedMonthlyEmpId && activeEmployees.length > 0) {
+      setSelectedMonthlyEmpId(activeEmployees[0].id);
+    }
+  }, [activeEmployees, selectedMonthlyEmpId]);
+
+  const getArabicDayName = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      const days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+      return days[d.getDay()];
+    } catch (e) {
+      return '';
+    }
+  };
+
+  const monthlyCalendarDays = useMemo(() => {
+    if (!selectedMonthlyMonth) return [];
+    const [yearStr, monthStr] = selectedMonthlyMonth.split('-');
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10) - 1;
+    
+    const numDays = new Date(year, month + 1, 0).getDate();
+    const days = [];
+    for (let d = 1; d <= numDays; d++) {
+      const dateStr = `${yearStr}-${monthStr}-${String(d).padStart(2, '0')}`;
+      days.push(dateStr);
+    }
+    return days;
+  }, [selectedMonthlyMonth]);
+
+  React.useEffect(() => {
+    if (!selectedMonthlyEmployee || !selectedMonthlyMonth) return;
+    
+    const drafts: Record<string, any> = {};
+    
+    monthlyCalendarDays.forEach(dateStr => {
+      const existing = attendanceRecords.find(r => r.employeeId === selectedMonthlyEmployee.id && r.date === dateStr);
+      if (existing) {
+        drafts[dateStr] = {
+          status: existing.status,
+          checkInTime: existing.checkInTime || selectedMonthlyEmployee.officialStartTime || '08:00',
+          checkOutTime: existing.checkOutTime || selectedMonthlyEmployee.officialEndTime || '16:30',
+          breakMinutes: existing.breakMinutes ?? 0,
+          hasSecondShift: existing.hasSecondShift ?? false,
+          shift1CheckInTime: existing.shift1CheckInTime || existing.checkInTime || selectedMonthlyEmployee.officialStartTime || '08:00',
+          shift1CheckOutTime: existing.shift1CheckOutTime || '12:00',
+          shift2CheckInTime: existing.shift2CheckInTime || '13:00',
+          shift2CheckOutTime: existing.shift2CheckOutTime || existing.checkOutTime || selectedMonthlyEmployee.officialEndTime || '16:30',
+          notes: existing.notes || ''
+        };
+      } else {
+        drafts[dateStr] = {
+          status: 'off',
+          checkInTime: selectedMonthlyEmployee.officialStartTime || '08:00',
+          checkOutTime: selectedMonthlyEmployee.officialEndTime || '16:30',
+          breakMinutes: 0,
+          hasSecondShift: false,
+          shift1CheckInTime: selectedMonthlyEmployee.officialStartTime || '08:00',
+          shift1CheckOutTime: '12:00',
+          shift2CheckInTime: '13:00',
+          shift2CheckOutTime: selectedMonthlyEmployee.officialEndTime || '16:30',
+          notes: ''
+        };
+      }
+    });
+    
+    setMonthlyDrafts(drafts);
+  }, [selectedMonthlyEmployee, selectedMonthlyMonth, monthlyCalendarDays, attendanceRecords]);
+
+  const handleUpdateMonthlyDraft = (dateStr: string, updates: Partial<any>) => {
+    setMonthlyDrafts(prev => ({
+      ...prev,
+      [dateStr]: {
+        ...prev[dateStr],
+        ...updates
+      }
+    }));
+  };
+
+  const handleSaveMonthlySheet = () => {
+    if (!selectedMonthlyEmployee) {
+      showFeedback('يرجى اختيار الموظف أولاً', 'error');
+      return;
+    }
+    
+    const recordsToSave = monthlyCalendarDays.map(dateStr => {
+      const draft = monthlyDrafts[dateStr];
+      return {
+        date: dateStr,
+        employeeId: selectedMonthlyEmployee.id,
+        status: draft.status,
+        checkInTime: draft.checkInTime,
+        checkOutTime: draft.checkOutTime,
+        breakMinutes: draft.breakMinutes,
+        hasSecondShift: draft.hasSecondShift,
+        shift1CheckInTime: draft.shift1CheckInTime,
+        shift1CheckOutTime: draft.shift1CheckOutTime,
+        shift2CheckInTime: draft.shift2CheckInTime,
+        shift2CheckOutTime: draft.shift2CheckOutTime,
+        notes: draft.notes
+      };
+    });
+    
+    try {
+      saveMultipleDaysAttendanceBatch(recordsToSave);
+      showFeedback(`تم حفظ واعتماد كشف الحضور الشهري بنجاح للموظف: ${selectedMonthlyEmployee.name} لشهر ${selectedMonthlyMonth}.`, 'success');
+    } catch (e: any) {
+      console.error(e);
+      showFeedback(`حدث خطأ أثناء حفظ كشف الحضور: ${e.message || e}`, 'error');
+    }
+  };
+
+  const draftStats = useMemo(() => {
+    let presentDays = 0;
+    let absentDays = 0;
+    let halfDays = 0;
+    let totalWorkedHours = 0;
+    let totalOvertimeHours = 0;
+    
+    if (!selectedMonthlyEmployee) return { presentDays, absentDays, halfDays, totalWorkedHours, totalOvertimeHours };
+    
+    monthlyCalendarDays.forEach(dateStr => {
+      const draft = monthlyDrafts[dateStr];
+      if (!draft) return;
+      
+      if (draft.status === 'present') presentDays++;
+      else if (draft.status === 'absent') absentDays++;
+      else if (draft.status === 'half_day') {
+        presentDays += 0.5;
+        halfDays++;
+      }
+      
+      if (draft.status === 'present' || draft.status === 'half_day') {
+        const parseTimeToMinutes = (timeStr: string) => {
+          if (!timeStr) return 0;
+          const [h, m] = timeStr.split(':').map(Number);
+          return (h || 0) * 60 + (m || 0);
+        };
+        
+        let workedMinutes = 0;
+        if (draft.hasSecondShift) {
+          const s1In = parseTimeToMinutes(draft.shift1CheckInTime);
+          const s1Out = parseTimeToMinutes(draft.shift1CheckOutTime);
+          const s2In = parseTimeToMinutes(draft.shift2CheckInTime);
+          const s2Out = parseTimeToMinutes(draft.shift2CheckOutTime);
+          
+          const s1 = Math.max(0, s1Out - s1In);
+          const s2 = Math.max(0, s2Out - s2In);
+          workedMinutes = s1 + s2 - (draft.breakMinutes || 0);
+        } else {
+          const start = parseTimeToMinutes(draft.checkInTime);
+          const end = parseTimeToMinutes(draft.checkOutTime);
+          workedMinutes = Math.max(0, end - start) - (draft.breakMinutes || 0);
+        }
+        
+        const hours = Number((Math.max(0, workedMinutes) / 60).toFixed(2));
+        totalWorkedHours += hours;
+        
+        const officialHours = selectedMonthlyEmployee.officialDailyHours || 8;
+        if (hours > officialHours) {
+          totalOvertimeHours += (hours - officialHours);
+        }
+      }
+    });
+    
+    return {
+      presentDays,
+      absentDays,
+      halfDays,
+      totalWorkedHours: Number(totalWorkedHours.toFixed(2)),
+      totalOvertimeHours: Number(totalOvertimeHours.toFixed(2))
+    };
+  }, [monthlyCalendarDays, monthlyDrafts, selectedMonthlyEmployee]);
 
   // Daily sheet local draft state (to allow edits before batch saving)
   const [dailyDrafts, setDailyDrafts] = useState<Record<string, {
@@ -112,10 +317,7 @@ export const AttendanceView: React.FC = () => {
     }, 4500);
   };
 
-  // Helper to get active employees
-  const activeEmployees = useMemo(() => {
-    return employees.filter(e => e.status === 'active');
-  }, [employees]);
+
 
   // Existing saved records for selected date
   const existingRecordsForDate = useMemo(() => {
@@ -965,7 +1167,7 @@ export const AttendanceView: React.FC = () => {
         </div>
 
         {/* Navigation Tabs Switcher */}
-        <div className="flex items-center p-1 bg-gray-100/90 rounded-lg border border-gray-200/80 self-start md:self-auto">
+        <div className="flex flex-wrap items-center p-1 bg-gray-100/90 rounded-lg border border-gray-200/80 self-start md:self-auto gap-0.5">
           <button
             type="button"
             onClick={() => setActiveTab('daily')}
@@ -976,7 +1178,19 @@ export const AttendanceView: React.FC = () => {
             }`}
           >
             <CalendarCheck className="w-3.5 h-3.5" />
-            <span>الكشف اليومي السريع</span>
+            <span>الكشف اليومي السريع (الطريقة الثانية)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('single_employee_monthly')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'single_employee_monthly'
+                ? 'bg-white text-indigo-950 shadow-2xs border border-gray-200/70'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>تحضير شهري لعامل (الطريقة الأولى)</span>
           </button>
           <button
             type="button"
@@ -1624,6 +1838,331 @@ export const AttendanceView: React.FC = () => {
               >
                 <Save className="w-4 h-4" />
                 <span>حفظ واعتماد الكشف اليومي</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 1.5: SINGLE EMPLOYEE MONTHLY REGISTRATION (الطريقة الأولى) */}
+      {/* ========================================================================= */}
+      {activeTab === 'single_employee_monthly' && (
+        <div className="space-y-3">
+          {/* Header Controls */}
+          <div className="bg-white rounded-xl p-3.5 shadow-2xs border border-gray-200/90 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Employee Selector */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-gray-500">اسم الموظف / العامل:</span>
+                  <div className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-200">
+                    <Users className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <select
+                      value={selectedMonthlyEmpId}
+                      onChange={(e) => {
+                        setSelectedMonthlyEmpId(e.target.value);
+                      }}
+                      className="bg-transparent text-xs font-bold text-gray-800 focus:outline-none cursor-pointer min-w-[180px]"
+                    >
+                      {activeEmployees.map(emp => (
+                        <option key={emp.id} value={emp.id}>{emp.name} ({emp.code})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Month Selector */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-gray-500">الشهر المراد تعبئته:</span>
+                  <div className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-200">
+                    <Calendar className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <input
+                      type="month"
+                      value={selectedMonthlyMonth}
+                      onChange={(e) => {
+                        setSelectedMonthlyMonth(e.target.value);
+                      }}
+                      className="bg-transparent text-xs font-bold text-gray-900 focus:outline-none cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <div className="flex items-end self-end">
+                <button
+                  type="button"
+                  onClick={handleSaveMonthlySheet}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-md hover:shadow-lg cursor-pointer border border-emerald-500/30"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>اعتماد وحفظ حضور الشهر بالكامل</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Live Real-time Statistics of Draft before saving */}
+            {selectedMonthlyEmployee && (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-2 border-t border-gray-100 font-sans">
+                <div className="bg-emerald-50/50 p-2 rounded-lg border border-emerald-100 flex flex-col">
+                  <span className="text-[10px] text-emerald-800 font-semibold">أيام الحضور (الفعلية)</span>
+                  <span className="text-sm font-black font-mono text-emerald-900 mt-0.5">{draftStats.presentDays} يوم</span>
+                </div>
+                <div className="bg-rose-50/50 p-2 rounded-lg border border-rose-100 flex flex-col">
+                  <span className="text-[10px] text-rose-800 font-semibold">أيام الغياب</span>
+                  <span className="text-sm font-black font-mono text-rose-900 mt-0.5">{draftStats.absentDays} يوم</span>
+                </div>
+                <div className="bg-blue-50/50 p-2 rounded-lg border border-blue-100 flex flex-col">
+                  <span className="text-[10px] text-blue-800 font-semibold">أيام نصف دوام</span>
+                  <span className="text-sm font-black font-mono text-blue-900 mt-0.5">{draftStats.halfDays} يوم</span>
+                </div>
+                <div className="bg-indigo-50/50 p-2 rounded-lg border border-indigo-100 flex flex-col">
+                  <span className="text-[10px] text-indigo-800 font-semibold">إجمالي الساعات</span>
+                  <span className="text-sm font-black font-mono text-indigo-900 mt-0.5">{draftStats.totalWorkedHours} س</span>
+                </div>
+                <div className="bg-amber-50/50 p-2 rounded-lg border border-amber-100 flex flex-col">
+                  <span className="text-[10px] text-amber-800 font-semibold">ساعات أوفرتايم</span>
+                  <span className="text-sm font-black font-mono text-amber-900 mt-0.5">+{draftStats.totalOvertimeHours} س</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Monthly Attendance Calendar Sheet Editor Table */}
+          <div className="bg-white rounded-xl shadow-2xs border border-gray-200/90 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50/80 flex flex-wrap items-center justify-between gap-2 font-sans">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">
+                  كشف الدوام واليوميات التفصيلي للموظف: <span className="text-blue-700">{selectedMonthlyEmployee?.name}</span> لشهر {selectedMonthlyMonth}
+                </h3>
+                <p className="text-[11px] text-gray-500 mt-0.5 font-sans">
+                  قم بتعبئة الحالة وساعات الحضور والانصراف لكل يوم من أيام الشهر مباشرة أدناه، ثم انقر على "اعتماد وحفظ حضور الشهر" لحفظ كامل البيانات.
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-right border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 border-b border-gray-200 text-xs font-bold text-gray-700 font-sans">
+                    <th className="py-2.5 px-4 text-center w-28">التاريخ</th>
+                    <th className="py-2.5 px-4 text-center w-24">اليوم</th>
+                    <th className="py-2.5 px-3 text-center w-36">الحالة</th>
+                    <th className="py-2.5 px-3 text-center min-w-[160px]">الفترة الأولى (حضور - انصراف)</th>
+                    <th className="py-2.5 px-3 text-center w-24">فترتين؟</th>
+                    <th className="py-2.5 px-3 text-center min-w-[160px]">الفترة الثانية (حضور - انصراف)</th>
+                    <th className="py-2.5 px-3 text-center w-24">الاستراحة (دقائق)</th>
+                    <th className="py-2.5 px-3 text-center w-24">ساعات العمل</th>
+                    <th className="py-2.5 px-4 text-right">ملاحظات اليوم</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 text-sm font-mono">
+                  {monthlyCalendarDays.map(dateStr => {
+                    const draft = monthlyDrafts[dateStr];
+                    if (!draft) return null;
+
+                    const isFri = new Date(dateStr).getDay() === 5;
+
+                    const parseTimeToMinutes = (t: string) => {
+                      if (!t) return 0;
+                      const [h, m] = t.split(':').map(Number);
+                      return (h || 0) * 60 + (m || 0);
+                    };
+
+                    let workedHrs = 0;
+                    let overtimeHrs = 0;
+
+                    if (draft.status === 'present' || draft.status === 'half_day') {
+                      let workedMins = 0;
+                      if (draft.hasSecondShift) {
+                        const s1In = parseTimeToMinutes(draft.shift1CheckInTime);
+                        const s1Out = parseTimeToMinutes(draft.shift1CheckOutTime);
+                        const s2In = parseTimeToMinutes(draft.shift2CheckInTime);
+                        const s2Out = parseTimeToMinutes(draft.shift2CheckOutTime);
+                        workedMins = Math.max(0, s1Out - s1In) + Math.max(0, s2Out - s2In) - (draft.breakMinutes || 0);
+                      } else {
+                        const start = parseTimeToMinutes(draft.checkInTime);
+                        const end = parseTimeToMinutes(draft.checkOutTime);
+                        workedMins = Math.max(0, end - start) - (draft.breakMinutes || 0);
+                      }
+                      workedHrs = Number((Math.max(0, workedMins) / 60).toFixed(2));
+                      const officialHours = selectedMonthlyEmployee?.officialDailyHours || 8;
+                      if (workedHrs > officialHours) {
+                        overtimeHrs = Number((workedHrs - officialHours).toFixed(2));
+                      }
+                    }
+
+                    return (
+                      <tr
+                        key={dateStr}
+                        className={`hover:bg-slate-50/80 transition-colors ${
+                          isFri ? 'bg-amber-50/30' : ''
+                        }`}
+                      >
+                        {/* Date */}
+                        <td className="py-2 px-4 text-center font-bold text-gray-800">
+                          {dateStr}
+                        </td>
+
+                        {/* Day Name */}
+                        <td className={`py-2 px-4 text-center font-sans font-bold text-[11px] ${
+                          isFri ? 'text-amber-800' : 'text-gray-500'
+                        }`}>
+                          {getArabicDayName(dateStr)} {isFri && <span className="text-[9px] bg-amber-100 text-amber-800 px-1 rounded">عطلة</span>}
+                        </td>
+
+                        {/* Status Select */}
+                        <td className="py-2 px-3 text-center">
+                          <select
+                            value={draft.status}
+                            onChange={(e) => handleUpdateMonthlyDraft(dateStr, { status: e.target.value as AttendanceStatus })}
+                            className={`w-full py-1 px-1.5 rounded-md text-[11px] font-sans font-bold border ${
+                              draft.status === 'present' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                              draft.status === 'absent' ? 'bg-rose-50 text-rose-800 border-rose-200 font-black' :
+                              draft.status === 'half_day' ? 'bg-blue-50 text-blue-800 border-blue-200' :
+                              draft.status === 'sick' ? 'bg-purple-50 text-purple-800 border-purple-200' :
+                              'bg-gray-100 text-gray-600 border-gray-300'
+                            }`}
+                          >
+                            <option value="present">حاضر (يوم كامل)</option>
+                            <option value="half_day">نصف دوام</option>
+                            <option value="absent">غائب</option>
+                            <option value="off">عطلة رسمية / إجازة</option>
+                            <option value="sick">إجازة مرضية</option>
+                            <option value="excused_absence">غائب بعذر</option>
+                          </select>
+                        </td>
+
+                        {/* Shift 1 Times */}
+                        <td className="py-2 px-3 text-center">
+                          {(draft.status === 'present' || draft.status === 'half_day') ? (
+                            <div className="flex items-center justify-center gap-1">
+                              <input
+                                type="time"
+                                value={draft.hasSecondShift ? draft.shift1CheckInTime : draft.checkInTime}
+                                onChange={(e) => {
+                                  if (draft.hasSecondShift) {
+                                    handleUpdateMonthlyDraft(dateStr, { shift1CheckInTime: e.target.value });
+                                  } else {
+                                    handleUpdateMonthlyDraft(dateStr, { checkInTime: e.target.value });
+                                  }
+                                }}
+                                className="px-1 py-0.5 border border-gray-200 rounded text-xs font-bold"
+                              />
+                              <span className="text-gray-400 font-sans text-[10px]">إلى</span>
+                              <input
+                                type="time"
+                                value={draft.hasSecondShift ? draft.shift1CheckOutTime : draft.checkOutTime}
+                                onChange={(e) => {
+                                  if (draft.hasSecondShift) {
+                                    handleUpdateMonthlyDraft(dateStr, { shift1CheckOutTime: e.target.value });
+                                  } else {
+                                    handleUpdateMonthlyDraft(dateStr, { checkOutTime: e.target.value });
+                                  }
+                                }}
+                                className="px-1 py-0.5 border border-gray-200 rounded text-xs font-bold"
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 font-sans text-xs">-</span>
+                          )}
+                        </td>
+
+                        {/* Errand/Second Shift Toggle */}
+                        <td className="py-2 px-3 text-center">
+                          {(draft.status === 'present' || draft.status === 'half_day') ? (
+                            <input
+                              type="checkbox"
+                              checked={draft.hasSecondShift}
+                              onChange={(e) => handleUpdateMonthlyDraft(dateStr, { hasSecondShift: e.target.checked })}
+                              className="w-4 h-4 text-purple-600 focus:ring-purple-500 rounded border-gray-300 cursor-pointer"
+                              title="تفعيل مشوار / فترتين للدوام اليوم"
+                            />
+                          ) : (
+                            <span className="text-gray-400 font-sans text-xs">-</span>
+                          )}
+                        </td>
+
+                        {/* Shift 2 Times */}
+                        <td className="py-2 px-3 text-center">
+                          {(draft.status === 'present' || draft.status === 'half_day') && draft.hasSecondShift ? (
+                            <div className="flex items-center justify-center gap-1">
+                              <input
+                                type="time"
+                                value={draft.shift2CheckInTime}
+                                onChange={(e) => handleUpdateMonthlyDraft(dateStr, { shift2CheckInTime: e.target.value })}
+                                className="px-1 py-0.5 border border-purple-200 rounded text-xs font-bold bg-purple-50/50"
+                              />
+                              <span className="text-purple-400 font-sans text-[10px]">إلى</span>
+                              <input
+                                type="time"
+                                value={draft.shift2CheckOutTime}
+                                onChange={(e) => handleUpdateMonthlyDraft(dateStr, { shift2CheckOutTime: e.target.value })}
+                                className="px-1 py-0.5 border border-purple-200 rounded text-xs font-bold bg-purple-50/50"
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 font-sans text-xs">-</span>
+                          )}
+                        </td>
+
+                        {/* Break Minutes */}
+                        <td className="py-2 px-3 text-center">
+                          {(draft.status === 'present' || draft.status === 'half_day') ? (
+                            <input
+                              type="number"
+                              value={draft.breakMinutes}
+                              onChange={(e) => handleUpdateMonthlyDraft(dateStr, { breakMinutes: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                              className="w-14 px-1 py-0.5 border border-gray-200 rounded text-xs text-center font-bold"
+                            />
+                          ) : (
+                            <span className="text-gray-400 font-sans text-xs">-</span>
+                          )}
+                        </td>
+
+                        {/* Worked Hours Display */}
+                        <td className="py-2 px-3 text-center align-middle">
+                          {(draft.status === 'present' || draft.status === 'half_day') ? (
+                            <div className="flex flex-col items-center">
+                              <span className="text-xs font-bold text-gray-900">{workedHrs} س</span>
+                              {overtimeHrs > 0 && (
+                                <span className="text-[9px] bg-amber-100 text-amber-800 px-1 rounded-full font-bold mt-0.5">
+                                  +{overtimeHrs} إضافي
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 font-sans text-xs">-</span>
+                          )}
+                        </td>
+
+                        {/* Notes input */}
+                        <td className="py-2 px-4 text-right">
+                          <input
+                            type="text"
+                            value={draft.notes}
+                            onChange={(e) => handleUpdateMonthlyDraft(dateStr, { notes: e.target.value })}
+                            placeholder="ملاحظة أو سبب الغياب..."
+                            className="w-full bg-transparent px-2 py-0.5 border border-transparent hover:border-gray-200 focus:border-indigo-500 rounded text-xs font-sans"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Bottom Floating Save Button for convenience */}
+            <div className="p-3.5 border-t border-gray-100 bg-gray-50 flex justify-end font-sans">
+              <button
+                type="button"
+                onClick={handleSaveMonthlySheet}
+                className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-md hover:shadow-lg cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>اعتماد وحفظ حضور الشهر بالكامل</span>
               </button>
             </div>
           </div>
