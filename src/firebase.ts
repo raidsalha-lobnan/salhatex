@@ -1,7 +1,46 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { setLogLevel, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+import defaultFirebaseConfig from '../firebase-applet-config.json';
+
+export const CUSTOM_FIREBASE_STORAGE_KEY = 'salhatex_custom_firebase_config';
+
+export const getActiveFirebaseConfig = () => {
+  try {
+    const saved = localStorage.getItem(CUSTOM_FIREBASE_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && (parsed.projectId || parsed.apiKey)) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('Error reading custom firebase config:', e);
+  }
+  return defaultFirebaseConfig;
+};
+
+export const isUsingCustomFirebaseConfig = (): boolean => {
+  try {
+    return Boolean(localStorage.getItem(CUSTOM_FIREBASE_STORAGE_KEY));
+  } catch {
+    return false;
+  }
+};
+
+export const saveCustomFirebaseConfig = (config: Record<string, any>) => {
+  localStorage.setItem(CUSTOM_FIREBASE_STORAGE_KEY, JSON.stringify(config));
+  window.location.reload();
+};
+
+export const resetToDefaultFirebaseConfig = () => {
+  localStorage.removeItem(CUSTOM_FIREBASE_STORAGE_KEY);
+  window.location.reload();
+};
+
+export const defaultBuiltInConfig = defaultFirebaseConfig;
+
+const firebaseConfig = getActiveFirebaseConfig();
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 

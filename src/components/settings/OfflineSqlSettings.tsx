@@ -17,8 +17,18 @@ import {
   FileCode,
   ShieldCheck,
   Wifi,
-  WifiOff
+  WifiOff,
+  ExternalLink,
+  Key,
+  Settings2
 } from 'lucide-react';
+import {
+  getActiveFirebaseConfig,
+  defaultBuiltInConfig,
+  isUsingCustomFirebaseConfig,
+  saveCustomFirebaseConfig,
+  resetToDefaultFirebaseConfig
+} from '../../firebase';
 
 export const OfflineSqlSettings: React.FC = () => {
   const {
@@ -54,6 +64,33 @@ export const OfflineSqlSettings: React.FC = () => {
     const res = await forceSyncNow();
     setFirebaseFeedback(res);
     setTimeout(() => setFirebaseFeedback(null), 5000);
+  };
+
+  const isCustomFirebase = isUsingCustomFirebaseConfig();
+  const activeFirebaseConfig = getActiveFirebaseConfig();
+  const [showFirebaseEditor, setShowFirebaseEditor] = useState(false);
+  const [customFirebaseInput, setCustomFirebaseInput] = useState(() => {
+    return JSON.stringify(activeFirebaseConfig, null, 2);
+  });
+  const [firebaseConfigError, setFirebaseConfigError] = useState('');
+
+  const handleSaveCustomFirebase = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFirebaseConfigError('');
+    try {
+      const parsed = JSON.parse(customFirebaseInput);
+      if (!parsed.projectId || !parsed.apiKey) {
+        setFirebaseConfigError('يجب أن يحتوي ملف الإعداد على حقل projectId وحقل apiKey على الأقل.');
+        return;
+      }
+      saveCustomFirebaseConfig(parsed);
+    } catch (err: any) {
+      setFirebaseConfigError('صيغة JSON غير صحيحة، يرجى لصق كائن إعدادات Firebase صالح.');
+    }
+  };
+
+  const handleResetFirebase = () => {
+    resetToDefaultFirebaseConfig();
   };
   const [selectedExportDialect, setSelectedExportDialect] = useState<'postgres' | 'mysql' | 'sqlite'>('postgres');
   const [copiedSql, setCopiedSql] = useState(false);
@@ -252,6 +289,154 @@ export const OfflineSqlSettings: React.FC = () => {
               إغلاق
             </button>
           </div>
+        )}
+      </div>
+
+      {/* 1.5 Firebase Project Connection Details & Custom Configuration (معلومات ربط فيربيس ومستودع قت هب) */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 space-y-3.5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+              <Cloud className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900">
+                  مشروع Firebase وقاعدة البيانات السحابية الحالية
+                </h3>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                  isCustomFirebase
+                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isCustomFirebase ? 'bg-purple-500' : 'bg-emerald-500'}`}></span>
+                  <span>{isCustomFirebase ? 'مشروع Firebase مخصص' : 'مشروع AI Studio التلقائي'}</span>
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 font-light mt-0.5">
+                تفاصيل الربط السحابي الحالي، وإمكانية التبديل إلى مشروع Firebase الخاص بك على GitHub (raidsalha-lobnan/salhatex)
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowFirebaseEditor(!showFirebaseEditor)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 cursor-pointer shadow-2xs"
+            >
+              <Settings2 className="w-3.5 h-3.5 text-indigo-600" />
+              <span>{showFirebaseEditor ? 'إخفاء محرر الإعدادات' : 'تخصيص / تغيير مشروع Firebase'}</span>
+            </button>
+
+            {isCustomFirebase && (
+              <button
+                type="button"
+                onClick={handleResetFirebase}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition cursor-pointer"
+                title="الرجوع إلى مشروع بيئة العمل الافتراضي"
+              >
+                <span>استعادة الأصلي</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Firebase Config Breakdown Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+          <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+            <span className="text-[10px] text-slate-400 font-medium block">معرّف المشروع (Project ID):</span>
+            <span className="font-mono font-bold text-slate-800 text-[11px] block mt-0.5 truncate select-all" dir="ltr">
+              {activeFirebaseConfig.projectId || 'غير محدد'}
+            </span>
+          </div>
+
+          <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+            <span className="text-[10px] text-slate-400 font-medium block">قاعدة بيانات Firestore (Database ID):</span>
+            <span className="font-mono font-bold text-indigo-800 text-[11px] block mt-0.5 truncate select-all" dir="ltr">
+              {activeFirebaseConfig.firestoreDatabaseId || '(default)'}
+            </span>
+          </div>
+
+          <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+            <span className="text-[10px] text-slate-400 font-medium block">نطاق المصادقة (Auth Domain):</span>
+            <span className="font-mono font-medium text-slate-700 text-[11px] block mt-0.5 truncate select-all" dir="ltr">
+              {activeFirebaseConfig.authDomain || '-'}
+            </span>
+          </div>
+
+          <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+            <span className="text-[10px] text-slate-400 font-medium block">مستودع التخزين (Storage Bucket):</span>
+            <span className="font-mono font-medium text-slate-700 text-[11px] block mt-0.5 truncate select-all" dir="ltr">
+              {activeFirebaseConfig.storageBucket || '-'}
+            </span>
+          </div>
+        </div>
+
+        {/* Informational Guidance Callout */}
+        <div className="bg-blue-50/60 border border-blue-200/80 rounded-lg p-3 text-xs text-blue-900 flex items-start gap-2.5">
+          <AlertCircle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <div className="font-bold text-[11px]">لماذا يظهر مشروع Firebase مختلف؟</div>
+            <p className="text-[10.5px] text-blue-800 leading-relaxed font-sans">
+              يقوم نظام Google AI Studio بإنشاء مشروع معزول تلقائياً (<code className="font-mono bg-blue-100 px-1 py-0.2 rounded text-[10px]">gen-lang-client-0984774155</code>) مع قاعدة بيانات خاصة (<code className="font-mono bg-blue-100 px-1 py-0.2 rounded text-[10px]">ai-studio-917f7ef2-bd2e-44c7-b6f8-f5661310c7a9</code>) لحفظ ومزامنة بيانات البرنامج في بيئة المعاينة.
+              إذا كان مستودع GitHub الخاص بك (<code className="font-mono bg-blue-100 px-1 py-0.2 rounded text-[10px]">raidsalha-lobnan/salhatex</code>) يستخدم مشروع Firebase خاص بك في حسابك الشخصي، يمكنك نسخ كائن إعدادات المشروع ولصقه أدناه ليتم ربطه فوراً.
+            </p>
+          </div>
+        </div>
+
+        {/* Custom Firebase Config Editor Drawer */}
+        {showFirebaseEditor && (
+          <form onSubmit={handleSaveCustomFirebase} className="bg-slate-50 border border-slate-300 rounded-lg p-3.5 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5 text-amber-600" />
+                <span>لصق كائن إعدادات Firebase (JSON Config):</span>
+              </span>
+              <a
+                href="https://console.firebase.google.com/"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-blue-600 hover:underline flex items-center gap-1"
+              >
+                <span>فتح لوحة تحكم Firebase Console</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+
+            <textarea
+              value={customFirebaseInput}
+              onChange={e => setCustomFirebaseInput(e.target.value)}
+              rows={8}
+              dir="ltr"
+              placeholder={`{\n  "projectId": "your-project-id",\n  "apiKey": "AIzaSy...",\n  "authDomain": "your-project.firebaseapp.com",\n  "firestoreDatabaseId": "(default)",\n  "storageBucket": "your-project.firebasestorage.app"\n}`}
+              className="w-full font-mono text-[11px] p-2.5 bg-white border border-slate-300 rounded-md focus:ring-1 focus:ring-indigo-500 text-slate-900"
+            />
+
+            {firebaseConfigError && (
+              <div className="p-2 bg-rose-50 text-rose-700 text-xs rounded border border-rose-200 font-bold flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{firebaseConfigError}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowFirebaseEditor(false)}
+                className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-md transition cursor-pointer"
+              >
+                إلغاء
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md shadow-sm transition cursor-pointer flex items-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>حفظ وربط مشروع Firebase المخصص</span>
+              </button>
+            </div>
+          </form>
         )}
       </div>
 
